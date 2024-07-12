@@ -88,6 +88,9 @@ return {
     },
     config = function()
       require('nvim-tree').setup {
+        update_focused_file = {
+          enable = true,
+        },
         vim.keymap.set('n', '<Leader>x', ':NvimTreeToggle<CR>', { desc = 'Open File E[x]plorer', silent = true, noremap = true }),
       }
     end,
