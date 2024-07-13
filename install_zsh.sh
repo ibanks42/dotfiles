@@ -1,7 +1,7 @@
 #!/bin/zsh
 
 # Variables
-REPO_URL="https://github.com/yourusername/yourdotfilesrepo.git" # Replace with your repository URL
+REPO_URL="https://github.com/ibanks42/dotfiles.git" # Replace with your repository URL
 TEMP_PATH="/tmp/nvim-install"
 NVIM_CONFIG_PATH="$HOME/.config/nvim"
 
