@@ -55,6 +55,18 @@ zsh <(curl -s https://raw.githubusercontent.com/ibanks42/dotfiles/main/install_z
 Invoke-RestMethod https://raw.githubusercontent.com/ibanks42/dotfiles/main/install_win.ps1 | Invoke-Expression
 ```
 
+To get Ctrl+Space for `nvim-cmp` to show suggestions, paste this into windows terminal settings JSON:
+    
+```
+{
+	"keys": "ctrl+space",
+	"command": {
+		"action": "sendInput",
+		"input": "\u001b[32;5u"
+	}
+},
+```
+    
 </details>
 
 ### Post Installation
