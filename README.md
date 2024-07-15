@@ -1,4 +1,4 @@
-# kickstart.nvim
+# My dotfiles (WIP)
 
 ## Installation
 
