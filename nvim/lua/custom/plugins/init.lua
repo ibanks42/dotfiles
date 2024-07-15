@@ -53,31 +53,6 @@ return {
     end,
   },
   {
-    'stevearc/resession.nvim',
-    opts = {},
-    config = function()
-      local resession = require 'resession'
-      resession.setup {}
-      vim.keymap.set('n', '<leader>ns', resession.save, { desc = 'Resessio[n] [S]ave' })
-      vim.keymap.set('n', '<leader>nl', resession.load, { desc = 'Resessio[n] [L]oad' })
-      vim.keymap.set('n', '<leader>nd', resession.delete, { desc = 'Resessio[n] [D]elete' })
-      vim.api.nvim_create_autocmd('VimLeavePre', {
-        callback = function()
-          resession.save 'last'
-        end,
-      })
-      vim.api.nvim_create_autocmd('VimEnter', {
-        callback = function()
-          if vim.fn.argc(-1) == 0 then
-            if resession.list {} ~= nil and table.getn(resession.list {}) > 0 then
-              resession.load 'last'
-            end
-          end
-        end,
-      })
-    end,
-  },
-  {
     'EdenEast/nightfox.nvim',
     name = 'nightfox',
     config = function()
