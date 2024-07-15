@@ -4,8 +4,31 @@ $tempPath = "$env:TEMP\nvim-install"
 $nvimConfigPath = "$env:LOCALAPPDATA\nvim"
 $weztermConfigPath = "$env:USERPROFILE"
 
+
+# Function to check if Wezterm is installed
+function Install-Wezterm {
+    $weztermInstalled = winget list --name wezterm
+    if ($weztermInstalled -like "*WezTerm*") {
+	Write-Host "Wezterm is installed."
+    } else {
+	Write-Host "Wezterm is not installed. Installing Wezterm..."
+	winget install wez.wezterm
+    }
+}
+
+function Install-Neovim {
+    $nvimInstalled = winget list --name neovim
+    if ($nvimInstalled -like "*Neovim*") {
+	Write-Host "Neovim is installed."
+    } else {
+	Write-Host "Neovim is not installed. Installing Neovim..."
+	winget install neovim
+    }
+}
+
+
 # Function to clone the repository
-function Clone-Repository {
+function Get-Repository {
     if (Test-Path -Path $tempPath) {
         Remove-Item -Recurse -Force -Path $tempPath
     }
@@ -44,12 +67,19 @@ try {
         exit 1
     }
 
+    # Check if Wezterm is installed
+    Install-Wezterm
+
+    # Check if Neovim is installed
+    Install-Neovim
+
     # Clone the repository
-    Clone-Repository
+    Get-Repository
 
     # Copy nvim configuration
     Copy-NvimConfig
 
+    # Copy Wezterm configuration
     Copy-WeztermConfig
 
 } catch {
@@ -57,6 +87,6 @@ try {
 } finally {
     # Cleanup
     if (Test-Path -Path $tempPath) {
-        # Remove-Item -Recurse -Force -Path $tempPath
+        Remove-Item -Recurse -Force -Path $tempPath
     }
 }
