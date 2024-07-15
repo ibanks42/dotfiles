@@ -28,6 +28,122 @@ return {
     end,
   },
   {
+    'Shatur/neovim-session-manager',
+    config = function()
+      local session_manager = require 'session_manager'
+      session_manager.setup {
+        autoload_mode = require('session_manager.config').AutoloadMode.Disabled,
+      }
+      -- Auto save session
+      vim.api.nvim_create_autocmd({ 'BufWritePre' }, {
+        callback = function()
+          for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+            -- Don't save while there's any 'nofile' buffer open.
+            if vim.api.nvim_get_option_value('buftype', { buf = buf }) == 'nofile' then
+              return
+            end
+          end
+          session_manager.save_current_session()
+        end,
+      })
+    end,
+    dependencies = { 'nvim-lua/plenary.nvim' },
+  },
+  {
+    'goolord/alpha-nvim', -- Dashboard for Neovim
+    config = function()
+      local alpha = require 'alpha'
+
+      require 'alpha.term'
+      local dashboard = require 'alpha.themes.dashboard'
+
+      -- Terminal header
+      -- local logo = [[
+      --                                              
+      --       ████ ██████           █████      ██
+      --      ███████████             █████ 
+      --      █████████ ███████████████████ ███   ███████████
+      --     █████████  ███    █████████████ █████ ██████████████
+      --    █████████ ██████████ █████████ █████ █████ ████ █████
+      --  ███████████ ███    ███ █████████ █████ █████ ████ █████
+      -- ██████  █████████████████████ ████ █████ █████ ████ ██████
+      --
+      --      ]]
+      --
+      local logo = {
+        [[                                                                       ]],
+        [[  ██████   █████                   █████   █████  ███                  ]],
+        [[ ░░██████ ░░███                   ░░███   ░░███  ░░░                   ]],
+        [[  ░███░███ ░███   ██████   ██████  ░███    ░███  ████  █████████████   ]],
+        [[  ░███░░███░███  ███░░███ ███░░███ ░███    ░███ ░░███ ░░███░░███░░███  ]],
+        [[  ░███ ░░██████ ░███████ ░███ ░███ ░░███   ███   ░███  ░███ ░███ ░███  ]],
+        [[  ░███  ░░█████ ░███░░░  ░███ ░███  ░░░█████░    ░███  ░███ ░███ ░███  ]],
+        [[  █████  ░░█████░░██████ ░░██████     ░░███      █████ █████░███ █████ ]],
+        [[ ░░░░░    ░░░░░  ░░░░░░   ░░░░░░       ░░░      ░░░░░ ░░░░░ ░░░ ░░░░░  ]],
+        [[                                                                       ]],
+      }
+
+      --[[ dashboard.section.header.val = vim.split(logo, '\n') ]]
+      dashboard.section.header.val = logo
+
+      local function button(sc, txt, keybind, keybind_opts)
+        local b = dashboard.button(sc, txt, keybind, keybind_opts)
+        b.opts.hl = 'AlphaButtonText'
+        b.opts.hl_shortcut = 'AlphaButtonShortcut'
+        return b
+      end
+
+      dashboard.section.buttons.val = {
+        button('l', '   Load session', '<cmd>SessionManager load_session<CR>'),
+        button('n', '   New file', '<cmd>ene <BAR> startinsert <CR>'),
+        button('r', '   Recent files', "<cmd>lua require('telescope').extensions.recent_files.pick()<CR>"),
+        button('f', '󰱽   Find file', '<cmd>Telescope find_files hidden=true path_display=smart<CR>'),
+        button('s', '󱘣   Search files', '<cmd>Telescope live_grep path_display=smart<CR>'),
+        button('u', '   Update plugins', "<cmd>lua require('lazy').sync()<CR>"),
+        button('q', '󰩈   Quit Neovim', '<cmd>qa!<CR>'),
+      }
+      -- dashboard.section.buttons.opts = {
+      --   spacing = 0,
+      -- }
+
+      -- Footer
+      local function footer()
+        local total_plugins = require('lazy').stats().count
+        local version = vim.version()
+        local nvim_version_info = '- Neovim v' .. version.major .. '.' .. version.minor .. '.' .. version.patch
+
+        return ' ' .. total_plugins .. ' plugins ' .. nvim_version_info
+      end
+
+      dashboard.section.footer.val = footer()
+      dashboard.section.footer.opts.hl = 'AlphaFooter'
+
+      -- Layout
+      -- dashboard.config.layout = {
+      --   { type = 'padding', val = 2 },
+      --   dashboard.section.header,
+      --   { type = 'padding', val = 5 },
+      --   dashboard.section.terminal,
+      --   { type = 'padding', val = 5 },
+      --   dashboard.section.buttons,
+      --   { type = 'padding', val = 2 },
+      --   dashboard.section.footer,
+      -- }
+
+      dashboard.config.opts.noautocmd = false
+
+      alpha.setup(dashboard.opts)
+    end,
+    dependencies = {
+      {
+        'smartpde/telescope-recent-files',
+        config = function()
+          require('telescope').load_extension 'recent_files'
+        end,
+      },
+    },
+  },
+  {
     'kdheepak/lazygit.nvim',
     cmd = {
       'LazyGit',
