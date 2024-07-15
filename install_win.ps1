@@ -18,6 +18,11 @@ function Copy-NvimConfig {
     Copy-Item -Recurse -Force -Path "$tempPath\nvim" -Destination $nvimConfigPath
 }
 
+function Copy-WeztermConfig {
+    Write-Host "Copying wezterm configuration to $env:HOME\.wezterm.lua..."
+    Copy-Item -Recurse -Force -Path "$tempPath\wezterm\wezterm.lua" -Destination "$env:HOME\.wezterm.lua"
+}
+
 # Main script
 try {
     # Check if git is installed
@@ -31,6 +36,8 @@ try {
 
     # Copy nvim configuration
     Copy-NvimConfig
+
+    Copy-WeztermConfig
 
     Write-Host "nvim configuration installed successfully."
 } catch {
