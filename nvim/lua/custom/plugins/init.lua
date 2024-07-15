@@ -65,15 +65,15 @@ return {
       vim.keymap.set('n', '<leader>nd', resession.delete, { desc = 'Resessio[n] [D]elete' })
       vim.api.nvim_create_autocmd('VimLeavePre', {
         callback = function()
-          if table.getn(resession.list {}) > 0 then
-            resession.save 'last'
-          end
+          resession.save 'last'
         end,
       })
       vim.api.nvim_create_autocmd('VimEnter', {
         callback = function()
           if vim.fn.argc(-1) == 0 then
-            resession.load 'last'
+            if resession.list {} ~= nil and table.getn(resession.list {}) > 0 then
+              resession.load 'last'
+            end
           end
         end,
       })
@@ -101,6 +101,15 @@ return {
     name = 'nightfox',
     config = function()
       vim.cmd 'colorscheme carbonfox'
+    end,
+  },
+  {
+    'MysticalDevil/inlay-hints.nvim',
+    config = function()
+      require('inlay-hints').setup {
+        commands = { enable = true },
+        autocmd = { enable = true },
+      }
     end,
   },
   {
