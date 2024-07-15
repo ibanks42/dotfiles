@@ -22,11 +22,9 @@ return {
         },
       }
 
-      vim.keymap.set('n', '<leader>bh', ':BufferLineCyclePrev<CR>',
-        { silent = true, noremap = true, desc = '[B]ufferLine Previous Buffer' })
-      vim.keymap.set('n', '<leader>bl', ':BufferLineCycleNext<CR>',
-        { silent = true, noremap = true, desc = '[B]ufferLine Next Buffer' })
-      vim.keymap.set('n', '<leader>bd', ':Bdelete<CR>', { silent = true, noremap = true, desc = '[B]uffer [D]elete' })
+      vim.keymap.set('n', 'th', ':BufferLineCyclePrev<CR>', { silent = true, noremap = true, desc = 'Previous Buffer' })
+      vim.keymap.set('n', 'tl', ':BufferLineCycleNext<CR>', { silent = true, noremap = true, desc = 'Next Buffer' })
+      vim.keymap.set('n', 'td', ':Bdelete<CR>', { silent = true, noremap = true, desc = 'Close Buffer' })
     end,
   },
   {
@@ -79,23 +77,6 @@ return {
       })
     end,
   },
-  {
-    'nvim-tree/nvim-tree.lua',
-    version = '*',
-    lazy = false,
-    dependencies = {
-      'nvim-tree/nvim-web-devicons',
-    },
-    config = function()
-      require('nvim-tree').setup {
-        update_focused_file = {
-          enable = true,
-        },
-        vim.keymap.set('n', '<Leader>x', ':NvimTreeToggle<CR>', { desc = 'Open File E[x]plorer', silent = true, noremap = true }),
-      }
-    end,
-  },
-  --NvimTreeToggle
   {
     'EdenEast/nightfox.nvim',
     name = 'nightfox',
