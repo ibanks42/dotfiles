@@ -99,7 +99,7 @@ vim.g.maplocalleader = ' '
 vim.opt.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.opt.relativenumber = true
+vim.opt.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
@@ -130,7 +130,7 @@ vim.opt.updatetime = 250
 
 -- Decrease mapped sequence wait time
 -- Displays which-key popup sooner
-vim.opt.timeoutlen = 300
+vim.opt.timeoutlen = 1000
 
 -- Configure how new splits should be opened
 vim.opt.splitright = true
@@ -285,46 +285,16 @@ require('lazy').setup({
       wk.setup {}
 
       wk.add {
-        {
-          '<leader>c',
-          group = '[C]ode',
-          hidden = true,
-        },
-        {
-          '<leader>d',
-          group = '[D]ocument',
-          hidden = true,
-        },
-        {
-          '<leader>r',
-          group = '[R]ename',
-          hidden = true,
-        },
-        {
-          '<leader>s',
-          group = '[S]earch',
-          hidden = true,
-        },
-        {
-          '<leader>w',
-          group = '[W]orkspace',
-          hidden = true,
-        },
-        {
-          '<leader>t',
-          group = '[T]oggle',
-          hidden = true,
-        },
-        {
-          '<leader>h',
-          group = 'Git [H]unk',
-          hidden = true,
-        },
-        {
-          'n',
-          mode = 'v',
-          hidden = true,
-        },
+        { '<leader>c', group = '[C]ode' },
+        { '<leader>d', group = '[D]ocument' },
+        { '<leader>r', group = '[R]ename' },
+        { '<leader>s', group = '[S]earch' },
+        { '<leader>w', group = '[W]orkspace' },
+        { '<leader>t', group = '[T]oggle' },
+        { '<leader>h', group = 'Git [H]unk' },
+        { '<leader>b', group = '[B]uffer' },
+        { '<leader>l', group = '[L]azyGit' },
+        { 'n',         mode = 'v',           hidden = true },
       }
     end,
   },
@@ -648,11 +618,7 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
-        'zls',
         'biome',
-        'rust_analyzer',
-        'gopls',
-        'svelte-language-server',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -743,6 +709,7 @@ require('lazy').setup({
         },
       },
       'saadparwaiz1/cmp_luasnip',
+      'onsails/lspkind-nvim',
 
       -- Adds other completion capabilities.
       --  nvim-cmp does not ship with all sources by default. They are split
@@ -754,6 +721,13 @@ require('lazy').setup({
       -- See `:help cmp`
       local cmp = require 'cmp'
       local luasnip = require 'luasnip'
+      local lspkind = require 'lspkind'
+      lspkind.init {
+        symbol_map = {
+          Copilot = '',
+        },
+      }
+
       luasnip.config.setup {}
 
       cmp.setup {
@@ -819,30 +793,77 @@ require('lazy').setup({
         sources = {
           -- Copilot Source
           { name = 'copilot',  group_index = 2 },
+          -- { name = 'codeium',  group_index = 2 },
           -- Other Sources
           { name = 'nvim_lsp', group_index = 2 },
           { name = 'path',     group_index = 2 },
           { name = 'luasnip',  group_index = 2 },
         },
+        window = {
+          completion = {
+            winhighlight = 'Normal:Pmenu,FloatBorder:Pmenu,Search:None',
+            col_offset = -3,
+            side_padding = 0,
+          },
+        },
+        formatting = {
+          fields = { 'abbr', 'kind', 'menu' },
+          expandable_indicator = false,
+          format = lspkind.cmp_format {
+            mode = 'symbol_text',  -- show only symbol annotations
+            maxwidth = 50,         -- prevent the popup from showing more than provided characters (e.g 50 will not show more than 50 characters)
+            ellipsis_char = '...', -- when popup menu exceed maxwidth, the truncated part would show ellipsis_char instead (must define maxwidth first)
+            before = function(entry, vim_item)
+              -- Source-specific icons (optional)
+              vim_item.menu = ({
+                buffer = '[Buffer]',
+                nvim_lsp = '[LSP]',
+                copilot = '[Copilot]',
+                luasnip = '[LuaSnip]',
+                nvim_lua = '[Lua]',
+                latex_symbols = '[LaTeX]',
+              })[entry.source.name]
+              vim.api.nvim_set_hl(0, 'CmpItemMenu', { fg = 'NONE', bg = 'NONE', italic = true })
+              return vim_item
+            end,
+          },
+        },
+
+        -- Customization for Pmenu
+        vim.api.nvim_set_hl(0, 'PmenuSel', { bg = '#282C34', fg = 'NONE' }),
+        vim.api.nvim_set_hl(0, 'Pmenu', { fg = '#C5CDD9', bg = '#22252A' }),
+
+        vim.api.nvim_set_hl(0, 'CmpItemAbbrDeprecated', { fg = '#7E8294', bg = 'NONE', strikethrough = true }),
+        vim.api.nvim_set_hl(0, 'CmpItemAbbrMatch', { fg = '#82AAFF', bg = 'NONE', bold = true }),
+        vim.api.nvim_set_hl(0, 'CmpItemAbbrMatchFuzzy', { fg = '#82AAFF', bg = 'NONE', bold = true }),
+        vim.api.nvim_set_hl(0, 'CmpItemMenu', { fg = '#C792EA', bg = 'NONE', italic = true }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindCopilot', { fg = '#6CC644', bg = '#3E6F3F' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindField', { fg = '#EED8DA', bg = '#B5585F' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindProperty', { fg = '#EED8DA', bg = '#B5585F' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindEvent', { fg = '#EED8DA', bg = '#B5585F' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindText', { fg = '#C3E88D', bg = '#9FBD73' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindEnum', { fg = '#C3E88D', bg = '#9FBD73' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindKeyword', { fg = '#C3E88D', bg = '#9FBD73' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindConstant', { fg = '#FFE082', bg = '#D4BB6C' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindConstructor', { fg = '#FFE082', bg = '#D4BB6C' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindReference', { fg = '#FFE082', bg = '#D4BB6C' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindFunction', { fg = '#EADFF0', bg = '#A377BF' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindStruct', { fg = '#EADFF0', bg = '#A377BF' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindClass', { fg = '#EADFF0', bg = '#A377BF' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindModule', { fg = '#EADFF0', bg = '#A377BF' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindOperator', { fg = '#EADFF0', bg = '#A377BF' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindVariable', { fg = '#C5CDD9', bg = '#7E8294' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindFile', { fg = '#C5CDD9', bg = '#7E8294' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindUnit', { fg = '#F5EBD9', bg = '#D4A959' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindSnippet', { fg = '#F5EBD9', bg = '#D4A959' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindFolder', { fg = '#F5EBD9', bg = '#D4A959' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindMethod', { fg = '#DDE5F5', bg = '#6C8ED4' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindValue', { fg = '#DDE5F5', bg = '#6C8ED4' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindEnumMember', { fg = '#DDE5F5', bg = '#6C8ED4' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindInterface', { fg = '#D8EEEB', bg = '#58B5A8' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindColor', { fg = '#D8EEEB', bg = '#58B5A8' }),
+        vim.api.nvim_set_hl(0, 'CmpItemKindTypeParameter', { fg = '#D8EEEB', bg = '#58B5A8' }),
       }
-    end,
-  },
-
-  { -- You can easily change to a different colorscheme.
-    -- Change the name of the colorscheme plugin below, and then
-    -- change the command in the config to whatever the name of that colorscheme is.
-    --
-    -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-    'folke/tokyonight.nvim',
-    priority = 1000, -- Make sure to load this before all the other start plugins.
-    init = function()
-      -- Load the colorscheme here.
-      -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
-
-      -- You can configure highlights by doing something like:
-      vim.cmd.hi 'Comment gui=none'
     end,
   },
 
@@ -870,17 +891,17 @@ require('lazy').setup({
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
       --  and try some other statusline plugin
-      local statusline = require 'mini.statusline'
+      -- local statusline = require 'mini.statusline'
       -- set use_icons to true if you have a Nerd Font
-      statusline.setup { use_icons = true }
+      -- statusline.setup { use_icons = true }
 
       -- You can configure sections in the statusline by overriding their
       -- default behavior. For example, here we set the section for
       -- cursor location to LINE:COLUMN
       ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_location = function()
-        return '%2l:%-2v'
-      end
+      -- statusline.section_location = function()
+      --   return '%2l:%-2v'
+      -- end
 
       -- ... and there is more!
       --  Check out: https://github.com/echasnovski/mini.nvim
@@ -933,7 +954,7 @@ require('lazy').setup({
   require 'kickstart.plugins.lint',
   require 'kickstart.plugins.autopairs',
   require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
