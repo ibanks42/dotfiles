@@ -107,6 +107,9 @@ vim.opt.mouse = 'a'
 -- Don't show the mode, since it's already in the status line
 vim.opt.showmode = false
 
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 -- Sync clipboard between OS and Neovim.
 --  Remove this option if you want your OS clipboard to remain independent.
 --  See `:help 'clipboard'`
@@ -216,6 +219,13 @@ if not vim.loop.fs_stat(lazypath) then
   vim.fn.system { 'git', 'clone', '--filter=blob:none', '--branch=stable', lazyrepo, lazypath }
 end ---@diagnostic disable-next-line: undefined-field
 vim.opt.rtp:prepend(lazypath)
+
+function TableConcat(t1, t2)
+  for i = 1, #t2 do
+    t1[#t1 + 1] = t2[i]
+  end
+  return t1
+end
 
 -- [[ Configure and install plugins ]]
 --
@@ -963,10 +973,12 @@ require('lazy').setup({
   --    For additional information, see `:help lazy.nvim-lazy.nvim-structuring-your-plugins`
   { import = 'custom.plugins' },
 }, {
+
   ui = {
     -- If you are using a Nerd Font: set icons to an empty table which will use the
     -- default lazy.nvim defined Nerd Font icons, otherwise define a unicode icons table
-    icons = {
+    -- combine default icons with custom icons
+    icons = TableConcat({
       cmd = '⌘',
       config = '🛠',
       event = '📅',
@@ -980,7 +992,7 @@ require('lazy').setup({
       start = '🚀',
       task = '📌',
       lazy = '💤 ',
-    },
+    }, require('utils.defaults').icons),
   },
 })
 
