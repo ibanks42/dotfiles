@@ -6,9 +6,19 @@ return {
     local bufferline = require 'bufferline'
     bufferline.setup {
       options = {
+        name_formatter = function(buf) -- buf contains:
+          -- name                | str        | the basename of the active file
+          -- path                | str        | the full path of the active file
+          -- bufnr (buffer only) | int        | the number of the active buffer
+          -- buffers (tabs only) | table(int) | the numbers of the buffers in the tab
+          -- tabnr (tabs only)   | int        | the "handle" of the tab, can be converted to its ordinal number using: `vim.api.nvim_tabpage_get_number(buf.tabnr)`
+
+          -- return 'folder/file'
+          return '/' .. buf.name
+        end,
         offsets = {
           {
-            filetype = 'NvimTree',
+            filetype = 'neo-tree',
             text = 'File Explorer',
             separator = true,
             text_align = 'left',
