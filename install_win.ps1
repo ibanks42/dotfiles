@@ -1,17 +1,15 @@
 # Set variables
-$repoUrl = "https://github.com/ibanks42/dotfiles.git" # Replace with your repository URL
+$repoUrl = "https://github.com/ibanks42/dotfiles.git"
 $tempPath = "$env:TEMP\nvim-install"
 $nvimConfigPath = "$env:LOCALAPPDATA\nvim"
 $weztermConfigPath = "$env:USERPROFILE"
 
-
-# Function to check if Wezterm is installed
 function Install-Wezterm {
     $weztermInstalled = winget list --name wezterm
     if ($weztermInstalled -like "*WezTerm*") {
-	Write-Host "Wezterm is installed."
+	Write-Host "-> Wezterm is installed."
     } else {
-	Write-Host "Wezterm is not installed. Installing Wezterm..."
+	Write-Host "-> Wezterm is not installed. Installing Wezterm..."
 	winget install wez.wezterm
     }
 }
@@ -19,26 +17,23 @@ function Install-Wezterm {
 function Install-Neovim {
     $nvimInstalled = winget list --name neovim
     if ($nvimInstalled -like "*Neovim*") {
-	Write-Host "Neovim is installed."
+	Write-Host "-> Neovim is installed."
     } else {
-	Write-Host "Neovim is not installed. Installing Neovim..."
+	Write-Host "-> Neovim is not installed. Installing Neovim..."
 	winget install neovim
     }
 }
 
-
-# Function to clone the repository
 function Get-Repository {
     if (Test-Path -Path $tempPath) {
         Remove-Item -Recurse -Force -Path $tempPath
     }
 
-    Write-Host "Cloning repository from $repoUrl..."
+    Write-Host "-> Cloning repository..."
 
     git clone -q $repoUrl $tempPath
 }
 
-# Function to copy nvim configuration
 function Copy-NvimConfig {
     if (Test-Path -Path $nvimConfigPath) {
         Remove-Item -Recurse -Force -Path $nvimConfigPath
@@ -81,6 +76,9 @@ try {
 
     # Copy Wezterm configuration
     Copy-WeztermConfig
+
+    # Copilot, put a checkmark at the beginning of the string
+    Write-Host "✅ Installation complete!"
 
 } catch {
     Write-Error "An error occurred: $_"
