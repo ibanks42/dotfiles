@@ -12,6 +12,10 @@ return {
     vim.keymap.set('n', '<leader>ha', function()
       harpoon:list():add()
     end, { desc = 'Add current buffer to Harpoon list' })
+    vim.keymap.set('n', '<leader>hd', function()
+      harpoon:list():remove()
+    end, { desc = 'Delete current buffer to Harpoon list' })
+
     vim.keymap.set('n', '<leader>ho', function()
       harpoon.ui:toggle_quick_menu(harpoon:list())
     end, { desc = 'Toggle Harpoon list' })
