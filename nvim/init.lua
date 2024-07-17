@@ -301,7 +301,8 @@ require('lazy').setup({
         { '<leader>s', group = '[S]earch' },
         { '<leader>w', group = '[W]orkspace' },
         { '<leader>t', group = '[T]oggle' },
-        { '<leader>h', group = 'Git [H]unk' },
+        { '<leader>g', group = '[G]it Hunk' },
+        { '<leader>h', group = '[H]arpoon' },
         { '<leader>b', group = '[B]uffer' },
         { '<leader>l', group = '[L]azyGit' },
         { 'n',         mode = 'v',           hidden = true },
@@ -951,6 +952,11 @@ require('lazy').setup({
     dependencies = {
       {
         'nvim-treesitter/nvim-treesitter-context',
+        config = function()
+          require('treesitter-context').setup {
+            max_lines = 3,
+          }
+        end,
       },
     },
   },
