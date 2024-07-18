@@ -252,7 +252,7 @@ require('lazy').setup({
   --    require('Comment').setup({})
 
   -- "gc" to comment visual regions/lines
-  { 'numToStr/Comment.nvim',    opts = {} },
+  { 'numToStr/Comment.nvim',    opts = {},          event = 'BufEnter' },
 
   -- Here is a more advanced example where we pass configuration
   -- options to `gitsigns.nvim`. This is equivalent to the following Lua:
@@ -438,6 +438,7 @@ require('lazy').setup({
       -- used for completion, annotations and signatures of Neovim apis
       { 'folke/neodev.nvim',       opts = {} },
     },
+    event = 'BufEnter',
     config = function()
       -- Brief aside: **What is LSP?**
       --
@@ -953,6 +954,7 @@ require('lazy').setup({
     dependencies = {
       {
         'nvim-treesitter/nvim-treesitter-context',
+        event = 'BufEnter',
         config = function()
           require('treesitter-context').setup {
             max_lines = 3,
