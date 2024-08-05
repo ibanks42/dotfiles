@@ -1,5 +1,6 @@
 return {
   'Shatur/neovim-session-manager',
+  event = 'VeryLazy',
   config = function()
     local session_manager = require 'session_manager'
     session_manager.setup {
