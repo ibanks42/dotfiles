@@ -1,13 +1,40 @@
 return {
   'ThePrimeagen/harpoon',
   branch = 'harpoon2',
+  commit = 'e76cb03',
   dependencies = { 'nvim-lua/plenary.nvim' },
   event = 'BufEnter',
   config = function()
     local harpoon = require 'harpoon'
+    local conf = require('telescope.config').values
 
     -- REQUIRED
     harpoon:setup()
+    -- basic telescope configuration
+    local function toggle_finder(harpoon_files)
+      -- if not on windows, we use telescope. Telescope bugged on me on windows so we just use harpoon list then.
+      if vim.fn.has 'win32' == 1 then
+        harpoon.ui:toggle_quick_menu(harpoon_files)
+        return
+      end
+
+      local file_paths = {}
+      for _, item in ipairs(harpoon_files.items) do
+        table.insert(file_paths, item.value)
+      end
+
+      require('telescope.pickers')
+          .new({}, {
+            prompt_title = 'Harpoon',
+            finder = require('telescope.finders').new_table {
+              results = file_paths,
+            },
+            previewer = conf.file_previewer {},
+            sorter = conf.generic_sorter {},
+          })
+          :find()
+    end
+
     -- REQUIRED
     local function remove(item)
       local list = harpoon:list()
@@ -40,7 +67,7 @@ return {
     vim.keymap.set('n', '<leader>hd', remove, { desc = 'Delete current buffer to Harpoon list' })
 
     vim.keymap.set('n', '<leader>ho', function()
-      harpoon.ui:toggle_quick_menu(harpoon:list())
+      toggle_finder(harpoon:list())
     end, { desc = 'Toggle Harpoon list' })
 
     vim.keymap.set('n', '<leader>hh', function()

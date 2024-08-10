@@ -28,6 +28,7 @@ return {
 
     dashboard.section.buttons.val = {
       button('l', '   Load session', '<cmd>SessionManager load_session<CR>'),
+      button('o', '   Session Manager', '<cmd>SessionManager<CR>'),
       button('n', '   New file', '<cmd>ene <BAR> startinsert <CR>'),
       button('r', '   Recent files', "<cmd>lua require('telescope').extensions.recent_files.pick()<CR>"),
       button('f', '󰱽   Find file', '<cmd>Telescope find_files hidden=true path_display=smart<CR>'),
