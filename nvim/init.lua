@@ -284,14 +284,14 @@ require('lazy').setup({
   { -- LSP Configuration & Plugins
     'neovim/nvim-lspconfig',
     dependencies = {
-      { 'williamboman/mason.nvim', config = true }, -- NOTE: Must be loaded before dependants
+      { 'williamboman/mason.nvim',             config = true }, -- NOTE: Must be loaded before dependants
       'williamboman/mason-lspconfig.nvim',
       'WhoIsSethDaniel/mason-tool-installer.nvim',
 
       -- NOTE: `opts = {}` is the same as calling `require('fidget').setup({})`
-      { 'j-hui/fidget.nvim',       opts = {} },
-      { 'folke/neodev.nvim',       opts = {} },
-      'hrsh7th/cmp-nvim-lsp-signature-help',
+      { 'j-hui/fidget.nvim',                   opts = {} },
+      { 'folke/neodev.nvim',                   opts = {} },
+      { 'hrsh7th/cmp-nvim-lsp-signature-help', event = 'LspAttach' },
     },
     event = 'BufEnter',
     config = function()
@@ -397,8 +397,8 @@ require('lazy').setup({
       capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
       local servers = {
-        tsserver = {},
         biome = {},
+        tsserver = {},
 
         lua_ls = {
           -- cmd = {...},
@@ -421,8 +421,6 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
-        'tsserver',
-        'biome',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -497,7 +495,7 @@ require('lazy').setup({
       local lspkind = require 'lspkind'
       lspkind.init {
         symbol_map = {
-          Copilot = '',
+          Supermaven = '',
         },
       }
 
@@ -545,7 +543,8 @@ require('lazy').setup({
         },
         sources = {
           -- Copilot Source
-          { name = 'copilot' },
+          -- { name = 'copilot' },
+          { name = 'supermaven' },
           -- { name = 'codeium',  group_index = 2 },
           -- Other Sources
           { name = 'nvim_lsp' },
@@ -578,7 +577,6 @@ require('lazy').setup({
               vim_item.menu = ({
                 buffer = '[Buffer]',
                 nvim_lsp = '[LSP]',
-                copilot = '[Copilot]',
                 luasnip = '[LuaSnip]',
                 nvim_lua = '[Lua]',
                 latex_symbols = '[LaTeX]',
@@ -588,6 +586,7 @@ require('lazy').setup({
           },
         },
 
+        vim.api.nvim_set_hl(0, 'CmpItemKindSupermaven', { fg = '#6CC644' }),
         vim.api.nvim_set_hl(0, 'CmpItemAbbrDeprecated', { bg = 'NONE', strikethrough = true, fg = '#808080' }),
         vim.api.nvim_set_hl(0, 'CmpItemAbbrMatch', { bg = 'NONE', fg = '#569CD6' }),
         vim.api.nvim_set_hl(0, 'CmpItemAbbrMatchFuzzy', { link = 'CmpIntemAbbrMatch' }),
