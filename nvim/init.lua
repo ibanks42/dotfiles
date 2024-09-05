@@ -544,8 +544,7 @@ require('lazy').setup({
         sources = {
           -- Copilot Source
           -- { name = 'copilot' },
-          { name = 'supermaven' },
-          -- { name = 'codeium',  group_index = 2 },
+          -- { name = 'supermaven' },
           -- Other Sources
           { name = 'nvim_lsp' },
           { name = 'path' },

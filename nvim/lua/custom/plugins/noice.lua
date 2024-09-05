@@ -1,6 +1,6 @@
 return {
   'folke/noice.nvim',
-  event = 'LspAttach',
+  event = 'VeryLazy',
   config = function()
     require('noice').setup {
       lsp = {

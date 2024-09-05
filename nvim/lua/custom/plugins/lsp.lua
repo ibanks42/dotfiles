@@ -1,7 +1,7 @@
 return {
   {
     'ray-x/lsp_signature.nvim',
-    event = 'LspAttach',
+    event = 'VeryLazy',
     opts = {},
     config = function(_, opts)
       local sig = require 'lsp_signature'
