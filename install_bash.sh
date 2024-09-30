@@ -62,7 +62,7 @@ install_fonts() {
         cp "$font" "$HOME/.local/share/fonts"
     done
 
-    fc-cache -fv  # Update font cache
+    fc-cache -f  # Update font cache
 }
 
 # Main script
