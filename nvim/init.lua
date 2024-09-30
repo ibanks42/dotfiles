@@ -274,6 +274,8 @@ require('lazy').setup({
             },
           },
         },
+
+        tailwindcss = {},
       }
 
       require('mason').setup()
