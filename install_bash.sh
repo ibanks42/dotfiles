@@ -72,11 +72,14 @@ install_fonts() {
     echo "Installing fonts..."
     mkdir -p "$HOME/.local/share/fonts"
 
-    # Copy both .ttf and .otf files
-    for font in "$TEMP_PATH/fonts/"*.{ttf,otf}; do
-        echo "-> Installing $font"
-        cp "$font" "$HOME/.local/share/fonts"
-    done
+    # Check if the fonts directory exists
+    if [ ! -d "$TEMP_PATH/fonts" ]; then
+        echo "-> Fonts directory not found. Skipping font installation."
+        return  # Exit the function if no fonts directory
+    fi
+
+    # Find all .ttf and .otf files recursively within the fonts directory
+    find "$TEMP_PATH/fonts" -type f \( -name "*.ttf" -o -name "*.otf" \) -exec cp {} "$HOME/.local/share/fonts" \;
 
     fc-cache -f  # Update font cache
 }
