@@ -54,6 +54,20 @@ function Copy-WeztermConfig {
     Write-Host "-> Wezterm configuration installed successfully."
 }
 
+function Install-Fonts {
+    Write-Host "-> Installing fonts..."
+
+    # Create the fonts directory
+    New-Item -ItemType Directory -Force -Path "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+
+    # Copy both .ttf and .otf files
+    Get-ChildItem -Path "$tempPath\fonts\*" -Include *.ttf, *.otf | ForEach-Object {
+        Copy-Item -Path $_.FullName -Destination "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+    }
+
+    Write-Host "-> Fonts installed successfully."
+}
+
 # Main script
 try {
     # Check if git is installed
@@ -76,6 +90,9 @@ try {
 
     # Copy Wezterm configuration
     Copy-WeztermConfig
+
+    # Install fonts
+    Install-Fonts
 
     # Copilot, put a checkmark at the beginning of the string
     Write-Host "✅ Installation complete!"
