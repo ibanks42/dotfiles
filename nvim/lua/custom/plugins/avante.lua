@@ -1,16 +1,12 @@
+local builder = vim.fn.has 'win32' == 1 and 'pwsh -ExecutionPolicy Bypass -File build.ps1 -BuildFromSource false' or
+'make'
+
 return {
   'yetone/avante.nvim',
   event = 'VeryLazy',
-  opts = {
-    ---@alias Provider "openai" | "claude" | "azure"  | "copilot" | [string]
-    provider = 'claude',
-    claude = {
-      endpoint = 'https://api.anthropic.com',
-      model = 'claude-3-5-sonnet-20240620',
-      temperature = 0,
-      max_tokens = 4096,
-    },
-  },
+  --  build 'make' for linux/mac, 'pwsh -ExecutionPolicy Bypass -File build.ps1 -BuildFromSource false' for windows
+  build = builder,
+  opts = {},
   keys = {
     {
       '<leader>aa',

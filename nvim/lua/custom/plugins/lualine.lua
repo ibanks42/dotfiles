@@ -4,7 +4,7 @@ return {
   dependencies = {},
   opts = {
     options = {
-      theme = 'auto',
+      theme = 'iceberg_dark',
     },
     sections = {
       lualine_a = { 'mode' },
@@ -23,10 +23,6 @@ return {
   },
   config = function(_, opts)
     -- TODO: make more generic insertion function which can insert anywhere.
-    if opts.copilot then
-      table.insert(opts.sections.lualine_x, 1, opts.copilot.lualine_component)
-    end
-
     if opts.dap_status then
       table.insert(opts.sections.lualine_x, 2, opts.dap_status.lualine_component)
     end
