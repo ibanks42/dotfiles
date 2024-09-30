@@ -4,6 +4,9 @@
 REPO_URL="https://github.com/ibanks42/dotfiles.git" # Replace with your repository URL
 TEMP_PATH="/tmp/nvim-install"
 NVIM_CONFIG_PATH="$HOME/.config/nvim"
+NVIM_SHARE_PATH="$HOME/.local/share/nvim"
+NVIM_DATA_PATH="$HOME/.local/share/nvim"
+NVIM_CACHE_PATH="$HOME/.cache/nvim"
 KITTY_PATH="$HOME/.config/kitty"
 
 # Function to clone the repository
@@ -16,6 +19,16 @@ copy_nvim_config() {
     if [ -d "$NVIM_CONFIG_PATH" ]; then
         rm -rf "$NVIM_CONFIG_PATH"
     fi
+    if [ -d "$NVIM_SHARE_PATH" ]; then
+        rm -rf "$NVIM_SHARE_PATH"
+    fi
+    if [ -d "$NVIM_DATA_PATH" ]; then
+        rm -rf "$NVIM_DATA_PATH"
+    fi
+    if [ -d "$NVIM_CACHE_PATH" ]; then
+        rm -rf "$NVIM_CACHE_PATH"
+    fi
+    
     cp -r "$TEMP_PATH/nvim" "$NVIM_CONFIG_PATH"
 
     echo "-> Neovim configuration installed successfully."
