@@ -17,17 +17,23 @@ clone_repository() {
 # Function to copy nvim configuration
 copy_nvim_config() {
     if [ -d "$NVIM_CONFIG_PATH" ]; then
+        echo "Removing existing Neovim configuration..."
         rm -rf "$NVIM_CONFIG_PATH"
     fi
     if [ -d "$NVIM_SHARE_PATH" ]; then
+        echo "Removing existing Neovim share directory..."
         rm -rf "$NVIM_SHARE_PATH"
     fi
     if [ -d "$NVIM_DATA_PATH" ]; then
+        echo "Removing existing Neovim data directory..."
         rm -rf "$NVIM_DATA_PATH"
     fi
     if [ -d "$NVIM_CACHE_PATH" ]; then
+        echo "Removing existing Neovim cache directory..."
         rm -rf "$NVIM_CACHE_PATH"
     fi
+    
+    echo "Copying Neovim configuration..."
     
     cp -r "$TEMP_PATH/nvim" "$NVIM_CONFIG_PATH"
 
@@ -37,10 +43,12 @@ copy_nvim_config() {
 # Function to copy kitty configuration
 copy_kitty_config() {
     if [ -d "$KITTY_PATH" ]; then
+        echo "Removing existing Kitty configuration..."
         rm -rf "$KITTY_PATH"
     fi
-    cp -r "$TEMP_PATH/kitty/." "$KITTY_PATH"
 
+    echo "Copying Kitty configuration..."
+    cp -r "$TEMP_PATH/kitty/." "$KITTY_PATH"
     echo "-> Kitty configuration installed successfully."
 }
 
@@ -50,6 +58,7 @@ install_fonts() {
 
     # Copy both .ttf and .otf files
     for font in "$TEMP_PATH/fonts/"*.{ttf,otf}; do
+        echo "-> Installing $font"
         cp "$font" "$HOME/.local/share/fonts"
     done
 
@@ -70,6 +79,9 @@ copy_nvim_config
 
 # Copy kitty configuration
 copy_kitty_config
+
+# Install fonts
+install_fonts
 
 # Cleanup
 rm -rf "$TEMP_PATH"
