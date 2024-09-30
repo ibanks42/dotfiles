@@ -4,7 +4,7 @@
 REPO_URL="https://github.com/ibanks42/dotfiles.git" # Replace with your repository URL
 TEMP_PATH="/tmp/nvim-install"
 NVIM_CONFIG_PATH="$HOME/.config/nvim"
-WEZTERM_CONFIG_PATH="$HOME"
+KITTY_PATH="$HOME/.config/kitty"
 
 # Function to clone the repository
 clone_repository() {
@@ -21,14 +21,26 @@ copy_nvim_config() {
     echo "-> Neovim configuration installed successfully."
 }
 
-# Function to copy wezterm configuration
-copy_wezterm_config() {
-    if [ -d "$WEZTERM_CONFIG_PATH" ]; then
-        rm -rf "$WEZTERM_CONFIG_PATH"
+# Function to copy kitty configuration
+copy_kitty_config() {
+    if [ -d "$KITTY_PATH" ]; then
+        rm -rf "$KITTY_PATH"
     fi
-    cp -r "$TEMP_PATH/wezterm/." "$WEZTERM_CONFIG_PATH"
+    cp -r "$TEMP_PATH/kitty/." "$KITTY_PATH"
 
-    echo "-> Wezterm configuration installed successfully."
+    echo "-> Kitty configuration installed successfully."
+}
+
+install_fonts() {
+    echo "Installing fonts..."
+    mkdir -p "$HOME/.local/share/fonts"
+
+    # Copy both .ttf and .otf files
+    for font in "$TEMP_PATH/fonts/"*.{ttf,otf}; do
+        cp "$font" "$HOME/.local/share/fonts"
+    done
+
+    fc-cache -fv  # Update font cache
 }
 
 # Main script
@@ -42,6 +54,9 @@ clone_repository
 
 # Copy nvim configuration
 copy_nvim_config
+
+# Copy kitty configuration
+copy_kitty_config
 
 # Cleanup
 rm -rf "$TEMP_PATH"
