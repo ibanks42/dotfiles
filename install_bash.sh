@@ -8,10 +8,26 @@ NVIM_SHARE_PATH="$HOME/.local/share/nvim"
 NVIM_DATA_PATH="$HOME/.local/share/nvim"
 NVIM_CACHE_PATH="$HOME/.cache/nvim"
 KITTY_PATH="$HOME/.config/kitty"
+CWD=$(pwd)
 
 # Function to clone the repository
 clone_repository() {
+    if [ -d "$TEMP_PATH" ]; then
+        echo "Removing existing temporary directory..."
+        rm -rf "$TEMP_PATH"
+    fi
+    
+    echo "Cloning repository..."
+    
     git clone -q "$REPO_URL" "$TEMP_PATH"
+    
+    # Get the submodules
+    cd "$TEMP_PATH"
+    git submodule update --init --recursive
+
+    cd "$CWD"
+    
+    echo "-> Repository cloned successfully."
 }
 
 # Function to copy nvim configuration
