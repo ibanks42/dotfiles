@@ -15,10 +15,10 @@ return {
       }
       local keymap = {
         ['<C-u>'] = function()
-          neoscroll.ctrl_u { duration = 100, easing = 'linear' }
+          neoscroll.ctrl_u { duration = 75, easing = 'linear' }
         end,
         ['<C-d>'] = function()
-          neoscroll.ctrl_d { duration = 100, easing = 'linear' }
+          neoscroll.ctrl_d { duration = 75, easing = 'linear' }
         end,
       }
 
@@ -28,8 +28,14 @@ return {
       end
 
       local function send_key_show_specs(key, width)
-        vim.api.nvim_feedkeys(key, 'n', true)
-        -- delay to allow the key to be sent
+        -- Get the current count from the command line
+        local count = vim.v.count > 0 and vim.v.count or ''
+
+        -- Construct the full key sequence with count
+        local full_key = count .. key
+
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(full_key, true, true, true), 'n', false)
+
         vim.defer_fn(function()
           pcall(require('specs').show_specs, { width = width })
         end, 10)
