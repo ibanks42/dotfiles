@@ -1,22 +1,38 @@
 #!/bin/zsh
 
 # Variables
-REPO_URL="https://github.com/ibanks42/dotfiles.git" # Replace with your repository URL
+REPO_URL="https://github.com/ibanks42/dotfiles.git"
 TEMP_PATH="/tmp/nvim-install"
 NVIM_CONFIG_PATH="$HOME/.config/nvim"
 NVIM_SHARE_PATH="$HOME/.local/share/nvim"
 NVIM_DATA_PATH="$HOME/.local/share/nvim"
 NVIM_CACHE_PATH="$HOME/.cache/nvim"
 KITTY_PATH="$HOME/.config/kitty"
+CWD=$(pwd)
 
 # Function to clone the repository
 clone_repository() {
+    if [[ -d "$TEMP_PATH" ]]; then  # Zsh conditional syntax
+        echo "Removing existing temporary directory..."
+        rm -rf "$TEMP_PATH"
+    fi
+    
+    echo "Cloning repository..."
+    
     git clone -q "$REPO_URL" "$TEMP_PATH"
+    
+    # Get the submodules
+    cd "$TEMP_PATH"
+    git submodule update --init --recursive
+
+    cd "$CWD"
+    
+    echo "-> Repository cloned successfully."
 }
 
 # Function to copy nvim configuration
 copy_nvim_config() {
-    if [[ -d "$NVIM_CONFIG_PATH" ]]; then  # Use [[ ]] for conditionals in zsh
+    if [[ -d "$NVIM_CONFIG_PATH" ]]; then 
         echo "Removing existing Neovim configuration..."
         rm -rf "$NVIM_CONFIG_PATH"
     fi
@@ -54,19 +70,20 @@ copy_kitty_config() {
 
 install_fonts() {
     echo "Installing fonts..."
-    mkdir -p "$HOME/.local/share/fonts"
+    mkdir -p "$HOME/Library/Fonts"  # macOS font directory
 
-    # Copy both .ttf and .otf files
-    for font in "$TEMP_PATH/fonts/"*.{ttf,otf}; do
-        echo "-> Installing $font"
-        cp "$font" "$HOME/.local/share/fonts"
-    done
+    # Check if the fonts directory exists
+    if [[ ! -d "$TEMP_PATH/fonts" ]]; then
+        echo "-> Fonts directory not found. Skipping font installation."
+        return  # Exit the function if no fonts directory
+    fi
 
-    fc-cache -f  # Update font cache
+    # Find all .ttf and .otf files recursively within the fonts directory
+    find "$TEMP_PATH/fonts" -type f \( -name "*.ttf" -o -name "*.otf" \) -exec cp {} "$HOME/Library/Fonts" \;
 }
 
 # Main script
-if ! command -v git &> /dev/null; then  # This works the same in bash and zsh
+if ! command -v git &> /dev/null; then
     echo "Git is not installed. Please install Git and try again."
     exit 1
 fi
