@@ -34,6 +34,7 @@ return {
       button('f', '󰱽   Find file', '<cmd>Telescope find_files hidden=true path_display=smart<CR>'),
       button('s', '󱘣   Search files', '<cmd>Telescope live_grep path_display=smart<CR>'),
       button('u', '   Update plugins', "<cmd>lua require('lazy').sync()<CR>"),
+      button('m', '󰏖   Manage plugins', '<cmd>Lazy<CR>'),
       button('q', '󰩈   Quit Neovim', '<cmd>qa!<CR>'),
     }
 
