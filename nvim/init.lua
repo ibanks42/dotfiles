@@ -41,11 +41,9 @@ end, { desc = 'Go to previous [D]iagnostic message' })
 vim.keymap.set('n', ']d', function()
   vim.diagnostic.jump { count = -1, float = true }
 end, { desc = 'Go to next [D]iagnostic message' })
-
 vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, { desc = 'Show diagnostic [E]rror messages' })
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
-
 vim.keymap.set({ 'n', 'v' }, 'H', '^', { noremap = true, silent = true })
 vim.keymap.set({ 'n', 'v' }, 'L', '$', { noremap = true, silent = true })
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
@@ -61,13 +59,17 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+vim.lsp.handlers['textDocument/signatureHelp'] = vim.lsp.with(vim.lsp.handlers['signature_help'], {
+  border = 'single',
+  close_events = { 'CursorMoved', 'BufHidden' },
+})
 vim.keymap.set('i', '<C-s>', vim.lsp.buf.signature_help)
 
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
 if not vim.loop.fs_stat(lazypath) then
   local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
   vim.fn.system { 'git', 'clone', '--filter=blob:none', '--branch=stable', lazyrepo, lazypath }
-end ---@diagnostic disable-next-line: undefined-field
+end
 vim.opt.rtp:prepend(lazypath)
 
 function TableConcat(t1, t2)
@@ -240,25 +242,25 @@ require('lazy').setup({
           settings = {
             typescript = {
               inlayHints = {
-                includeInlayParameterNameHints = 'literals', -- 'none' | 'literals' | 'all'
+                includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
                 includeInlayParameterNameHintsWhenArgumentMatchesName = true,
                 includeInlayVariableTypeHints = false,
-                includeInlayFunctionParameterTypeHints = true,
+                includeInlayFunctionParameterTypeHints = false,
                 includeInlayVariableTypeHintsWhenTypeMatchesName = true,
                 includeInlayPropertyDeclarationTypeHints = true,
-                includeInlayFunctionLikeReturnTypeHints = true,
+                includeInlayFunctionLikeReturnTypeHints = false,
                 includeInlayEnumMemberValueHints = true,
               },
             },
             javascript = {
               inlayHints = {
-                includeInlayParameterNameHints = 'literals', -- 'none' | 'literals' | 'all'
+                includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
                 includeInlayParameterNameHintsWhenArgumentMatchesName = true,
-                includeInlayVariableTypeHints = true,
-                includeInlayFunctionParameterTypeHints = true,
+                includeInlayVariableTypeHints = false,
+                includeInlayFunctionParameterTypeHints = false,
                 includeInlayVariableTypeHintsWhenTypeMatchesName = true,
                 includeInlayPropertyDeclarationTypeHints = true,
-                includeInlayFunctionLikeReturnTypeHints = true,
+                includeInlayFunctionLikeReturnTypeHints = false,
                 includeInlayEnumMemberValueHints = true,
               },
             },
@@ -289,10 +291,6 @@ require('lazy').setup({
       require('mason-lspconfig').setup {
         handlers = {
           function(server_name)
-            if server_name == 'tsserver' then
-              server_name = 'ts_ls'
-            end
-
             local server = servers[server_name] or {}
 
             server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
