@@ -8,6 +8,7 @@ NVIM_SHARE_PATH="$HOME/.local/share/nvim"
 NVIM_DATA_PATH="$HOME/.local/share/nvim"
 NVIM_CACHE_PATH="$HOME/.cache/nvim"
 KITTY_PATH="$HOME/.config/kitty"
+TMUX_CONFIG_PATH="$HOME/.tmux.conf"
 CWD=$(pwd)
 
 # Function to clone the repository
@@ -16,17 +17,17 @@ clone_repository() {
         echo "Removing existing temporary directory..."
         rm -rf "$TEMP_PATH"
     fi
-    
+
     echo "Cloning repository..."
-    
+
     git clone -q "$REPO_URL" "$TEMP_PATH"
-    
+
     # Get the submodules
     cd "$TEMP_PATH"
     git submodule update --init --recursive
 
     cd "$CWD"
-    
+
     echo "-> Repository cloned successfully."
 }
 
@@ -48,9 +49,9 @@ copy_nvim_config() {
         echo "Removing existing Neovim cache directory..."
         rm -rf "$NVIM_CACHE_PATH"
     fi
-    
+
     echo "Copying Neovim configuration..."
-    
+
     cp -r "$TEMP_PATH/nvim" "$NVIM_CONFIG_PATH"
 
     echo "-> Neovim configuration installed successfully."
@@ -103,6 +104,51 @@ install_kitty() {
     echo 'kitty.desktop' > ~/.config/xdg-terminals.list
 }
 
+install_tmux() {
+    echo "Installing tmux..."
+
+    # Check for /etc/os-release
+    if [ -f /etc/os-release ]; then
+        source /etc/os-release
+        distro="$ID"
+    else
+        # Fallback to lsb_release if /etc/os-release is not present
+        distro=$(lsb_release -i | awk '{print $3}')
+    fi
+
+    case "$distro" in
+        "ubuntu" | "debian")
+            sudo apt-get install -y tmux
+            ;;
+        "fedora")
+            sudo dnf install -y tmux
+            ;;
+        "arch")
+            sudo pacman -S tmux
+            ;;
+        "opensuse")
+            sudo zypper install -y tmux
+            ;;
+        "rhel" | "centos")
+            sudo yum install -y tmux
+            ;;
+        *)
+            echo "Unsupported distribution: $distro"
+            ;;
+    esac
+}
+
+copy_tmux_config() {
+    if [ -d "$TMUX_PATH" ]; then
+        echo "Removing existing Tmux configuration..."
+        rm -rf "$TMUX_PATH"
+    fi
+
+    echo "Copying Tmux configuration..."
+    cp -r "$TEMP_PATH/tmux/." "$TMUX_PATH"
+    echo "-> Tmux configuration installed successfully."
+}
+
 # Main script
 if ! command -v git &> /dev/null; then
     echo "Git is not installed. Please install Git and try again."
@@ -113,14 +159,19 @@ fi
 # Clone the repository
 clone_repository
 
-# install kitty
-install_kitty
-
 # Copy nvim configuration
 copy_nvim_config
 
+# install kitty
+install_kitty
+
 # Copy kitty configuration
 copy_kitty_config
+
+install_tmux
+
+# Copy tmux configuration
+copy_tmux_config
 
 # Install fonts
 install_fonts
