@@ -7,7 +7,6 @@ NVIM_CONFIG_PATH="$HOME/.config/nvim"
 NVIM_SHARE_PATH="$HOME/.local/share/nvim"
 NVIM_DATA_PATH="$HOME/.local/share/nvim"
 NVIM_CACHE_PATH="$HOME/.cache/nvim"
-KITTY_PATH="$HOME/.config/kitty"
 TMUX_CONFIG_PATH="$HOME/.tmux.conf"
 CWD=$(pwd)
 
@@ -57,52 +56,6 @@ copy_nvim_config() {
     echo "-> Neovim configuration installed successfully."
 }
 
-# Function to copy kitty configuration
-copy_kitty_config() {
-    if [ -d "$KITTY_PATH" ]; then
-        echo "Removing existing Kitty configuration..."
-        rm -rf "$KITTY_PATH"
-    fi
-
-    echo "Copying Kitty configuration..."
-    cp -r "$TEMP_PATH/kitty/." "$KITTY_PATH"
-    echo "-> Kitty configuration installed successfully."
-}
-
-install_fonts() {
-    echo "Installing fonts..."
-    mkdir -p "$HOME/.local/share/fonts"
-
-    # Check if the fonts directory exists
-    if [ ! -d "$TEMP_PATH/fonts" ]; then
-        echo "-> Fonts directory not found. Skipping font installation."
-        return  # Exit the function if no fonts directory
-    fi
-
-    # Find all .ttf and .otf files recursively within the fonts directory
-    find "$TEMP_PATH/fonts" -type f \( -name "*.ttf" -o -name "*.otf" \) -exec cp {} "$HOME/.local/share/fonts" \;
-
-    fc-cache -f  # Update font cache
-}
-
-install_kitty() {
-    echo "Installing kitty..."
-
-    curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
-
-    # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
-    # your system-wide PATH)
-    ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/
-    # Place the kitty.desktop file somewhere it can be found by the OS
-    cp ~/.local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
-    # If you want to open text files and images in kitty via your file manager also add the kitty-open.desktop file
-    cp ~/.local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
-    # Update the paths to the kitty and its icon in the kitty desktop file(s)
-    sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
-    sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
-    # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
-    echo 'kitty.desktop' > ~/.config/xdg-terminals.list
-}
 
 install_tmux() {
     echo "Installing tmux..."
@@ -146,7 +99,44 @@ copy_tmux_config() {
 
     echo "Copying Tmux configuration..."
     cp -r "$TEMP_PATH/tmux/." "$TMUX_PATH"
+
     echo "-> Tmux configuration installed successfully."
+}
+
+install_fonts() {
+    echo "Installing fonts..."
+    mkdir -p "$HOME/.local/share/fonts"
+
+    # Check if the fonts directory exists
+    if [ ! -d "$TEMP_PATH/fonts" ]; then
+        echo "-> Fonts directory not found. Skipping font installation."
+        return  # Exit the function if no fonts directory
+    fi
+
+    # Find all .ttf and .otf files recursively within the fonts directory
+    find "$TEMP_PATH/fonts" -type f \( -name "*.ttf" -o -name "*.otf" \) -exec cp {} "$HOME/.local/share/fonts" \;
+
+    fc-cache -f  # Update font cache
+}
+
+install_theme() {
+    echo "Installing theme..."
+
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+    gsettings set org.gnome.desktop.interface cursor-theme 'Yaru'
+    gsettings set org.gnome.desktop.interface gtk-theme "Yaru-bark-dark"
+    gsettings set org.gnome.desktop.interface icon-theme "Yaru-bark"
+
+    BACKGROUND_ORG_PATH="$TEMP_PATH/gnome/background.jpg"
+    BACKGROUND_DEST_DIR="$HOME/.local/share/backgrounds"
+    BACKGROUND_DEST_PATH="$BACKGROUND_DEST_DIR/everforest.jpg"
+
+    if [ ! -d "$BACKGROUND_DEST_DIR" ]; then mkdir -p "$BACKGROUND_DEST_DIR"; fi
+
+    [ ! -f $BACKGROUND_DEST_PATH ] && cp $BACKGROUND_ORG_PATH $BACKGROUND_DEST_PATH
+    gsettings set org.gnome.desktop.background picture-uri $BACKGROUND_DEST_PATH
+    gsettings set org.gnome.desktop.background picture-uri-dark $BACKGROUND_DEST_PATH
+    gsettings set org.gnome.desktop.background picture-options 'zoom'
 }
 
 # Main script
@@ -162,12 +152,7 @@ clone_repository
 # Copy nvim configuration
 copy_nvim_config
 
-# install kitty
-install_kitty
-
-# Copy kitty configuration
-copy_kitty_config
-
+# Install tmux
 install_tmux
 
 # Copy tmux configuration
@@ -175,6 +160,9 @@ copy_tmux_config
 
 # Install fonts
 install_fonts
+
+# Install theme
+install_theme
 
 # Cleanup
 rm -rf "$TEMP_PATH"
