@@ -39,7 +39,7 @@ install_git() {
                 sudo yum install -y git
                 ;;
             *)
-                echo "Unsupported distribution for Git. Please install Git manually."
+                echo "-> Unsupported distribution for Git. Please install Git manually."
                 ;;
         esac
     fi
@@ -47,17 +47,17 @@ install_git() {
 
 clone_repository() {
     if [ -d "$TEMP_PATH" ]; then
-        echo "Removing existing temporary directory..."
+        echo "-> Removing existing temporary directory..."
         rm -rf "$TEMP_PATH"
     fi
 
-    echo "Cloning repository..."
+    echo "-> Cloning repository..."
 
     git clone -q "$REPO_URL" "$TEMP_PATH"
 
     # Get the submodules
     cd "$TEMP_PATH"
-    git submodule update --init --recursive
+    git submodule -q update --init --recursive
 
     cd "$CWD"
 
@@ -65,29 +65,34 @@ clone_repository() {
 }
 
 install_nvim() {
-    if command -v nvim &> /dev/null; then
-        curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim.appimage --output ~/.local/bin/nvim/nvim.appimage
-        chmod u+x ~/.local/bin/nvim/nvim.appimage
+    if ! command -v nvim &> /dev/null; then
+	wget -q -O "$TEMP_PATH/nvim-linux64.tar.gz" "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"	
+	cd "$TEMP_PATH"
+	tar -xf "$TEMP_PATH/nvim-linux64.tar.gz"
+	sudo install nvim-linux64/bin/nvim /usr/local/bin/nvim
+	sudo cp -R nvim-linux64/lib /usr/local/
+	sudo cp -R nvim-linux64/share /usr/local
+	cd "$CWD"
     fi
 
     if [ -d "$NVIM_CONFIG_PATH" ]; then
-        echo "Removing existing Neovim configuration..."
+        echo "-> Removing existing Neovim configuration..."
         rm -rf "$NVIM_CONFIG_PATH"
     fi
     if [ -d "$NVIM_SHARE_PATH" ]; then
-        echo "Removing existing Neovim share directory..."
+        echo "-> Removing existing Neovim share directory..."
         rm -rf "$NVIM_SHARE_PATH"
     fi
     if [ -d "$NVIM_DATA_PATH" ]; then
-        echo "Removing existing Neovim data directory..."
+        echo "-> Removing existing Neovim data directory..."
         rm -rf "$NVIM_DATA_PATH"
     fi
     if [ -d "$NVIM_CACHE_PATH" ]; then
-        echo "Removing existing Neovim cache directory..."
+        echo "-> Removing existing Neovim cache directory..."
         rm -rf "$NVIM_CACHE_PATH"
     fi
 
-    echo "Copying Neovim configuration..."
+    echo "-> Copying Neovim configuration..."
 
     cp -r "$TEMP_PATH/nvim" "$NVIM_CONFIG_PATH"
 
@@ -95,8 +100,8 @@ install_nvim() {
 }
 
 install_tmux() {
-    if command -v tmux &> /dev/null; then
-        echo "Installing tmux..."
+    if ! command -v tmux &> /dev/null; then
+        echo "-> Installing tmux..."
 
         case "$distro" in
             "ubuntu" | "debian")
@@ -115,24 +120,24 @@ install_tmux() {
                 sudo yum install -y tmux
                 ;;
             *)
-                echo "Unsupported distribution for tmux. Please install tmux manually."
+                echo "-> Unsupported distribution for tmux. Please install tmux manually."
                 ;;
         esac
     fi
 
     if [ -d "$TMUX_PATH" ]; then
-        echo "Removing existing Tmux configuration..."
+        echo "-> Removing existing Tmux configuration..."
         rm -rf "$TMUX_PATH"
     fi
 
-    echo "Copying Tmux configuration..."
+    echo "-> Copying Tmux configuration..."
     cp -r "$TEMP_PATH/tmux/." "$TMUX_PATH"
 
     echo "-> Tmux configuration installed successfully."
 }
 
 install_fonts() {
-    echo "Installing fonts..."
+    echo "-> Installing fonts..."
     mkdir -p "$HOME/.local/share/fonts"
 
     if [ ! -d "$TEMP_PATH/fonts" ]; then
@@ -147,7 +152,7 @@ install_fonts() {
 
 install_theme() {
     if command -v gnome-shell &> /dev/null; then
-        echo "Installing theme..."
+        echo "-> Installing theme..."
 
         gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
         gsettings set org.gnome.desktop.interface cursor-theme 'Yaru'
@@ -179,5 +184,9 @@ install_fonts
 
 install_theme
 
+echo "-> Cleaning up..."
 # Cleanup
 rm -rf "$TEMP_PATH"
+
+echo ""
+echo "Done!"
