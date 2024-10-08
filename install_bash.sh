@@ -131,6 +131,8 @@ install_theme() {
     BACKGROUND_DEST_DIR="$HOME/.local/share/backgrounds"
     BACKGROUND_DEST_PATH="$BACKGROUND_DEST_DIR/everforest.jpg"
 
+    echo "Copying background $BACKGROUND_DEST_PATH"
+
     if [ ! -d "$BACKGROUND_DEST_DIR" ]; then mkdir -p "$BACKGROUND_DEST_DIR"; fi
 
     [ ! -f $BACKGROUND_DEST_PATH ] && cp $BACKGROUND_ORG_PATH $BACKGROUND_DEST_PATH
