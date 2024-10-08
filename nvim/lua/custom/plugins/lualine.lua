@@ -4,7 +4,7 @@ return {
   dependencies = {},
   opts = {
     options = {
-      theme = 'iceberg_dark',
+      theme = 'auto',
     },
     sections = {
       lualine_a = { 'mode' },
