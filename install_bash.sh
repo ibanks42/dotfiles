@@ -10,7 +10,41 @@ NVIM_CACHE_PATH="$HOME/.cache/nvim"
 TMUX_CONFIG_PATH="$HOME/.tmux.conf"
 CWD=$(pwd)
 
-# Function to clone the repository
+# Check for /etc/os-release
+if [ -f /etc/os-release ]; then
+    source /etc/os-release
+    DISTRO="$ID"
+else
+    # Fallback to lsb_release if /etc/os-release is not present
+    DISTRO=$(lsb_release -i | awk '{print $3}')
+fi
+
+install_git() {
+    if ! command -v git &> /dev/null; then
+        echo "Installing Git..."
+        case "$DISTRO" in
+            "ubuntu" | "debian")
+                sudo apt-get install -y git
+                ;;
+            "fedora")
+                sudo dnf install -y git
+                ;;
+            "arch")
+                sudo pacman -S git -y
+                ;;
+            "opensuse")
+                sudo zypper install -y git
+                ;;
+            "rhel" | "centos")
+                sudo yum install -y git
+                ;;
+            *)
+                echo "Unsupported distribution for Git. Please install Git manually."
+                ;;
+        esac
+    fi
+}
+
 clone_repository() {
     if [ -d "$TEMP_PATH" ]; then
         echo "Removing existing temporary directory..."
@@ -30,8 +64,12 @@ clone_repository() {
     echo "-> Repository cloned successfully."
 }
 
-# Function to copy nvim configuration
-copy_nvim_config() {
+install_nvim() {
+    if command -v nvim &> /dev/null; then
+        curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim.appimage --output ~/.local/bin/nvim/nvim.appimage
+        chmod u+x ~/.local/bin/nvim/nvim.appimage
+    fi
+
     if [ -d "$NVIM_CONFIG_PATH" ]; then
         echo "Removing existing Neovim configuration..."
         rm -rf "$NVIM_CONFIG_PATH"
@@ -56,42 +94,32 @@ copy_nvim_config() {
     echo "-> Neovim configuration installed successfully."
 }
 
-
 install_tmux() {
-    echo "Installing tmux..."
+    if command -v tmux &> /dev/null; then
+        echo "Installing tmux..."
 
-    # Check for /etc/os-release
-    if [ -f /etc/os-release ]; then
-        source /etc/os-release
-        distro="$ID"
-    else
-        # Fallback to lsb_release if /etc/os-release is not present
-        distro=$(lsb_release -i | awk '{print $3}')
+        case "$distro" in
+            "ubuntu" | "debian")
+                sudo apt-get install -y tmux
+                ;;
+            "fedora")
+                sudo dnf install -y tmux
+                ;;
+            "arch")
+                sudo pacman -S tmux -y
+                ;;
+            "opensuse")
+                sudo zypper install -y tmux
+                ;;
+            "rhel" | "centos")
+                sudo yum install -y tmux
+                ;;
+            *)
+                echo "Unsupported distribution for tmux. Please install tmux manually."
+                ;;
+        esac
     fi
 
-    case "$distro" in
-        "ubuntu" | "debian")
-            sudo apt-get install -y tmux
-            ;;
-        "fedora")
-            sudo dnf install -y tmux
-            ;;
-        "arch")
-            sudo pacman -S tmux
-            ;;
-        "opensuse")
-            sudo zypper install -y tmux
-            ;;
-        "rhel" | "centos")
-            sudo yum install -y tmux
-            ;;
-        *)
-            echo "Unsupported distribution: $distro"
-            ;;
-    esac
-}
-
-copy_tmux_config() {
     if [ -d "$TMUX_PATH" ]; then
         echo "Removing existing Tmux configuration..."
         rm -rf "$TMUX_PATH"
@@ -107,16 +135,14 @@ install_fonts() {
     echo "Installing fonts..."
     mkdir -p "$HOME/.local/share/fonts"
 
-    # Check if the fonts directory exists
     if [ ! -d "$TEMP_PATH/fonts" ]; then
         echo "-> Fonts directory not found. Skipping font installation."
-        return  # Exit the function if no fonts directory
+        return
     fi
 
-    # Find all .ttf and .otf files recursively within the fonts directory
     find "$TEMP_PATH/fonts" -type f \( -name "*.ttf" -o -name "*.otf" \) -exec cp {} "$HOME/.local/share/fonts" \;
 
-    fc-cache -f  # Update font cache
+    fc-cache -f
 }
 
 install_theme() {
@@ -141,29 +167,16 @@ install_theme() {
     fi
 }
 
-# Main script
-if ! command -v git &> /dev/null; then
-    echo "Git is not installed. Please install Git and try again."
-    exit 1
-fi
+install_git
 
-
-# Clone the repository
 clone_repository
 
-# Copy nvim configuration
-copy_nvim_config
+install_nvim
 
-# Install tmux
 install_tmux
 
-# Copy tmux configuration
-copy_tmux_config
-
-# Install fonts
 install_fonts
 
-# Install theme
 install_theme
 
 # Cleanup
