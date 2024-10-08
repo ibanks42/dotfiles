@@ -8,6 +8,7 @@ NVIM_SHARE_PATH="$HOME/.local/share/nvim"
 NVIM_DATA_PATH="$HOME/.local/share/nvim"
 NVIM_CACHE_PATH="$HOME/.cache/nvim"
 TMUX_CONFIG_PATH="$HOME/.tmux.conf"
+ALACRITTY_CONFIG_PATH="$HOME/.config/alacritty/alacritty.toml"
 CWD=$(pwd)
 
 # Check for /etc/os-release
@@ -103,7 +104,7 @@ install_tmux() {
     if ! command -v tmux &> /dev/null; then
         echo "-> Installing tmux..."
 
-        case "$distro" in
+        case "$DISTRO" in
             "ubuntu" | "debian")
                 sudo apt-get install -y tmux
                 ;;
@@ -125,13 +126,8 @@ install_tmux() {
         esac
     fi
 
-    if [ -d "$TMUX_PATH" ]; then
-        echo "-> Removing existing Tmux configuration..."
-        rm -rf "$TMUX_PATH"
-    fi
-
     echo "-> Copying Tmux configuration..."
-    cp -r "$TEMP_PATH/tmux/." "$TMUX_PATH"
+    cp -f "$TEMP_PATH/tmux/.tmux.conf" "$TMUX_CONFIG_PATH"
 
     echo "-> Tmux configuration installed successfully."
 }
@@ -140,7 +136,7 @@ install_alacritty() {
     if ! command -v alacritty &> /dev/null; then
         echo "-> Installing tmux..."
 
-        case "$distro" in
+        case "$DISTRO" in
             "ubuntu" | "debian")
                 sudo apt-get install -y alacritty
                 ;;
@@ -159,13 +155,8 @@ install_alacritty() {
         esac
     fi
 
-    if [ -d "$ALACRITTY_PATH" ]; then
-        echo "-> Removing existing Alacritty configuration..."
-        rm -rf "$ALACRITTY_PATH"
-    fi
-
     echo "-> Copying Alacritty configuration..."
-    cp -r "$TEMP_PATH/alacritty/." "$ALACRITTY_PATH"
+    cp -f "$TEMP_PATH/alacritty/alacritty.toml" "$ALACRITTY_CONFIG_PATH"
 
     echo "-> Alacritty configuration installed successfully."
 }
@@ -211,6 +202,8 @@ install_git
 clone_repository
 
 install_nvim
+
+install_alacritty
 
 install_tmux
 
