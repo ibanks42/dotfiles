@@ -120,25 +120,25 @@ install_fonts() {
 }
 
 install_theme() {
-    echo "Installing theme..."
+    if command -v gnome-shell &> /dev/null; then
+        echo "Installing theme..."
 
-    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-    gsettings set org.gnome.desktop.interface cursor-theme 'Yaru'
-    gsettings set org.gnome.desktop.interface gtk-theme "Yaru-bark-dark"
-    gsettings set org.gnome.desktop.interface icon-theme "Yaru-bark"
+        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+        gsettings set org.gnome.desktop.interface cursor-theme 'Yaru'
+        gsettings set org.gnome.desktop.interface gtk-theme "Yaru-bark-dark"
+        gsettings set org.gnome.desktop.interface icon-theme "Yaru-bark"
 
-    BACKGROUND_ORG_PATH="$TEMP_PATH/gnome/background.jpg"
-    BACKGROUND_DEST_DIR="$HOME/.local/share/backgrounds"
-    BACKGROUND_DEST_PATH="$BACKGROUND_DEST_DIR/everforest.jpg"
+        BACKGROUND_ORG_PATH="$TEMP_PATH/gnome/background.jpg"
+        BACKGROUND_DEST_DIR="$HOME/.local/share/backgrounds"
+        BACKGROUND_DEST_PATH="$BACKGROUND_DEST_DIR/everforest.jpg"
 
-    echo "Copying background $BACKGROUND_DEST_PATH"
+        if [ ! -d "$BACKGROUND_DEST_DIR" ]; then mkdir -p "$BACKGROUND_DEST_DIR"; fi
 
-    if [ ! -d "$BACKGROUND_DEST_DIR" ]; then mkdir -p "$BACKGROUND_DEST_DIR"; fi
-
-    [ ! -f $BACKGROUND_DEST_PATH ] && cp $BACKGROUND_ORG_PATH $BACKGROUND_DEST_PATH
-    gsettings set org.gnome.desktop.background picture-uri $BACKGROUND_DEST_PATH
-    gsettings set org.gnome.desktop.background picture-uri-dark $BACKGROUND_DEST_PATH
-    gsettings set org.gnome.desktop.background picture-options 'zoom'
+        [ ! -f $BACKGROUND_DEST_PATH ] && cp $BACKGROUND_ORG_PATH $BACKGROUND_DEST_PATH
+        gsettings set org.gnome.desktop.background picture-uri $BACKGROUND_DEST_PATH
+        gsettings set org.gnome.desktop.background picture-uri-dark $BACKGROUND_DEST_PATH
+        gsettings set org.gnome.desktop.background picture-options 'zoom'
+    fi
 }
 
 # Main script
