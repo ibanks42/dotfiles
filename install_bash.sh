@@ -136,6 +136,40 @@ install_tmux() {
     echo "-> Tmux configuration installed successfully."
 }
 
+install_alacritty() {
+    if ! command -v alacritty &> /dev/null; then
+        echo "-> Installing tmux..."
+
+        case "$distro" in
+            "ubuntu" | "debian")
+                sudo apt-get install -y alacritty
+                ;;
+            "fedora")
+                sudo dnf install -y alacritty
+                ;;
+            "arch")
+                sudo pacman -S alacritty -y
+                ;;
+            "opensuse")
+                sudo zypper install -y alacritty
+                ;;
+            *)
+                echo "-> Unsupported distribution for alacritty. Please install alacritty manually."
+                ;;
+        esac
+    fi
+
+    if [ -d "$ALACRITTY_PATH" ]; then
+        echo "-> Removing existing Alacritty configuration..."
+        rm -rf "$ALACRITTY_PATH"
+    fi
+
+    echo "-> Copying Alacritty configuration..."
+    cp -r "$TEMP_PATH/alacritty/." "$ALACRITTY_PATH"
+
+    echo "-> Alacritty configuration installed successfully."
+}
+
 install_fonts() {
     echo "-> Installing fonts..."
     mkdir -p "$HOME/.local/share/fonts"

@@ -1,15 +1,16 @@
 [env]
 TERM = "xterm-256color"
 
+[cursor]
+style = { shape = "Block", blinking = "Always" }
+
 [window]
 opacity = 0.98
-padding.x = 0
-padding.y = 0
+padding.x = 4
+padding.y = 4
 
 [keyboard]
-bindings = [
-{ key = "F11", action = "ToggleFullscreen" }
-]
+bindings = [{ key = "F11", action = "ToggleFullscreen" }]
 
 [font]
 normal = { family = "BerkeleyMono Nerd Font", style = "Regular" }
