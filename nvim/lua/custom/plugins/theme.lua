@@ -14,6 +14,8 @@ return {
     priority = 1000,
     config = function()
       require('catppuccin').setup {
+        flavour = 'latte',
+        term_colors = true,
         color_overrides = {
           latte = {
             green = '#0D9A06',
@@ -21,6 +23,7 @@ return {
             lavender = '#2381FF',
             peach = '#74531F',
             mauve = '#AF15FF',
+            base = '#DEE2EE',
           },
         },
       }
