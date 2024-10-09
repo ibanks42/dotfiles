@@ -65,7 +65,7 @@ vim.lsp.handlers['textDocument/signatureHelp'] = vim.lsp.with(vim.lsp.handlers['
   border = 'single',
   close_events = { 'CursorMoved', 'BufHidden' },
 })
-vim.keymap.set('i', '<C-s>', vim.lsp.buf.signature_help)
+vim.keymap.set('i', '<M-.>', vim.lsp.buf.signature_help, { remap = true, expr = true, desc = 'Signature Help' })
 
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
 if not vim.loop.fs_stat(lazypath) then
@@ -383,7 +383,7 @@ require('lazy').setup({
             cmp.mapping.scroll_docs(4)
           end, { 'i', 's' }),
           ['<CR>'] = cmp.mapping.confirm { select = true },
-          ['<C-Space>'] = cmp.mapping.complete {},
+          ['<M-,>'] = cmp.mapping.complete {},
           ['<C-l>'] = cmp.mapping(function()
             if luasnip.expand_or_locally_jumpable() then
               luasnip.expand_or_jump()

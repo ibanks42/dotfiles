@@ -4,31 +4,34 @@ return {
     lazy = false,
     priority = 1000,
     config = function()
-      vim.o.background = 'light'
-      vim.cmd.colorscheme 'catppuccin'
+      -- vim.o.background = 'light'
+      -- vim.cmd.colorscheme 'catppuccin'
+      -- vim.cmd 'TransparentEnable'
+      vim.o.background = 'dark'
+      vim.cmd.colorscheme 'kanagawa-dragon'
     end,
   },
-  {
-    'catppuccin/nvim',
-    name = 'catppuccin',
-    priority = 1000,
-    config = function()
-      require('catppuccin').setup {
-        flavour = 'latte',
-        term_colors = true,
-        color_overrides = {
-          latte = {
-            green = '#0D9A06',
-            blue = '#1e49ff',
-            lavender = '#2381FF',
-            peach = '#74531F',
-            mauve = '#AF15FF',
-            base = '#DEE2EE',
-          },
-        },
-      }
-    end,
-  },
+  -- {
+  --   'catppuccin/nvim',
+  --   name = 'catppuccin',
+  --   priority = 1000,
+  --   config = function()
+  --     require('catppuccin').setup {
+  --       flavour = 'latte',
+  --       term_colors = true,
+  --       color_overrides = {
+  --         latte = {
+  --           green = '#0D9A06',
+  --           blue = '#1e49ff',
+  --           lavender = '#2381FF',
+  --           peach = '#74531F',
+  --           mauve = '#AF15FF',
+  --           base = '#DEE2EE',
+  --         },
+  --       },
+  --     }
+  --   end,
+  -- },
   -- {
   --   'Mofiqul/vscode.nvim',
   --   lazy = false,
@@ -40,20 +43,19 @@ return {
   --   end,
   -- },
   -- {
-  --   'zenbones-theme/zenbones.nvim',
-  --   -- Optionally install Lush. Allows for more configuration or extending the colorscheme
-  --   -- If you don't want to install lush, make sure to set g:zenbones_compat = 1
-  --   -- In Vim, compat mode is turned on as Lush only works in Neovim.
-  --   dependencies = 'rktjmp/lush.nvim',
+  --   'pineapplegiant/spaceduck',
   --   lazy = false,
   --   priority = 1000,
-  --   config = function()
-  --     vim.g.seoulbones = {
-  --       lightness = 'bright',
-  --     }
-  --     -- vim.cmd.colorscheme 'seoulbones'
-  --   end,
   -- },
+  {
+    'rebelot/kanagawa.nvim',
+    lazy = false,
+    priority = 1000,
+    opts = {
+      transparent = true,
+      theme = 'dragon',
+    },
+  },
   -- {
   --   'scottmckendry/cyberdream.nvim',
   --   lazy = false,
@@ -68,17 +70,9 @@ return {
   --   end,
   -- },
   -- {
-  --   'Verf/deepwhite.nvim',
-  --   lazy = false,
-  --   priority = 1000,
-  -- },
-  -- {
   --   'folke/tokyonight.nvim',
   --   lazy = false,
   --   priority = 1000,
-  --   config = function()
-  --     vim.cmd.colorscheme 'tokyonight-day'
-  --   end,
   -- },
   -- {
   --   'rose-pine/neovim',
