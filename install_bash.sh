@@ -9,6 +9,7 @@ NVIM_DATA_PATH="$HOME/.local/share/nvim"
 NVIM_CACHE_PATH="$HOME/.cache/nvim"
 TMUX_CONFIG_PATH="$HOME/.tmux.conf"
 ALACRITTY_CONFIG_PATH="$HOME/.config/alacritty/alacritty.toml"
+IDEAVIMRC_PATH="$HOME/.ideavimrc"
 CWD=$(pwd)
 
 # Check for /etc/os-release
@@ -127,6 +128,7 @@ install_tmux() {
     fi
 
     echo "-> Copying Tmux configuration..."
+    mkdir "$HOME/tmux"
     cp -f "$TEMP_PATH/tmux/.tmux.conf" "$TMUX_CONFIG_PATH"
 
     echo "-> Tmux configuration installed successfully."
@@ -156,6 +158,7 @@ install_alacritty() {
     fi
 
     echo "-> Copying Alacritty configuration..."
+    mkdir "$HOME/.config/alacritty"
     cp -f "$TEMP_PATH/alacritty/alacritty.toml" "$ALACRITTY_CONFIG_PATH"
 
     echo "-> Alacritty configuration installed successfully."
@@ -175,26 +178,9 @@ install_fonts() {
     fc-cache -f
 }
 
-install_theme() {
-    if command -v gnome-shell &> /dev/null; then
-        echo "-> Installing theme..."
 
-        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-        gsettings set org.gnome.desktop.interface cursor-theme 'Yaru'
-        gsettings set org.gnome.desktop.interface gtk-theme "Yaru-bark-dark"
-        gsettings set org.gnome.desktop.interface icon-theme "Yaru-bark"
-
-        BACKGROUND_ORG_PATH="$TEMP_PATH/gnome/background.jpg"
-        BACKGROUND_DEST_DIR="$HOME/.local/share/backgrounds"
-        BACKGROUND_DEST_PATH="$BACKGROUND_DEST_DIR/everforest.jpg"
-
-        if [ ! -d "$BACKGROUND_DEST_DIR" ]; then mkdir -p "$BACKGROUND_DEST_DIR"; fi
-
-        [ ! -f $BACKGROUND_DEST_PATH ] && cp $BACKGROUND_ORG_PATH $BACKGROUND_DEST_PATH
-        gsettings set org.gnome.desktop.background picture-uri $BACKGROUND_DEST_PATH
-        gsettings set org.gnome.desktop.background picture-uri-dark $BACKGROUND_DEST_PATH
-        gsettings set org.gnome.desktop.background picture-options 'zoom'
-    fi
+install_ideavim() {
+    cp -f "$TEMP_PATH/idea/.ideavimrc" "$IDEAVIMRC_PATH"
 }
 
 install_git
@@ -209,7 +195,7 @@ install_tmux
 
 install_fonts
 
-install_theme
+install_ideavim
 
 echo "-> Cleaning up..."
 # Cleanup
