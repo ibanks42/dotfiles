@@ -3,7 +3,6 @@ $repoUrl = "https://github.com/ibanks42/dotfiles.git"
 $tempPath = "$env:TEMP\nvim-install"
 $nvimConfigPath = "$env:LOCALAPPDATA\nvim"
 $weztermConfigPath = "$env:USERPROFILE"
-$cwd = ($pwd).path
 
 function Install-Wezterm {
     $weztermInstalled = winget list --name wezterm
@@ -40,7 +39,7 @@ function Get-Repository {
     cd $tempPath
     git submodule update --init --recursive
     
-    cd $cwd
+    cd ($pwd).Path
 }
 
 function Copy-NvimConfig {
