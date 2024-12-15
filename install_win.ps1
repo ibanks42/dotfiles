@@ -33,11 +33,13 @@ function Get-Repository {
     Write-Host "-> Cloning repository..."
 
     git clone -q $repoUrl $tempPath
+
+    Write-Host "-> Updating fonts submodules..."
     
     # Get the submodules
     cd $tempPath
-    git submodule -q update --init --recursive
-
+    git submodule update --init --recursive
+    
     cd $cwd
 }
 
