@@ -3,6 +3,7 @@ $repoUrl = "https://github.com/ibanks42/dotfiles.git"
 $tempPath = "$env:TEMP\nvim-install"
 $nvimConfigPath = "$env:LOCALAPPDATA\nvim"
 $weztermConfigPath = "$env:USERPROFILE"
+$cwd = ($pwd).path
 
 function Install-Wezterm {
     $weztermInstalled = winget list --name wezterm
@@ -32,6 +33,12 @@ function Get-Repository {
     Write-Host "-> Cloning repository..."
 
     git clone -q $repoUrl $tempPath
+    
+    # Get the submodules
+    cd $tempPath
+    git submodule -q update --init --recursive
+
+    cd $cwd
 }
 
 function Copy-NvimConfig {
@@ -68,6 +75,11 @@ function Install-Fonts {
     Write-Host "-> Fonts installed successfully."
 }
 
+function Copy-Ideavim {
+    Write-Host "-> Copying .ideavimrc"
+    Copy-Item -Recurse -Force -Path "$tempPath\idea\.ideavimrc" "$env:HOME\.ideavimrc"
+}
+
 # Main script
 try {
     # Check if git is installed
@@ -90,6 +102,8 @@ try {
 
     # Copy Wezterm configuration
     Copy-WeztermConfig
+
+    Copy-Ideavim
 
     # Install fonts
     Install-Fonts
