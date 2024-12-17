@@ -18,6 +18,30 @@ else
   DISTRO=$(lsb_release -i | awk '{print $3}')
 fi
 
+update_packages() {
+  case "$DISTRO" in
+    "ubuntu" | "debian")
+      sudo apt update && sudo apt upgrade
+      ;;
+    "fedora")
+      sudo dnf update
+      ;;
+    "arch")
+      sudo pacman -Syu
+      ;;
+    "opensuse")
+      sudo zypper update
+      ;;
+    "rhel" | "centos")
+      sudo yum update
+      ;;
+    *)
+      echo "-> Unsupported distribution for Git. Please install Git manually."
+      ;;
+    esac
+
+}
+
 install_git() {
   if ! command -v git &>/dev/null; then
     echo "Installing Git..."
@@ -41,6 +65,17 @@ install_git() {
       echo "-> Unsupported distribution for Git. Please install Git manually."
       ;;
     esac
+  fi
+
+  if ! command -v gh &>/dev/null; then
+    echo "-> Installing gh..."
+    GHVERSION=$(wget -q "https://api.github.com/repos/cli/cli/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
+    wget -qO gh.tar.gz "https://github.com/cli/cli/releases/download/v${GHVERSION}/gh_${GHVERSION}_linux_amd64.tar.gz"
+    tar xf gh.tar.gz
+    sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/bin/
+    sudo cp -R "gh_${GHVERSION}_linux_amd64/share" /usr/local
+
+    gh auth login
   fi
 }
 
@@ -119,16 +154,16 @@ install_alacritty() {
 
     case "$DISTRO" in
     "ubuntu" | "debian")
-      sudo apt-get install -y alacritty
+      sudo apt-get install -y cmake g++ pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 alacritty
       ;;
     "fedora")
-      sudo dnf install -y alacritty
+      sudo dnf install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel g++ alacritty
       ;;
     "arch")
-      sudo pacman -S alacritty -y
+      sudo pacman -S cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python alacritty -y
       ;;
     "opensuse")
-      sudo zypper install -y alacritty
+      sudo zypper install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel alacritty
       ;;
     *)
       echo "-> Unsupported distribution for alacritty. Please install alacritty manually."
@@ -201,17 +236,6 @@ setup_bash() {
     sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind" -D -t /usr/local/bin/
   fi
 
-  if ! command -v gh &>/dev/null; then
-    echo "-> Installing gh..."
-    GHVERSION=$(wget -q "https://api.github.com/repos/cli/cli/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
-    wget -qO gh.tar.gz "https://github.com/cli/cli/releases/download/v${GHVERSION}/gh_${GHVERSION}_linux_amd64.tar.gz"
-    tar xf gh.tar.gz
-    sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/bin/
-    sudo cp -R "gh_${GHVERSION}_linux_amd64/share" /usr/local
-
-    gh auth login
-  fi
-
   if ! command -v lazygit &>/dev/null; then
     echo "-> Installing lazygit..."
     LAZYGIT_VERSION=$(wget -q "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
@@ -221,24 +245,26 @@ setup_bash() {
   fi
 
   echo "-> Setting aliases..."
-  tee -a ~/.bashrc <<<"alias ls='eza -lh --group-directories-first --icons'"
-  tee -a ~/.bashrc <<<"alias lsa='ls -a'"
-  tee -a ~/.bashrc <<<"alias la='ls -a'"
-  tee -a ~/.bashrc <<<"alias lt='eza --tree --level=2 --long --icons --git'"
-  tee -a ~/.bashrc <<<"alias lta='lt -a'"
-  tee -a ~/.bashrc --preview 'batcat --style=numbers --color=always {}'"" <<<"alias ff="fzf
-  tee -a ~/.bashrc <<<"alias fd='fdfind'"
-  tee -a ~/.bashrc <<<"alias cd='z'"
+  tee -a "$HOME/.bashrc" <<<"alias ls='eza -lh --group-directories-first --icons'"
+  tee -a "$HOME/.bashrc" <<<"alias lsa='ls -a'"
+  tee -a "$HOME/.bashrc" <<<"alias la='ls -a'"
+  tee -a "$HOME/.bashrc" <<<"alias lt='eza --tree --level=2 --long --icons --git'"
+  tee -a "$HOME/.bashrc" <<<"alias lta='lt -a'"
+  tee -a "$HOME/.bashrc" --preview 'batcat --style=numbers --color=always {}'"" <<<"alias ff="fzf
+  tee -a "$HOME/.bashrc" <<<"alias fd='fdfind'"
+  tee -a "$HOME/.bashrc" <<<"alias cd='z'"
 
   echo "-> Setting bash ps1..."
   tee -a ~/.bashrc <<<"PS1='\[\e[0;35m\]\u@\h\[\e[0m\]:\[\e[0;32m\]\w\[\e[0m\]\\$ '"
 }
 
+update_packages
+
 install_git
 
-setup_bash
-
 clone_repository
+
+setup_bash
 
 install_nvim
 
@@ -254,5 +280,4 @@ echo "-> Cleaning up..."
 # Cleanup
 rm -rf "$TEMP_PATH"
 
-echo ""
-echo "Done!"
+echo "\nDone!"
