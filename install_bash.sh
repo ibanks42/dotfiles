@@ -208,7 +208,7 @@ setup_bash() {
     echo "$GHVERSION"
     curl -Lo gh.tar.gz "https://github.com/cli/cli/releases/download/v${GHVERSION}/gh_${GHVERSION}_linux_amd64.tar.gz"
     tar xf gh.tar.gz
-    sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/local/bin/
+    sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/bin/
     sudo cp -R "gh_${GHVERSION}_linux_amd64/share" /usr/local
 
     gh auth login
