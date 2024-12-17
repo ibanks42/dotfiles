@@ -79,6 +79,10 @@ npm install -g cowsay
 ```sh
 bash <(curl -s https://raw.githubusercontent.com/ibanks42/dotfiles/main/install_bash.sh)
 ```
+#### Or
+```sh
+wget -qO- https://raw.githubusercontent.com/ibanks42/dotfiles/main/install_bash.sh | bash
+```
 
 </details>
 
