@@ -20,7 +20,7 @@ fi
 
 update_packages() {
   case "$DISTRO" in
-    "ubuntu" | "debian")
+    "ubuntu" | "debian" | "linuxmint")
       sudo apt update && sudo apt upgrade
       ;;
     "fedora")
@@ -46,7 +46,7 @@ install_git() {
   if ! command -v git &>/dev/null; then
     echo "Installing Git..."
     case "$DISTRO" in
-    "ubuntu" | "debian")
+    "ubuntu" | "debian" | "linuxmint")
       sudo apt-get install -y git
       ;;
     "fedora")
