@@ -128,7 +128,6 @@ install_nvim() {
     echo "-> Installing fortune-mod..."
     case "$DISTRO" in
       "ubuntu" | "debian" | "linuxmint")
-        wget -qO- https://swee.codes/swee.list | sudo tee /etc/apt/sources.list.d/swee.list >/dev/null 2>&1
         sudo apt-get install -y fortune-mod-shlomif
         ;;
       "fedora")
