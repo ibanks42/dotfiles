@@ -11,47 +11,53 @@ CWD=$(pwd)
 
 # Check for /etc/os-release
 source /etc/os-release
-DISTRO="$ID"
+DISTRO="${ID_LIKE:-$ID}"
 
 update_packages() {
   case "$DISTRO" in
-    "ubuntu" | "debian" | "linuxmint")
-      sudo apt-get update && sudo apt-get upgrade
-      ;;
-    "fedora")
-      sudo dnf update
-      ;;
-    "arch" | "endeavouros")
-      sudo pacman -Syu
-      ;;
-    "opensuse")
-      sudo zypper update
-      ;;
-    "rhel" | "centos")
-      sudo yum update
-      ;;
-    esac
+  *debian*)
+    sudo apt-get update && sudo apt-get upgrade
+    ;;
+  *fedora*)
+    sudo dnf update
+    ;;
+  *arch*)
+    sudo pacman -Syu
+    ;;
+  *suse*)
+    sudo zypper update
+    ;;
+  *rhel* | *centos*)
+    sudo yum update
+    ;;
+  *)
+    echo "-> Unsupported distribution \"$DISTRO\" for updating packages."
+    ;;
+  esac
 }
 
 install_git() {
   if ! command -v git &>/dev/null; then
     echo "-> Installing Git..."
     case "$DISTRO" in
-      "ubuntu" | "debian" | "linuxmint")
-        sudo apt-get install -y git
-        ;;
-      "fedora")
-        sudo dnf install -y git
-        ;;
-      "arch" | "endeavouros")
-        sudo pacman -S git -y
-        ;;
-      "opensuse")
-        sudo zypper install -y git
-        ;;
-      "rhel" | "centos")
-        sudo yum install -y git
-        ;;
+    *debian* | *ubuntu* | *linuxmint*)
+      sudo apt-get install -y git
+      ;;
+    *fedora*)
+      sudo dnf install -y git
+      ;;
+    *arch*)
+      sudo pacman -S --noconfirm git
+      ;;
+    *suse*)
+      sudo zypper install -y git
+      ;;
+    *rhel* | *centos*)
+      sudo yum install -y git
+      ;;
+    *)
+      echo "-> Unsupported distribution \"$DISTRO\" for installing Git."
+      ;;
     esac
   fi
 }
@@ -122,35 +128,12 @@ install_nvim() {
 
   cp -f -r "$TEMP_PATH/nvim" "$NVIM_CONFIG_PATH"
 
-  echo "-> Installing gh-notify, fortune-mod, and cowsay for neovim dashboard..."
-
-  if ! command -v fortune &>/dev/null; then
-    echo "-> Installing fortune-mod..."
-    case "$DISTRO" in
-      "ubuntu" | "debian" | "linuxmint")
-        sudo apt-get install -y fortune-mod
-        ;;
-      "fedora")
-        sudo dnf install -y fortune-mod
-        ;;
-      "arch" | "endeavouros")
-        sudo pacman -S fortune-mod -y
-        ;;
-      *)
-        echo "---- Unsupported OS for fortune-mod ----"
-        ;;
-    esac
-  fi
-
   if [[ -z $(gh ext list | grep "meiji163/gh-notify") ]]; then
+    echo "-> Installing gh-notify for neovim dashboard..."
     gh ext install meiji163/gh-notify >/dev/null 2>&1
   fi
-  
-  if ! command -v cowsay &>/dev/null; then
-    npm install -g cowsay
-  fi
 
-  echo "-> Neovim configuration installed successfully."
+  printf "\u2705Neovim configuration installed successfully.\n"
 }
 
 install_zellij() {
@@ -165,7 +148,7 @@ install_zellij() {
 
   echo "-> Copying zellij configuration..."
   cp -f -r "$TEMP_PATH/zelli" "$HOME/.config/zellij"
-  echo "-> Zellij installed successfully..."
+  printf "\u2705Zellij installed successfully...\n"
 }
 
 install_alacritty() {
@@ -173,17 +156,21 @@ install_alacritty() {
     echo "-> Installing alacritty..."
 
     case "$DISTRO" in
-    "ubuntu" | "debian" | "linuxmint")
+    *debian*)
       sudo apt-get install -y cmake g++ pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 alacritty
       ;;
-    "fedora")
+    *rhel* | *fedora*)
       sudo dnf install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel g++ alacritty
       ;;
-    "arch")
-      sudo pacman -S cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python alacritty -y
+    *arch*)
+      sudo pacman -S cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python alacritty --noconfirm
       ;;
-    "opensuse")
+    *suse*)
       sudo zypper install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel alacritty
+      ;;
+    *)
+      echo "Unsupported distribution: $DISTRO"
+      return 1
       ;;
     esac
   fi
@@ -191,7 +178,7 @@ install_alacritty() {
   echo "-> Copying Alacritty configuration..."
   cp -f -r "$TEMP_PATH/alacritty" "$HOME/.config/alacritty"
 
-  echo "-> Alacritty configuration installed successfully."
+  printf "\u2705Alacritty configuration installed successfully.\n"
 }
 
 install_fonts() {
@@ -221,7 +208,7 @@ install_mise() {
   fi
 }
 
-setup_bash() {
+install_miscellaneous() {
   echo "-> Setting up bash and installing requirements..."
   if ! command -v eza &>/dev/null; then
     echo "-> Installing eza (ls alternative)..."
@@ -263,6 +250,18 @@ setup_bash() {
     cd "$CWD" || exit
   fi
 
+  if ! command -v fdfind &>/dev/null; then
+    echo "-> Installing fd..."
+    cd "$TEMP_PATH" || exit
+    FDVERSION=$(wget -q "https://api.github.com/repos/sharkdp/fd/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
+    wget -qO fd.tar.gz "https://github.com/sharkdp/fd/releases/download/v${FDVERSION}/fd-v${FDVERSION}-x86_64-unknown-linux-musl.tar.gz"
+    tar xf fd.tar.gz >/dev/null 2>&1
+    cp "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind"
+    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" -D -t /usr/local/bin/ >/dev/null 2>&1
+    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind" -D -t /usr/local/bin/ >/dev/null 2>&1
+    cd "$CWD" || exit
+  fi
+
   if ! command -v lazygit &>/dev/null; then
     echo "-> Installing lazygit..."
     cd "$TEMP_PATH" || exit
@@ -273,16 +272,40 @@ setup_bash() {
     cd "$CWD" || exit
   fi
 
+  if ! command -v batcat &>/dev/null; then
+    echo "-> Installing bat..."
+    BATCATVERSION=$(wget -q "https://api.github.com/repos/sharkdp/bat/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
+    wget -qO bat.tar.gz "https://github.com/sharkdp/bat/releases/download/v${BATCATVERSION}/bat-v${BATCATVERSION}-x86_64-unknown-linux-musl.tar.gz"
+    tar xf bat.tar.gz >/dev/null 2>&1
+    sudo mv "bat-v${BATCATVERSION}-x86_64-unknown-linux-musl" /usr/local/bat
+    tee -a "$HOME/.bashrc" <<<"alias bat='/usr/local/bat/bat'" >/dev/null 2>&1
+    tee -a "$HOME/.bashrc" <<<"alias batcat='/usr/local/bat/bat'" >/dev/null 2>&1
+  fi
+}
+
+update_bashrc() {
   echo "-> Writing bashrc config..."
-  tee -a "$HOME/.bashrc" <<<"alias ls='eza -lh --group-directories-first --icons'" >/dev/null 2>&1
-  tee -a "$HOME/.bashrc" <<<"alias lsa='ls -a'" >/dev/null 2>&1
-  tee -a "$HOME/.bashrc" <<<"alias la='ls -a'" >/dev/null 2>&1
-  tee -a "$HOME/.bashrc" <<<"alias lt='eza --tree --level=2 --long --icons --git'" >/dev/null 2>&1
-  tee -a "$HOME/.bashrc" <<<"alias lta='lt -a'" >/dev/null 2>&1
-  tee -a "$HOME/.bashrc" <<<"alias ff=\"fzf --preview 'batcat --style=numbers --color=always {}'\"" >/dev/null 2>&1
-  tee -a "$HOME/.bashrc" <<<"alias fd='fdfind'" >/dev/null 2>&1
-  tee -a "$HOME/.bashrc" <<<"alias cd='z'" >/dev/null 2>&1
-  tee -a "$HOME/.bashrc" <<<"PS1='\[\e[0;35m\]\u@\h\[\e[0m\]:\[\e[0;32m\]\w\[\e[0m\]\\$ '" >/dev/null 2>&1
+  declare -A entries=(
+    ["alias ls"]='alias ls="eza -lh --group-directories-first --icons"'
+    ["alias lsa"]='alias lsa="ls -a"'
+    ["alias la"]='alias la="ls -a"'
+    ["alias lt"]='alias lt="eza --tree --level=2 --long --icons --git"'
+    ["alias lta"]='alias lta="lt -a"'
+    ["alias ff"]='alias ff="fzf --preview '\''batcat --style=numbers --color=always {}'\''"'
+    ["alias fd"]='alias fd="fdfind"'
+    ["alias cd"]='alias cd="z"'
+    ["PS1"]='PS1="\[\e[0;35m\]\u@\h\[\e[0m\]:\[\e[0;32m\]\w\[\e[0m\]\\$ "'
+  )
+
+  for key in "${!entries[@]}"; do
+    entry="${entries[$key]}"
+    if ! grep -qxF "$entry" "$HOME/.bashrc"; then
+      # Add only if it doesn't already exist
+      echo "$entry" | tee -a "$HOME/.bashrc" >/dev/null
+    fi
+  done
+
+  printf "\u2705Bash configuration updated."
 }
 
 update_packages
@@ -293,26 +316,28 @@ install_gh
 
 clone_repository
 
-setup_bash
+install_fonts
+
+install_miscellaneous
 
 install_mise
-
-install_nvim
 
 install_alacritty
 
 install_zellij
 
-install_fonts
+install_nvim
 
 install_ideavim
+
+update_bashrc
 
 echo "-> Cleaning up..."
 # Cleanup
 # rm -rf "$TEMP_PATH"
 
 echo ""
-echo "Done!"
+printf "\u2705Done!\n"
 echo ""
 
 echo "-------------------"
