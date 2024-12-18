@@ -274,12 +274,14 @@ install_miscellaneous() {
 
   if ! command -v batcat &>/dev/null; then
     echo "-> Installing bat..."
+    cd "$TEMP_PATH" || exit
     BATCATVERSION=$(wget -q "https://api.github.com/repos/sharkdp/bat/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO bat.tar.gz "https://github.com/sharkdp/bat/releases/download/v${BATCATVERSION}/bat-v${BATCATVERSION}-x86_64-unknown-linux-musl.tar.gz"
     tar xf bat.tar.gz >/dev/null 2>&1
     sudo mv "bat-v${BATCATVERSION}-x86_64-unknown-linux-musl" /usr/local/bat
     tee -a "$HOME/.bashrc" <<<"alias bat='/usr/local/bat/bat'" >/dev/null 2>&1
     tee -a "$HOME/.bashrc" <<<"alias batcat='/usr/local/bat/bat'" >/dev/null 2>&1
+    cd "$CWD" || exit
   fi
 }
 
@@ -305,7 +307,7 @@ update_bashrc() {
     fi
   done
 
-  printf "\u2705Bash configuration updated."
+  printf "\u2705Bash configuration updated.\n"
 }
 
 update_packages
