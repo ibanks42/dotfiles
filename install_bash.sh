@@ -128,7 +128,7 @@ install_nvim() {
     echo "-> Installing fortune-mod..."
     case "$DISTRO" in
       "ubuntu" | "debian" | "linuxmint")
-        sudo apt-get install -y fortune-mod-shlomif
+        sudo apt-get install -y fortune-mod
         ;;
       "fedora")
         sudo dnf install -y fortune-mod
