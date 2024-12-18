@@ -74,16 +74,13 @@ return {
           end,
         },
         sections = {
-          { section = "terminal", cmd = "fortune -s | cowsay", hl = "header", padding = 1, indent = 8 },
+          { section = "terminal", padding = 1, height = 1, cmd = "" },
           {
             pane = 2,
             section = "terminal",
-            cmd = "colorscript -e square",
-            height = 5,
+            height = 1,
             padding = 1,
-            enabled = function()
-              return Snacks.git.get_root() ~= nil
-            end,
+            cmd = "",
           },
           { title = "Sessions", padding = 1 },
           { section = "projects", padding = 1 },
