@@ -124,7 +124,7 @@ install_nvim() {
 
   echo "-> Installing gh-notify, fortune-mod, and cowsay for neovim dashboard..."
 
-  if ! command -v fortune-mod &>/dev/null; then
+  if ! command -v fortune &>/dev/null; then
     echo "-> Installing fortune-mod..."
     case "$DISTRO" in
       "ubuntu" | "debian" | "linuxmint")
