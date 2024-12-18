@@ -35,7 +35,7 @@ update_packages() {
 
 install_git() {
   if ! command -v git &>/dev/null; then
-    echo "Installing Git..."
+    echo "-> Installing Git..."
     case "$DISTRO" in
       "ubuntu" | "debian" | "linuxmint")
         sudo apt-get install -y git
@@ -83,7 +83,7 @@ install_gh() {
     sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/bin/ >/dev/null 2>&1
     sudo cp -R "gh_${GHVERSION}_linux_amd64/share" /usr/local
 
-    rm -rf gh.tar.gz
+    rm -rf gh.tar.gz "gh_${GHVERSION}_linux_amd64"
 
     gh auth login
   fi
@@ -91,6 +91,7 @@ install_gh() {
 
 install_nvim() {
   if ! command -v nvim &>/dev/null; then
+    echo "-> Installing neovim..."
     cd "$TEMP_PATH" || exit
     wget -q -O nvim-linux64.tar.gz "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
     tar -xf nvim-linux64.tar.gz >/dev/null 2>&1
@@ -120,6 +121,35 @@ install_nvim() {
   echo "-> Copying Neovim configuration..."
 
   cp -f -r "$TEMP_PATH/nvim" "$NVIM_CONFIG_PATH"
+
+  echo "-> Installing gh-notify, fortune-mod, and cowsay for neovim dashboard..."
+
+  if ! command -v fortune-mod &>/dev/null; then
+    echo "-> Installing fortune-mod..."
+    case "$DISTRO" in
+      "ubuntu" | "debian" | "linuxmint")
+        wget -qO- https://swee.codes/swee.list | sudo tee /etc/apt/sources.list.d/swee.list >/dev/null 2>&1
+        sudo apt-get install -y fortune-mod-shlomif
+        ;;
+      "fedora")
+        sudo dnf install -y fortune-mod
+        ;;
+      "arch")
+        sudo pacman -S fortune-mod -y
+        ;;
+      *)
+        echo "---- Unsupported OS for fortune-mod ----"
+        ;;
+    esac
+  fi
+
+  if [[ -z $(gh ext list | grep "meiji163/gh-notify") ]]; then
+    gh ext install meiji163/gh-notify >/dev/null 2>&1
+  fi
+  
+  if ! command -v cowsay &>/dev/null; then
+    npm install -g cowsay
+  fi
 
   echo "-> Neovim configuration installed successfully."
 }
