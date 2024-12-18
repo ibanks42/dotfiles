@@ -2,66 +2,33 @@
 
 ## Installation
 
-#### Linux Install
+#### Prerequisites
 
-<details><summary>Ubuntu Install Steps</summary>
-
-```
-sudo add-apt-repository ppa:neovim-ppa/unstable -y
-sudo apt update
-sudo apt install make gcc ripgrep unzip git xclip neovim zoxide fzf fortune-mod -y
-
-LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
-curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-tar xf lazygit.tar.gz lazygit
-sudo install lazygit -D -t /usr/local/bin/
-
-npm install -g cowsay
-```
-
-</details>
-<details><summary>Debian Install Steps</summary>
+<details><summary>Ubuntu/Debian</summary>
 
 ```
 sudo apt update
-sudo apt install make gcc ripgrep unzip git xclip curl zoxide fzf fortune-mod
-
-# Now we install nvim
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
-sudo rm -rf /opt/nvim-linux64
-sudo mkdir -p /opt/nvim-linux64
-sudo chmod a+rX /opt/nvim-linux64
-sudo tar -C /opt -xzf nvim-linux64.tar.gz
-
-# make it available in /usr/local/bin, distro installs to /usr/bin
-sudo ln -sf /opt/nvim-linux64/bin/nvim /usr/local/bin/
-
-LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
-curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-tar xf lazygit.tar.gz lazygit
-sudo install lazygit -D -t /usr/local/bin/
-
-npm install -g cowsay
-```
-
-</details>
-<details><summary>Fedora Install Steps</summary>
-
-```
-sudo dnf install -y gcc make git ripgrep fd-find unzip neovim zoxide fzf fortune-mod
-
-sudo dnf copr enable atim/lazygit -y
-sudo dnf install -y lazygit
+sudo apt install make gcc ripgrep unzip xclip fortune-mod -y
 
 npm install -g cowsay
 ```
 
 </details>
 
-<details><summary>Arch Install Steps</summary>
+<details><summary>Fedora</summary>
 
 ```
-sudo pacman -S --noconfirm --needed gcc make git ripgrep fd unzip neovim zoxide fzf fortune-mod lazygit
+sudo dnf install -y gcc make ripgrep unzip fortune-mod
+
+npm install -g cowsay
+```
+
+</details>
+
+<details><summary>Arch</summary>
+
+```
+sudo pacman -S --noconfirm --needed gcc make ripgrep unzip fortune-mod
 
 npm install -g cowsay
 ```
@@ -72,7 +39,7 @@ npm install -g cowsay
 ### Install dotfiles
 
 > **NOTE**
-> Backup your previous configuration (if any exists)
+> Backup previous configuration (if any exists)
 
 <details><summary>Linux</summary>
 
