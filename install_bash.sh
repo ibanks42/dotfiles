@@ -1,4 +1,4 @@
-#!/bin/bash -i
+#!/bin/bash
 
 # Variables
 REPO_URL="https://github.com/ibanks42/dotfiles.git"
@@ -67,12 +67,11 @@ clone_repository() {
   git clone -q "$REPO_URL" "$TEMP_PATH"
 
   # Get the submodules
+  echo "-> Updating font submodules..."
   cd "$TEMP_PATH" || exit
   git submodule -q update --init --recursive
 
   cd "$CWD" || exit
-
-  echo "-> Repository cloned successfully."
 }
 
 install_gh() {
@@ -80,8 +79,8 @@ install_gh() {
     echo "-> Installing gh..."
     GHVERSION=$(wget -q "https://api.github.com/repos/cli/cli/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO gh.tar.gz "https://github.com/cli/cli/releases/download/v${GHVERSION}/gh_${GHVERSION}_linux_amd64.tar.gz"
-    tar xf gh.tar.gz
-    sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/bin/
+    tar xf gh.tar.gz >/dev/null 2>&1
+    sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/bin/ >/dev/null 2>&1
     sudo cp -R "gh_${GHVERSION}_linux_amd64/share" /usr/local
 
     rm -rf gh.tar.gz
@@ -94,8 +93,8 @@ install_nvim() {
   if ! command -v nvim &>/dev/null; then
     cd "$TEMP_PATH" || exit
     wget -q -O nvim-linux64.tar.gz "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
-    tar -xf nvim-linux64.tar.gz
-    sudo install nvim-linux64/bin/nvim /usr/local/bin/nvim
+    tar -xf nvim-linux64.tar.gz >/dev/null 2>&1
+    sudo install nvim-linux64/bin/nvim /usr/local/bin/nvim >/dev/null 2>&1
     sudo cp -R nvim-linux64/lib /usr/local/
     sudo cp -R nvim-linux64/share /usr/local
     cd "$CWD" || exit
@@ -130,8 +129,8 @@ install_zellij() {
     echo "-> Installing zellij..."
     cd "$TEMP_PATH" || exit
     wget -q -O "zellij.tar.xz" "https://github.com/zellij-org/zellij/releases/latest/download/zellij-x86_64-unknown-linux-musl.tar.gz"
-    tar -xf "zellij.tar.xz"
-    sudo install zellij /usr/local/bin/zelli
+    tar -xf "zellij.tar.xz" >/dev/null 2>&1
+    sudo install zellij /usr/local/bin/zelli >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
@@ -187,9 +186,9 @@ install_ideavim() {
 install_mise() {
   if ! command -v mise &>/dev/null; then
     # Install mise for managing multiple versions of languages. See https://mise.jdx.dev/
-    wget -qO - https://mise.run | sh
-    tee -a "$HOME/.bashrc" <<<"eval \"\$(\$HOME/.local/bin/mise activate bash)\""
-    "$HOME/.local/bin/mise" use --global node@latest
+    wget -qO - https://mise.run | sh >/dev/null 2>&1
+    tee -a "$HOME/.bashrc" <<<"eval \"\$(\$HOME/.local/bin/mise activate bash)\"" >/dev/null 2>&1
+    "$HOME/.local/bin/mise" use --global node@latest >/dev/null 2>&1
   fi
 }
 
@@ -199,8 +198,8 @@ setup_bash() {
     echo "-> Installing eza (ls alternative)..."
     cd "$TEMP_PATH" || exit
     wget -qO eza.tar.gz "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-gnu.tar.gz"
-    tar xf eza.tar.gz
-    sudo install eza /usr/bin/eza
+    tar xf eza.tar.gz >/dev/null 2>&1
+    sudo install eza /usr/bin/eza >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
@@ -209,8 +208,8 @@ setup_bash() {
     cd "$TEMP_PATH" || exit
     FZFVERSION=$(wget -q "https://api.github.com/repos/junegunn/fzf/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO fzf.tar.gz "https://github.com/junegunn/fzf/releases/download/v${FZFVERSION}/fzf-${FZFVERSION}-linux_amd64.tar.gz"
-    tar xf fzf.tar.gz fzf
-    sudo install fzf -D -t /usr/local/bin/
+    tar xf fzf.tar.gz fzf >/dev/null 2>&1
+    sudo install fzf -D -t /usr/local/bin/ >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
@@ -218,8 +217,8 @@ setup_bash() {
     echo "-> Installing zoxide (cd alternative)..."
     cd "$TEMP_PATH" || exit
     wget -qO- https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh >/dev/null 2>&1
-    tee -a "$HOME/.bashrc" <<<"export PATH=\"\$PATH:\$HOME/.local/bin\""
-    tee -a "$HOME/.bashrc" <<<"eval \"\$(zoxide init bash)\""
+    tee -a "$HOME/.bashrc" <<<"export PATH=\"\$PATH:\$HOME/.local/bin\"" >/dev/null 2>&1
+    tee -a "$HOME/.bashrc" <<<"eval \"\$(zoxide init bash)\"" >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
@@ -228,10 +227,10 @@ setup_bash() {
     cd "$TEMP_PATH" || exit
     FDVERSION=$(wget -q "https://api.github.com/repos/sharkdp/fd/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO fd.tar.gz "https://github.com/sharkdp/fd/releases/download/v${FDVERSION}/fd-v${FDVERSION}-x86_64-unknown-linux-musl.tar.gz"
-    tar xf fd.tar.gz
+    tar xf fd.tar.gz >/dev/null 2>&1
     cp "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind"
-    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" -D -t /usr/local/bin/
-    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind" -D -t /usr/local/bin/
+    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" -D -t /usr/local/bin/ >/dev/null 2>&1
+    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind" -D -t /usr/local/bin/ >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
@@ -240,12 +239,12 @@ setup_bash() {
     cd "$TEMP_PATH" || exit
     LAZYGIT_VERSION=$(wget -q "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-    tar xf lazygit.tar.gz lazygit
-    sudo install lazygit -D -t /usr/local/bin/
+    tar xf lazygit.tar.gz lazygit >/dev/null 2>&1
+    sudo install lazygit -D -t /usr/local/bin/ >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
-  echo "-> Setting aliases..."
+  echo "-> Writing bashrc config..."
   tee -a "$HOME/.bashrc" <<<"alias ls='eza -lh --group-directories-first --icons'" >/dev/null 2>&1
   tee -a "$HOME/.bashrc" <<<"alias lsa='ls -a'" >/dev/null 2>&1
   tee -a "$HOME/.bashrc" <<<"alias la='ls -a'" >/dev/null 2>&1
@@ -254,11 +253,7 @@ setup_bash() {
   tee -a "$HOME/.bashrc" <<<"alias ff=\"fzf --preview 'batcat --style=numbers --color=always {}'\"" >/dev/null 2>&1
   tee -a "$HOME/.bashrc" <<<"alias fd='fdfind'" >/dev/null 2>&1
   tee -a "$HOME/.bashrc" <<<"alias cd='z'" >/dev/null 2>&1
-
-  echo "-> Setting bash ps1..." >/dev/null 2>&1
   tee -a "$HOME/.bashrc" <<<"PS1='\[\e[0;35m\]\u@\h\[\e[0m\]:\[\e[0;32m\]\w\[\e[0m\]\\$ '" >/dev/null 2>&1
-
-  source "$HOME/.bashrc"
 }
 
 update_packages
@@ -289,3 +284,11 @@ echo "-> Cleaning up..."
 
 echo ""
 echo "Done!"
+echo ""
+
+echo "-------------------"
+echo "Run the following to finish installation"
+echo ""
+echo "  source ~/.bashrc"
+echo ""
+echo "-------------------"
