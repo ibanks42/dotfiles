@@ -130,7 +130,7 @@ install_zellij() {
     cd "$TEMP_PATH" || exit
     wget -q -O "zellij.tar.xz" "https://github.com/zellij-org/zellij/releases/latest/download/zellij-x86_64-unknown-linux-musl.tar.gz"
     tar -xf "zellij.tar.xz" >/dev/null 2>&1
-    sudo install zellij /usr/local/bin/zelli >/dev/null 2>&1
+    sudo install zellij /usr/local/bin/zellij >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
