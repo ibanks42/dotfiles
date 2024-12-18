@@ -21,7 +21,7 @@ update_packages() {
     "fedora")
       sudo dnf update
       ;;
-    "arch")
+    "arch" | "endeavouros")
       sudo pacman -Syu
       ;;
     "opensuse")
@@ -43,7 +43,7 @@ install_git() {
       "fedora")
         sudo dnf install -y git
         ;;
-      "arch")
+      "arch" | "endeavouros")
         sudo pacman -S git -y
         ;;
       "opensuse")
@@ -133,7 +133,7 @@ install_nvim() {
       "fedora")
         sudo dnf install -y fortune-mod
         ;;
-      "arch")
+      "arch" | "endeavouros")
         sudo pacman -S fortune-mod -y
         ;;
       *)
