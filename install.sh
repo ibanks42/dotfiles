@@ -192,7 +192,7 @@ install_ghostty() {
       "$HOME/.local/bin/mise" use --global zig >/dev/null 2>&1
     fi
 
-    zig_location="$HOME/.local/bin/mise where zig"
+    zig_location=$("$HOME/.local/bin/mise" where zig)
 
     "$zig_location" build -p "$HOME/.local" -Doptimize=ReleaseFast
 
