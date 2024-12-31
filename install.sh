@@ -185,14 +185,18 @@ install_ghostty() {
   if ! command -v ghostty &>/dev/null; then
     echo "-> Installing ghostty..."
     cd "$TEMP_PATH" || exit
-    git clone https://github.com/ghostty-org/ghostty.git
-    cd ghostty || exit
+    git clone https://github.com/ghostty-org/ghostty.git ghostty-src
+    cd ghostty-src || exit
 
-    "$HOME/.local/bin/mise" use --global zig >/dev/null 2>&1
+    if ! command -v zig &>/dev/null; then
+      "$HOME/.local/bin/mise" use --global zig >/dev/null 2>&1
+    fi
 
     zig build -p "$HOME/.local" -Doptimize=ReleaseFast
 
     cp -f -r "$TEMP_PATH/ghostty" "$HOME/.config/ghostty"
+
+    cd "$CWD" || exit
 
     printf "\u2705Ghostty configuration installed"
   fi
