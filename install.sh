@@ -40,7 +40,7 @@ install_git() {
   if ! command -v git &>/dev/null; then
     echo "-> Installing Git..."
     case "$DISTRO" in
-    *debian* | *ubuntu* | *linuxmint*)
+    *debian*)
       sudo apt-get install -y git
       ;;
     *fedora*)
@@ -85,8 +85,8 @@ install_gh() {
     echo "-> Installing gh..."
     GHVERSION=$(wget -q "https://api.github.com/repos/cli/cli/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO gh.tar.gz "https://github.com/cli/cli/releases/download/v${GHVERSION}/gh_${GHVERSION}_linux_amd64.tar.gz"
-    tar xf gh.tar.gz >/dev/null 2>&1
-    sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/bin/ >/dev/null 2>&1
+    tar xf gh.tar.gz
+    sudo install "gh_${GHVERSION}_linux_amd64/bin/gh" -D -t /usr/bin/
     sudo cp -R "gh_${GHVERSION}_linux_amd64/share" /usr/local
 
     rm -rf gh.tar.gz "gh_${GHVERSION}_linux_amd64"
@@ -100,8 +100,8 @@ install_nvim() {
     echo "-> Installing neovim..."
     cd "$TEMP_PATH" || exit
     wget -q -O nvim-linux64.tar.gz "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
-    tar -xf nvim-linux64.tar.gz >/dev/null 2>&1
-    sudo install nvim-linux64/bin/nvim /usr/local/bin/nvim >/dev/null 2>&1
+    tar -xf nvim-linux64.tar.gz
+    sudo install nvim-linux64/bin/nvim /usr/local/bin/nvim
     sudo cp -R nvim-linux64/lib /usr/local/
     sudo cp -R nvim-linux64/share /usr/local
     cd "$CWD" || exit
@@ -130,7 +130,7 @@ install_nvim() {
 
   if [[ -z $(gh ext list | grep "meiji163/gh-notify") ]]; then
     echo "-> Installing gh-notify for neovim dashboard..."
-    gh ext install meiji163/gh-notify >/dev/null 2>&1
+    gh ext install meiji163/gh-notify
   fi
 
   printf "\u2705Neovim configuration installed successfully.\n"
@@ -141,8 +141,8 @@ install_zellij() {
     echo "-> Installing zellij..."
     cd "$TEMP_PATH" || exit
     wget -q -O "zellij.tar.xz" "https://github.com/zellij-org/zellij/releases/latest/download/zellij-x86_64-unknown-linux-musl.tar.gz"
-    tar -xf "zellij.tar.xz" >/dev/null 2>&1
-    sudo install zellij /usr/local/bin/zellij >/dev/null 2>&1
+    tar -xf "zellij.tar.xz"
+    sudo install zellij /usr/local/bin/zellij
     cd "$CWD" || exit
   fi
 
@@ -151,45 +151,35 @@ install_zellij() {
   printf "\u2705Zellij installed successfully...\n"
 }
 
-# install_alacritty() {
-#   if ! command -v alacritty &>/dev/null; then
-#     echo "-> Installing alacritty..."
-#
-#     case "$DISTRO" in
-#     *debian*)
-#       sudo apt-get install -y cmake g++ pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 alacritty
-#       ;;
-#     *rhel* | *fedora*)
-#       sudo dnf install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel g++ alacritty
-#       ;;
-#     *arch*)
-#       sudo pacman -S cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python alacritty --noconfirm
-#       ;;
-#     *suse*)
-#       sudo zypper install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel alacritty
-#       ;;
-#     *)
-#       echo "Unsupported distribution: $DISTRO"
-#       return 1
-#       ;;
-#     esac
-#   fi
-#
-#   echo "-> Copying Alacritty configuration..."
-#   cp -f -r "$TEMP_PATH/alacritty" "$HOME/.config/alacritty"
-#
-#   printf "\u2705Alacritty configuration installed successfully.\n"
-# }
-
 install_ghostty() {
   if ! command -v ghostty &>/dev/null; then
+    case "$DISTRO" in
+    *debian*)
+      sudo apt install -y libgtk-4-dev libadwaita-1-dev
+      ;;
+    *fedora*)
+      sudo dnf install -y gtk4-devel libadwaita-devel
+      ;;
+    *arch*)
+      sudo pacman -S --no-confirm gtk4 libadwaita
+      ;;
+    *suse*)
+      sudo zypper -y gtk4-tools libadwaita-devel pkgconf-pkg-config
+      ;;
+    *)
+      echo "-> Unsupported distribution \"$DISTRO\" for installing ghostty."
+      return
+      ;;
+    esac
+
     echo "-> Installing ghostty..."
     cd "$TEMP_PATH" || exit
     git clone https://github.com/ghostty-org/ghostty.git ghostty-src
     cd ghostty-src || exit
 
     if ! command -v zig &>/dev/null; then
-      "$HOME/.local/bin/mise" use --global zig >/dev/null 2>&1
+      echo "-> Installing zig..."
+      "$HOME/.local/bin/mise" use --global zig
     fi
 
     zig_location=$("$HOME/.local/bin/mise" where zig)
@@ -200,7 +190,7 @@ install_ghostty() {
 
     cd "$CWD" || exit
 
-    printf "\u2705Ghostty configuration installed"
+    printf "\u2705Ghostty configuration installed\n"
   fi
 }
 
@@ -225,9 +215,9 @@ install_ideavim() {
 install_mise() {
   if ! command -v mise &>/dev/null; then
     # Install mise for managing multiple versions of languages. See https://mise.jdx.dev/
-    wget -qO - https://mise.run | sh >/dev/null 2>&1
+    wget -qO - https://mise.run | sh
     tee -a "$HOME/.bashrc" <<<"eval \"\$(\$HOME/.local/bin/mise activate bash)\"" >/dev/null 2>&1
-    "$HOME/.local/bin/mise" use --global node@latest >/dev/null 2>&1
+    "$HOME/.local/bin/mise" use --global node@latest
   fi
 }
 
@@ -237,8 +227,8 @@ install_miscellaneous() {
     echo "-> Installing eza (ls alternative)..."
     cd "$TEMP_PATH" || exit
     wget -qO eza.tar.gz "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-gnu.tar.gz"
-    tar xf eza.tar.gz >/dev/null 2>&1
-    sudo install eza /usr/bin/eza >/dev/null 2>&1
+    tar xf eza.tar.gz
+    sudo install eza /usr/bin/eza
     cd "$CWD" || exit
   fi
 
@@ -247,15 +237,15 @@ install_miscellaneous() {
     cd "$TEMP_PATH" || exit
     FZFVERSION=$(wget -q "https://api.github.com/repos/junegunn/fzf/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO fzf.tar.gz "https://github.com/junegunn/fzf/releases/download/v${FZFVERSION}/fzf-${FZFVERSION}-linux_amd64.tar.gz"
-    tar xf fzf.tar.gz fzf >/dev/null 2>&1
-    sudo install fzf -D -t /usr/local/bin/ >/dev/null 2>&1
+    tar xf fzf.tar.gz fzf
+    sudo install fzf -D -t /usr/local/bin/
     cd "$CWD" || exit
   fi
 
   if ! command -v zoxide &>/dev/null; then
     echo "-> Installing zoxide (cd alternative)..."
     cd "$TEMP_PATH" || exit
-    wget -qO- https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh >/dev/null 2>&1
+    wget -qO- https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
     tee -a "$HOME/.bashrc" <<<"export PATH=\"\$PATH:\$HOME/.local/bin\"" >/dev/null 2>&1
     tee -a "$HOME/.bashrc" <<<"eval \"\$(zoxide init bash)\"" >/dev/null 2>&1
     cd "$CWD" || exit
@@ -266,10 +256,10 @@ install_miscellaneous() {
     cd "$TEMP_PATH" || exit
     FDVERSION=$(wget -q "https://api.github.com/repos/sharkdp/fd/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO fd.tar.gz "https://github.com/sharkdp/fd/releases/download/v${FDVERSION}/fd-v${FDVERSION}-x86_64-unknown-linux-musl.tar.gz"
-    tar xf fd.tar.gz >/dev/null 2>&1
+    tar xf fd.tar.gz
     cp "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind"
-    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" -D -t /usr/local/bin/ >/dev/null 2>&1
-    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind" -D -t /usr/local/bin/ >/dev/null 2>&1
+    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" -D -t /usr/local/bin/
+    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind" -D -t /usr/local/bin/
     cd "$CWD" || exit
   fi
 
@@ -278,10 +268,10 @@ install_miscellaneous() {
     cd "$TEMP_PATH" || exit
     FDVERSION=$(wget -q "https://api.github.com/repos/sharkdp/fd/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO fd.tar.gz "https://github.com/sharkdp/fd/releases/download/v${FDVERSION}/fd-v${FDVERSION}-x86_64-unknown-linux-musl.tar.gz"
-    tar xf fd.tar.gz >/dev/null 2>&1
+    tar xf fd.tar.gz
     cp "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind"
-    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" -D -t /usr/local/bin/ >/dev/null 2>&1
-    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind" -D -t /usr/local/bin/ >/dev/null 2>&1
+    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fd" -D -t /usr/local/bin/
+    sudo install "fd-v${FDVERSION}-x86_64-unknown-linux-musl/fdfind" -D -t /usr/local/bin/
     cd "$CWD" || exit
   fi
 
@@ -290,8 +280,8 @@ install_miscellaneous() {
     cd "$TEMP_PATH" || exit
     LAZYGIT_VERSION=$(wget -q "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-    tar xf lazygit.tar.gz lazygit >/dev/null 2>&1
-    sudo install lazygit -D -t /usr/local/bin/ >/dev/null 2>&1
+    tar xf lazygit.tar.gz lazygit
+    sudo install lazygit -D -t /usr/local/bin/
     cd "$CWD" || exit
   fi
 
@@ -300,7 +290,7 @@ install_miscellaneous() {
     cd "$TEMP_PATH" || exit
     BATCATVERSION=$(wget -q "https://api.github.com/repos/sharkdp/bat/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
     wget -qO bat.tar.gz "https://github.com/sharkdp/bat/releases/download/v${BATCATVERSION}/bat-v${BATCATVERSION}-x86_64-unknown-linux-musl.tar.gz"
-    tar xf bat.tar.gz >/dev/null 2>&1
+    tar xf bat.tar.gz
     sudo mv "bat-v${BATCATVERSION}-x86_64-unknown-linux-musl" /usr/local/bat
     tee -a "$HOME/.bashrc" <<<"alias bat='/usr/local/bat/bat'" >/dev/null 2>&1
     tee -a "$HOME/.bashrc" <<<"alias batcat='/usr/local/bat/bat'" >/dev/null 2>&1
@@ -347,7 +337,6 @@ install_miscellaneous
 
 install_mise
 
-# install_alacritty
 install_ghostty
 
 install_zellij
