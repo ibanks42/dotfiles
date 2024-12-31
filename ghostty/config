@@ -2,6 +2,8 @@ font-family = TX-02
 
 theme = Dark+
 
+command = zellij
+
 keybind = f1=goto_tab:1
 keybind = f2=goto_tab:2
 keybind = f3=goto_tab:3
