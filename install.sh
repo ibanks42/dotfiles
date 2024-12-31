@@ -151,34 +151,51 @@ install_zellij() {
   printf "\u2705Zellij installed successfully...\n"
 }
 
-install_alacritty() {
-  if ! command -v alacritty &>/dev/null; then
-    echo "-> Installing alacritty..."
+# install_alacritty() {
+#   if ! command -v alacritty &>/dev/null; then
+#     echo "-> Installing alacritty..."
+#
+#     case "$DISTRO" in
+#     *debian*)
+#       sudo apt-get install -y cmake g++ pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 alacritty
+#       ;;
+#     *rhel* | *fedora*)
+#       sudo dnf install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel g++ alacritty
+#       ;;
+#     *arch*)
+#       sudo pacman -S cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python alacritty --noconfirm
+#       ;;
+#     *suse*)
+#       sudo zypper install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel alacritty
+#       ;;
+#     *)
+#       echo "Unsupported distribution: $DISTRO"
+#       return 1
+#       ;;
+#     esac
+#   fi
+#
+#   echo "-> Copying Alacritty configuration..."
+#   cp -f -r "$TEMP_PATH/alacritty" "$HOME/.config/alacritty"
+#
+#   printf "\u2705Alacritty configuration installed successfully.\n"
+# }
 
-    case "$DISTRO" in
-    *debian*)
-      sudo apt-get install -y cmake g++ pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 alacritty
-      ;;
-    *rhel* | *fedora*)
-      sudo dnf install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel g++ alacritty
-      ;;
-    *arch*)
-      sudo pacman -S cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon python alacritty --noconfirm
-      ;;
-    *suse*)
-      sudo zypper install -y cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel alacritty
-      ;;
-    *)
-      echo "Unsupported distribution: $DISTRO"
-      return 1
-      ;;
-    esac
+install_ghostty() {
+  if ! command -v ghostty &>/dev/null; then
+    echo "-> Installing ghostty..."
+    cd "$TEMP_PATH" || exit
+    git clone https://github.com/ghostty-org/ghostty.git
+    cd ghostty || exit
+
+    "$HOME/.local/bin/mise" use --global zig >/dev/null 2>&1
+
+    zig build -p "$HOME/.local" -Doptimize=ReleaseFast
+
+    cp -f -r "$TEMP_PATH/ghostty" "$HOME/.config/ghostty"
+
+    printf "\u2705Ghostty configuration installed"
   fi
-
-  echo "-> Copying Alacritty configuration..."
-  cp -f -r "$TEMP_PATH/alacritty" "$HOME/.config/alacritty"
-
-  printf "\u2705Alacritty configuration installed successfully.\n"
 }
 
 install_fonts() {
@@ -324,7 +341,8 @@ install_miscellaneous
 
 install_mise
 
-install_alacritty
+# install_alacritty
+install_ghostty
 
 install_zellij
 
