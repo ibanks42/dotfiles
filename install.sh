@@ -194,7 +194,7 @@ install_ghostty() {
 
     zig_location=$("$HOME/.local/bin/mise" where zig)
 
-    "$zig_location" build -p "$HOME/.local" -Doptimize=ReleaseFast
+    "$zig_location/zig" build -p "$HOME/.local" -Doptimize=ReleaseFast
 
     cp -f -r "$TEMP_PATH/ghostty" "$HOME/.config/ghostty"
 
