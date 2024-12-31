@@ -4,7 +4,10 @@ local mux = wezterm.mux
 
 local config = wezterm.config_builder()
 
-config.font = wezterm.font("BerkeleyMono Nerd Font")
+config.font = wezterm.font_with_fallback {
+	'TX-02,
+	'Cascadia Code'
+}
 config.font_size = 13
 config.color_scheme = "rose-pine"
 
