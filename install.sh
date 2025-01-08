@@ -186,7 +186,7 @@ install_ghostty() {
 
     "$zig_location/zig" build -p "$HOME/.local" -Doptimize=ReleaseFast
 
-    cp -f -r "$TEMP_PATH/ghostty" "$HOME/.config/ghostty"
+    cp -f -r "$TEMP_PATH/ghostty" "$HOME/.config"
 
     cd "$CWD" || exit
 

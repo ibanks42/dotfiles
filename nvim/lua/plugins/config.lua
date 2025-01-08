@@ -140,4 +140,17 @@ return {
       },
     },
   },
+  -- add build_on_save to zls
+  {
+    "neovim/nvim-lspconfig",
+    config = function()
+      require("lspconfig").zls.setup({
+        settings = {
+          zls = {
+            enable_build_on_save = true,
+          },
+        },
+      })
+    end,
+  },
 }

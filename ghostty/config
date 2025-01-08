@@ -3,3 +3,6 @@ font-family = TX-02
 theme = Dark+
 
 command = zellij
+
+keybind = f11=toggle_fullscreen
+keybind = f12=toggle_window_decorations
