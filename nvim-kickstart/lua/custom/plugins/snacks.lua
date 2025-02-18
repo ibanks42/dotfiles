@@ -11,6 +11,7 @@ return {
         { section = 'startup' },
       },
     },
+    lazygit = { enabled = true },
     indent = { enabled = true },
     input = { enabled = true },
     notifier = { enabled = true },
@@ -19,6 +20,27 @@ return {
     words = { enabled = true },
   },
   keys = {
+    {
+      '<leader>gg',
+      function()
+        Snacks.lazygit()
+      end,
+      desc = 'Lazygit',
+    },
+    {
+      '<leader>gG',
+      function()
+        local function script_path(str)
+          return str:match '(.*/)'
+        end
+
+        local root = script_path(vim.fn.expand '%:p')
+        local git_root = vim.fs.find('.git', { path = root, upward = true })[1]
+        local ret = git_root and vim.fn.fnamemodify(git_root, ':h') or root
+        Snacks.lazygit { cwd = ret }
+      end,
+      desc = 'Lazygit (current file)',
+    },
     {
       '<leader>n',
       function()
