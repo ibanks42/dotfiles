@@ -5,6 +5,9 @@
 -- * disable/enabled LazyVim plugins
 -- * override the configuration of LazyVim plugins
 
+if vim.g.vscode then
+  return {}
+end
 vim.g.zig_fmt_autosave = 0
 
 return {
