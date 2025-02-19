@@ -305,15 +305,37 @@ require('lazy').setup({
       require('mini.ai').setup { n_lines = 500 }
       require('mini.surround').setup()
       local statusline = require 'mini.statusline'
-      statusline.setup { use_icons = vim.g.have_nerd_font }
 
-      ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_location = function()
-        return '%2l:%-2v'
+      local function get_time()
+        return os.date '%I:%M %p'
       end
 
-      -- ... and there is more!
-      --  Check out: https://github.com/echasnovski/mini.nvim
+      statusline.setup {
+        use_icons = vim.g.have_nerd_font,
+        content = {
+          active = function()
+            local mode, mode_hl = statusline.section_mode { trunc_width = 120 }
+            local git = statusline.section_git { trunc_width = 75 }
+            local diagnostics = statusline.section_diagnostics { trunc_width = 75 }
+            local filename = statusline.section_filename { trunc_width = 140 }
+            local fileinfo = statusline.section_fileinfo { trunc_width = 120 }
+            local location = '%2l:%-2v'
+            local time = get_time()
+
+            return statusline.combine_groups {
+              { hl = 'MiniStatuslineFileinfo', strings = { time } },
+              { hl = mode_hl, strings = { mode } },
+              { hl = 'MiniStatuslineDevinfo', strings = { git } },
+              { hl = 'MiniStatuslineDevinfo', strings = { diagnostics } },
+              '%<', -- Mark general truncate point
+              { hl = 'MiniStatuslineFilename', strings = { filename } },
+              '%=', -- Start right alignment
+              { hl = 'MiniStatuslineFileinfo', strings = { fileinfo } },
+              { hl = mode_hl, strings = { location } },
+            }
+          end,
+        },
+      }
     end,
   },
 
