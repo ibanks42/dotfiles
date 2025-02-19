@@ -9,6 +9,4 @@ vim.keymap.set('n', '<leader>zz', function()
   zen.toggle()
 end)
 
-return {
-  'folke/zen-mode.nvim',
-}
+return { 'folke/zen-mode.nvim' }
