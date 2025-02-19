@@ -1,3 +1,8 @@
+local wk = require 'which-key'
+wk.add {
+  { '<leader>n', group = '[N]otifications' },
+}
+
 return {
   'folke/snacks.nvim',
   lazy = false,
@@ -42,7 +47,7 @@ return {
       desc = 'Lazygit (current file)',
     },
     {
-      '<leader>n',
+      '<leader>nh',
       function()
         if Snacks.config.picker and Snacks.config.picker.enabled then
           Snacks.picker.notifications()
@@ -50,14 +55,14 @@ return {
           Snacks.notifier.show_history()
         end
       end,
-      desc = 'Notification History',
+      desc = '[H]istory',
     },
     {
-      '<leader>un',
+      '<leader>nd',
       function()
         Snacks.notifier.hide()
       end,
-      desc = 'Dismiss All Notifications',
+      desc = '[D]ismiss All Notifications',
     },
   },
 }

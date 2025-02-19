@@ -1,4 +1,4 @@
-vim.keymap.set('n', '<leader>zz', function()
+vim.keymap.set('n', '<leader>z', function()
   local zen = require 'zen-mode'
   zen.setup {
     window = {
@@ -7,6 +7,6 @@ vim.keymap.set('n', '<leader>zz', function()
     },
   }
   zen.toggle()
-end)
+end, { desc = '[Z]en Mode' })
 
 return { 'folke/zen-mode.nvim' }
