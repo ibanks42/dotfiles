@@ -323,8 +323,8 @@ require('lazy').setup({
             local time = get_time()
 
             return statusline.combine_groups {
-              { hl = 'MiniStatuslineFileinfo', strings = { time } },
               { hl = mode_hl, strings = { mode } },
+              { hl = 'MiniStatuslineFileinfo', strings = { time } },
               { hl = 'MiniStatuslineDevinfo', strings = { git } },
               { hl = 'MiniStatuslineDevinfo', strings = { diagnostics } },
               '%<', -- Mark general truncate point
