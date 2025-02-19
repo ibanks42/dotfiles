@@ -1,13 +1,13 @@
 return {
   {
     'neovim/nvim-lspconfig',
+    event = 'BufEnter',
     dependencies = {
       { 'williamboman/mason.nvim', opts = {} },
       'williamboman/mason-lspconfig.nvim',
       'WhoIsSethDaniel/mason-tool-installer.nvim',
-
+      'b0o/schemastore.nvim',
       { 'j-hui/fidget.nvim', opts = {} },
-
       'hrsh7th/cmp-nvim-lsp',
     },
     config = function()
@@ -38,8 +38,7 @@ return {
           map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
           local client = vim.lsp.get_client_by_id(event.data.client_id)
-          ---@diagnostic disable-next-line: param-type-mismatch
-          if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight) then
+          if client and client.server_capabilities.documentHighlightProvider then
             local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
             vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
               buffer = event.buf,
@@ -94,19 +93,16 @@ return {
           },
         },
         jsonls = {
-          -- lazy-load schemastore when needed
-          on_new_config = function(new_config)
-            new_config.settings.json.schemas = new_config.settings.json.schemas or {}
-            vim.list_extend(new_config.settings.json.schemas, require('schemastore').json.schemas())
-          end,
           settings = {
             json = {
               format = {
                 enable = true,
               },
+              schemas = require('schemastore').json.schemas(),
               validate = { enable = true },
             },
           },
+          log_level = vim.log.levels.DEBUG,
         },
       }
 
@@ -115,6 +111,7 @@ return {
         'stylua',
         'black',
         'ts_ls',
+        'jsonls',
         'biome',
         'bashls',
         'svelte',
@@ -160,7 +157,9 @@ return {
         'c',
         'cpp',
         'go',
+        'json',
         'json5',
+        'jsonc',
         'gomod',
         'gosum',
         'diff',
@@ -171,7 +170,7 @@ return {
       auto_install = true,
       highlight = {
         enable = true,
-        additional_vim_regex_highlighting = { 'ruby' },
+        additional_vim_regex_highlighting = { 'ruby', 'json' },
       },
       indent = { enable = true, disable = { 'ruby' } },
     },

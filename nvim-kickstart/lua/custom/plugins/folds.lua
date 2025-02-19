@@ -34,6 +34,7 @@ end
 return {
   'kevinhwang91/nvim-ufo',
   dependencies = { 'nvim-lspconfig', 'nvim-treesitter', 'kevinhwang91/promise-async' },
+  event = 'VeryLazy',
   config = function()
     require('ufo').setup {
 

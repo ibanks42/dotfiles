@@ -1,6 +1,7 @@
 return {
 
   'laytan/cloak.nvim',
+  event = 'BufEnter',
   opts = {
     enabled = true,
     cloak_character = '*',

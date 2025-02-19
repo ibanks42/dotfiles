@@ -2,6 +2,7 @@ vim.keymap.set('n', '<leader>cd', '<cmd>AerialToggle!<CR>', { desc = '[D]efiniti
 
 return {
   'stevearc/aerial.nvim',
+  event = 'VeryLazy',
   opts = {
     on_attach = function(bufnr)
       -- Jump forwards/backwards with '{' and '}'
