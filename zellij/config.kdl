@@ -4,18 +4,16 @@
 
 keybinds clear-defaults=true {
     locked {
-        bind "F1" { GoToTab 1; }
-        bind "F2" { GoToTab 2; }
-        bind "F3" { GoToTab 3; }
-        bind "F4" { GoToTab 4; }
-        bind "F5" { GoToTab 5; }
-        bind "F6" { GoToTab 6; }
-        bind "F7" { GoToTab 7; }
-        bind "F8" { GoToTab 8; }
-        bind "F9" { GoToTab 9; }
-        bind "F10" { GoToTab 10; }
-        bind "F11" { GoToTab 11; }
-        bind "F12" { GoToTab 12; }
+        bind "Alt 1" { GoToTab 1; }
+        bind "Alt 2" { GoToTab 2; }
+        bind "Alt 3" { GoToTab 3; }
+        bind "Alt 4" { GoToTab 4; }
+        bind "Alt 5" { GoToTab 5; }
+        bind "Alt 6" { GoToTab 6; }
+        bind "Alt 7" { GoToTab 7; }
+        bind "Alt 8" { GoToTab 8; }
+        bind "Alt 9" { GoToTab 9; }
+        bind "Alt 0" { GoToTab 10; }
         bind "Ctrl ." { SwitchToMode "normal"; }
     }
     pane {
@@ -227,6 +225,13 @@ keybinds clear-defaults=true {
     renamepane {
         bind "esc" { UndoRenamePane; SwitchToMode "pane"; }
     }
+    shared_except "locked" {
+      bind "Ctrl q" {
+        LaunchOrFocusPlugin "zj-quit" {
+          floating true
+        }
+      }
+    }
 }
 
 // Plugin aliases - can be used to change the implementation of Zellij
@@ -241,9 +246,13 @@ plugins {
     session-manager location="zellij:session-manager"
     status-bar location="zellij:status-bar"
     strider location="zellij:strider"
-    tab-bar location="zellij:tab-bar"
+    // tab-bar location="zellij:tab-bar"
     welcome-screen location="zellij:session-manager" {
         welcome_screen true
+    }
+    zj-quit location="https://github.com/cristiand391/zj-quit/releases/latest/download/zj-quit.wasm" {
+      confirm_key "q"
+      cancel_key "Esc"
     }
 }
 
@@ -251,6 +260,8 @@ plugins {
 // eg. "file:/path/to/my-plugin.wasm"
 // eg. "https://example.com/my-plugin.wasm"
 load_plugins {
+  
+
 }
  
 // Use a simplified UI without special fonts (arrow glyphs)
