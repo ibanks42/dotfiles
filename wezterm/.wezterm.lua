@@ -1,13 +1,9 @@
 local wezterm = require("wezterm")
 local act = wezterm.action
-local mux = wezterm.mux
 
 local config = wezterm.config_builder()
 
-config.font = wezterm.font_with_fallback {
-	'TX-02',
-	'Cascadia Code'
-}
+config.font = wezterm.font("Liga SFMono Nerd Font")
 config.font_size = 13
 config.color_scheme = "rose-pine"
 
@@ -23,6 +19,11 @@ config.window_close_confirmation = "NeverPrompt"
 
 -- fix for ctrl modifiers on windows
 config.keys = {
+	{
+		key = ".",
+		mods = "CTRL",
+		action = act.SendString("\x1b[46;5u"),
+	},
 	{
 		key = " ",
 		mods = "CTRL",
@@ -51,12 +52,16 @@ config.keys = {
 		mods = "ALT",
 		action = act.ActivateTabRelative(1),
 	},
+	{
+		key = "F11",
+		action = wezterm.action.ToggleFullScreen,
+	},
 }
 
 for i = 1, 9 do
 	config.keys[#config.keys + 1] = {
 		key = tostring(i),
-		mods = "ALT",
+		mods = "CMD",
 		action = act.ActivateTab(i - 1),
 	}
 end
