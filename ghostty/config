@@ -1,4 +1,5 @@
-font-family = TX-02
+# font-family = TX-02
+font-family = Liga SFMono Nerd font
 
 theme = Dark+
 
