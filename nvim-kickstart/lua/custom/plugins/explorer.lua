@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 vim.api.nvim_set_keymap('n', '<leader>e', ':lua ToggleNetrw()<CR>', { noremap = true, silent = true, desc = '[E]xplorer' })
 
 local function is_netrw_open()

@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 vim.keymap.set('n', '<leader>z', function()
   local zen = require 'zen-mode'
   zen.setup {

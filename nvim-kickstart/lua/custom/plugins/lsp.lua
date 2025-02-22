@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 return {
   {
     'neovim/nvim-lspconfig',
@@ -122,6 +126,8 @@ return {
         'rust_analyzer',
         'clangd',
         'gopls',
+        'gofumpt',
+        'goimports',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
