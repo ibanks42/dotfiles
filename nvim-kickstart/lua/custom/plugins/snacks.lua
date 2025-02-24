@@ -20,6 +20,7 @@ return {
         { section = 'startup' },
       },
     },
+    bigfile = { enabled = true },
     lazygit = { enabled = true },
     indent = { enabled = true },
     input = { enabled = true },

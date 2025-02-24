@@ -2,33 +2,36 @@ if vim.g.vscode then
   return {}
 end
 
-vim.api.nvim_set_keymap('n', '<leader>e', ':lua ToggleNetrw()<CR>', { noremap = true, silent = true, desc = '[E]xplorer' })
+return {
+  'nvim-telescope/telescope-file-browser.nvim',
+  dependencies = { 'nvim-telescope/telescope.nvim', 'nvim-lua/plenary.nvim' },
+  config = function()
+    require('telescope').setup {
+      extensions = {
+        file_browser = {
+          theme = 'ivy',
+          -- disables netrw and use telescope-file-browser in its place
+          hijack_netrw = true,
+          initial_mode = 'normal',
+          grouped = true,
+        },
+      },
+    }
+    -- To get telescope-file-browser loaded and working with telescope,
+    -- you need to call load_extension, somewhere after setup function:
+    require('telescope').load_extension 'file_browser'
 
-local function is_netrw_open()
-  return vim.bo.filetype == 'netrw'
-end
+    vim.keymap.set('n', '<space>e', function()
+      require('telescope').extensions.file_browser.file_browser {
+        path = '%:p:h',
+        select_buffer = true,
+      }
+    end, { desc = '[e]xplorer (Current File)' })
 
-local prev_buf = nil
-
-function ToggleNetrw()
-  if is_netrw_open() then
-    -- If we have a previous buffer and it's still valid, go to it
-    if prev_buf and vim.api.nvim_buf_is_valid(prev_buf) then
-      vim.cmd('buffer ' .. prev_buf)
-      prev_buf = nil -- Clear the stored buffer after using it
-    else
-      vim.cmd 'bd'
-    end
-  else
-    -- Store the current buffer before opening netrw
-    local current_buf = vim.api.nvim_get_current_buf()
-    vim.cmd 'Explore'
-    if not is_netrw_open() then
-      -- If Explore didn't open netrw, don't set prev_buf
-      return
-    end
-    prev_buf = current_buf
-  end
-end
-
-return {}
+    vim.keymap.set('n', '<space>E', function()
+      require('telescope').extensions.file_browser.file_browser {
+        path = '%:p:h',
+      }
+    end, { desc = '[E]xplorer (CWD)' })
+  end,
+}
