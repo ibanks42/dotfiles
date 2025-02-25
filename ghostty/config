@@ -3,6 +3,8 @@ font-family = Liga SFMono Nerd font
 
 theme = Dark+
 
+command = zsh
+
 keybind = f11=toggle_fullscreen
 keybind = f12=toggle_window_decorations
 
