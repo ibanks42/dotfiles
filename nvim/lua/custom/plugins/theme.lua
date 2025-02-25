@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 -- Path to store theme preference
 local theme_file = vim.fn.stdpath 'data' .. '/theme_preference.txt'
 
