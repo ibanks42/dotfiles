@@ -298,29 +298,34 @@ install_miscellaneous() {
   fi
 }
 
-update_bashrc() {
-  echo "-> Writing bashrc config..."
-  declare -A entries=(
-    ["alias ls"]='alias ls="eza -lh --group-directories-first --icons"'
-    ["alias lsa"]='alias lsa="ls -a"'
-    ["alias la"]='alias la="ls -a"'
-    ["alias lt"]='alias lt="eza --tree --level=2 --long --icons --git"'
-    ["alias lta"]='alias lta="lt -a"'
-    ["alias ff"]='alias ff="fzf --preview '\''batcat --style=numbers --color=always {}'\''"'
-    ["alias fd"]='alias fd="fdfind"'
-    ["alias cd"]='alias cd="z"'
-    ["PS1"]='PS1="\[\e[0;35m\]\u@\h\[\e[0m\]:\[\e[0;32m\]\w\[\e[0m\]\\$ "'
-  )
-
-  for key in "${!entries[@]}"; do
-    entry="${entries[$key]}"
-    if ! grep -qxF "$entry" "$HOME/.bashrc"; then
-      # Add only if it doesn't already exist
-      echo "$entry" | tee -a "$HOME/.bashrc" >/dev/null
-    fi
-  done
-
-  printf "\u2705Bash configuration updated.\n"
+install_zsh ()
+{
+  if ! command -v zsh &>/dev/null; then
+    case "$DISTRO" in
+    *debian*)
+      sudo apt-get install -y zsh
+      ;;
+    *fedora*)
+      sudo dnf install -y zsh
+      ;;
+    *arch*)
+      sudo pacman -S --noconfirm zsh
+      ;;
+    *suse*)
+      sudo zypper install -y zsh
+      ;;
+    *rhel* | *centos*)
+      sudo yum install -y zsh
+      ;;
+    *)
+      echo "-> Unsupported distribution \"$DISTRO\" for installing zsh."
+      ;;
+    esac
+  fi
+ 
+  sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+ 
+  cp -f -r "$TEMP_PATH/zsh/.zshrc" "$HOME/.zshrc"
 }
 
 update_packages
@@ -345,7 +350,7 @@ install_nvim
 
 install_ideavim
 
-update_bashrc
+install_zsh
 
 echo "-> Cleaning up..."
 # Cleanup
