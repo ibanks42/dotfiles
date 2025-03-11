@@ -53,14 +53,14 @@ end
 
 -- Function to apply theme
 local function apply_theme(theme)
-  if theme == 'dark' then
-    vim.o.background = 'dark'
-    vim.cmd 'colorscheme rose-pine-moon'
-    set_cursor_color(true)
-  else
+  if theme == 'light' then
     vim.o.background = 'light'
     vim.cmd 'colorscheme vscode'
     set_cursor_color(false)
+  else
+    vim.o.background = 'dark'
+    vim.cmd 'colorscheme catppuccin-macchiato'
+    set_cursor_color(true)
   end
 
   -- Force redraw to apply cursor changes
@@ -112,7 +112,16 @@ return {
     name = 'rose-pine',
     priority = 1000,
     config = function()
-      require('rose-pine').setup { variant = 'moon' }
+      require('rose-pine').setup {}
     end,
+  },
+  {
+    'rebelot/kanagawa.nvim',
+    opts = {},
+  },
+  {
+    'catppuccin/nvim',
+    name = 'catppuccin',
+    opts = {},
   },
 }

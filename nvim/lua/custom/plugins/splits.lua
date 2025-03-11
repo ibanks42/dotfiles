@@ -2,35 +2,6 @@ if vim.g.vscode then
   return {}
 end
 
-local wk = require 'which-key'
-wk.add {
-  { '<leader>u', group = '[U]I' },
-}
-
--- init.lua or keymaps.lua
-vim.keymap.set('n', '<leader>uv', ':vsplit<CR>', { desc = '[V]ertical Split' })
-vim.keymap.set('n', '<leader>uh', ':split<CR>', { desc = '[H]orizontal Split' })
-
--- recommended mappings
--- resizing splits
--- these keymaps will also accept a range,
--- for example `10<A-h>` will `resize_left` by `(10 * config.default_amount)`
-vim.keymap.set('n', '<A-h>', ':lua require("smart-splits").resize_left()<CR>')
-vim.keymap.set('n', '<A-j>', ':lua require("smart-splits").resize_down()<CR>')
-vim.keymap.set('n', '<A-k>', ':lua require("smart-splits").resize_up()<CR>')
-vim.keymap.set('n', '<A-l>', ':lua require("smart-splits").resize_right()<CR>')
--- moving between splits
-vim.keymap.set('n', '<C-h>', ':lua require("smart-splits").move_cursor_left()<CR>')
-vim.keymap.set('n', '<C-j>', ':lua require("smart-splits").move_cursor_down()<CR>')
-vim.keymap.set('n', '<C-k>', ':lua require("smart-splits").move_cursor_up()<CR>')
-vim.keymap.set('n', '<C-l>', ':lua require("smart-splits").move_cursor_right()<CR>')
-vim.keymap.set('n', '<C-\\>', ':lua require("smart-splits").move_cursor_previous()<CR>')
--- swapping buffers between windows
-vim.keymap.set('n', '<leader><leader>h', ':lua require("smart-splits").swap_buf_left()<CR>')
-vim.keymap.set('n', '<leader><leader>j', ':lua require("smart-splits").swap_buf_down()<CR>')
-vim.keymap.set('n', '<leader><leader>k', ':lua require("smart-splits").swap_buf_up()<CR>')
-vim.keymap.set('n', '<leader><leader>l', ':lua require("smart-splits").swap_buf_right()<CR>')
-
 return {
   'mrjones2014/smart-splits.nvim',
   opts = {

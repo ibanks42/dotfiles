@@ -178,7 +178,7 @@ return {
         enable = true,
         additional_vim_regex_highlighting = { 'ruby', 'json' },
       },
-      indent = { enable = true, disable = { 'ruby' } },
+      indent = { enable = false, disable = { 'ruby' } },
     },
   },
 }

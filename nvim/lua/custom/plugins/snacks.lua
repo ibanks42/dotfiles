@@ -7,9 +7,14 @@ wk.add {
   { '<leader>n', group = '[N]otifications' },
 }
 
+vim.keymap.set('n', '<leader>i', function()
+  require('snacks.toggle').option('indent', { on = false })
+end, { desc = '[I]ndent' })
+
 return {
   'folke/snacks.nvim',
   lazy = false,
+  priority = 1000,
   opts = {
     dashboard = {
       sections = {
@@ -22,12 +27,35 @@ return {
     },
     bigfile = { enabled = true },
     lazygit = { enabled = true },
-    indent = { enabled = true },
     input = { enabled = true },
     notifier = { enabled = true },
+    indent = { enabled = true, toggle = { enabled = true } },
     scope = { enabled = true },
     scroll = { enabled = false },
     words = { enabled = true },
+    toggle = {
+      map = vim.keymap.set, -- keymap.set function to use
+      which_key = true, -- integrate with which-key to show enabled/disabled icons and colors
+      notify = true, -- show a notification when toggling
+      -- icons for enabled/disabled states
+      icon = {
+        enabled = ' ',
+        disabled = ' ',
+      },
+      -- colors for enabled/disabled states
+      color = {
+        enabled = 'green',
+        disabled = 'yellow',
+      },
+      wk_desc = {
+        enabled = 'Disable ',
+        disabled = 'Enable ',
+      },
+      indent = {
+        enabled = 'Indent ',
+        disabled = 'Disabled ',
+      },
+    },
   },
   keys = {
     {
