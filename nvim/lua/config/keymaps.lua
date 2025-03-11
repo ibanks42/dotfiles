@@ -85,7 +85,7 @@ end, { desc = '[S]earch [N]eovim files' })
 -- END TELESCOPE
 
 -- SNACKS
-Snacks.toggle.indent():map '<leader>ug'
+Snacks.toggle.indent():map '<leader>ui'
 -- END SNACKS
 
 -- BUVVERS
