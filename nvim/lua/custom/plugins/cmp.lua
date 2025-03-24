@@ -36,11 +36,8 @@ return {
       ['<C-n>'] = {
         'select_next',
       },
-      ['<Tab>'] = {
-        function(cmp)
-          cmp.select_and_accept()
-        end,
-      },
+
+      ['<Tab>'] = { 'accept_and_enter', 'fallback' },
 
       -- optionally, separate cmdline and terminal keymaps
       -- cmdline = {
