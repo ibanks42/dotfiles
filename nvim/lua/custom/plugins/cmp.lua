@@ -5,7 +5,7 @@ end
 return {
   'saghen/blink.cmp',
   -- optional: provides snippets for the snippet source
-  dependencies = 'rafamadriz/friendly-snippets',
+  dependencies = { 'rafamadriz/friendly-snippets', 'MahanRahmati/blink-nerdfont.nvim', 'moyiz/blink-emoji.nvim' },
 
   -- use a release tag to download pre-built binaries
   version = '*',
@@ -36,8 +36,7 @@ return {
       ['<C-n>'] = {
         'select_next',
       },
-
-      ['<Tab>'] = { 'accept_and_enter', 'fallback' },
+      ['<Tab>'] = { 'select_and_accept', 'fallback', 'snippet_forward' },
 
       -- optionally, separate cmdline and terminal keymaps
       -- cmdline = {
@@ -60,11 +59,57 @@ return {
       -- Adjusts spacing to ensure icons are aligned
       nerd_font_variant = 'mono',
     },
-
-    -- Default list of enabled providers defined so that you can extend it
-    -- elsewhere in your config, without redefining it, due to `opts_extend`
+    completion = {
+      documentation = {
+        auto_show = true,
+        auto_show_delay_ms = 150,
+      },
+      menu = {
+        draw = {
+          treesitter = { 'lsp' },
+          columns = { { 'kind_icon', 'label', 'label_description', 'source_name', gap = 1 } },
+        },
+      },
+    },
     sources = {
-      default = { 'lsp', 'path', 'snippets', 'buffer' },
+      default = {
+        'snippets',
+        'lsp',
+        'path',
+        'buffer',
+        'nerdfont',
+        'emoji',
+      },
+      providers = {
+        snippets = {
+          score_offset = 30,
+        },
+        lazydev = {
+          name = 'LazyDev',
+          module = 'lazydev.integrations.blink',
+          score_offset = 100,
+        },
+        nerdfont = {
+          module = 'blink-nerdfont',
+          name = 'Nerd Fonts',
+          -- score_offset = 15,
+          opts = { insert = true },
+        },
+        emoji = {
+          module = 'blink-emoji',
+          name = 'Emoji',
+          -- score_offset = 15,
+          opts = { insert = true },
+          should_show_items = function()
+            return vim.tbl_contains({ 'gitcommit', 'markdown' }, vim.o.filetype)
+          end,
+        },
+      },
+      transform_items = function(_, items)
+        return vim.tbl_filter(function(item)
+          return not (item.kind == require('blink.cmp.types').CompletionItemKind.Snippet and item.source_name == 'LSP')
+        end, items)
+      end,
     },
   },
   opts_extend = { 'sources.default' },

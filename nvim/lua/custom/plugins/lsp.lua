@@ -13,6 +13,7 @@ return {
       'b0o/schemastore.nvim',
       { 'j-hui/fidget.nvim', opts = {} },
       'hrsh7th/cmp-nvim-lsp',
+      'saghen/blink.cmp',
     },
     config = function()
       vim.api.nvim_create_autocmd('LspAttach', {
@@ -114,7 +115,7 @@ return {
       vim.list_extend(ensure_installed, {
         'stylua',
         'black',
-        'ts_ls',
+        'vtsls',
         'jsonls',
         'biome',
         'bashls',
@@ -137,6 +138,7 @@ return {
           function(server_name)
             local server = servers[server_name] or {}
             server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+            server.capabilities = vim.tbl_deep_extend('force', server.capabilities, require('blink.cmp').get_lsp_capabilities({}, false))
             require('lspconfig')[server_name].setup(server)
           end,
         },
