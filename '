@@ -280,8 +280,8 @@ install_miscellaneous() {
     wget -qO bat.tar.gz "https://github.com/sharkdp/bat/releases/download/v${BATCATVERSION}/bat-v${BATCATVERSION}-x86_64-unknown-linux-musl.tar.gz"
     tar xf bat.tar.gz
     sudo mv "bat-v${BATCATVERSION}-x86_64-unknown-linux-musl" "$HOME/.local/bin/bat"
-    tee -a "$HOME/.bashrc" <<<"alias bat='$HOME/.local/bin/bat/bat'" >/dev/null 2>&1
-    tee -a "$HOME/.bashrc" <<<"alias batcat='$HOME/.local/bin/bat/bat'" >/dev/null 2>&1
+    tee -a "$HOME/.bashrc" <<<"alias bat='/usr/local/bat/bat'" >/dev/null 2>&1
+    tee -a "$HOME/.bashrc" <<<"alias batcat='/usr/local/bat/bat'" >/dev/null 2>&1
     rm -rf bat.tar.gz
     cd "$CWD" || exit
   fi
