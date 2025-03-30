@@ -2,7 +2,7 @@
 
 # Variables
 REPO_URL="https://github.com/ibanks42/dotfiles.git"
-DOTFILES_PATH="$HOME:/dotfiles"
+DOTFILES_PATH="$HOME/dotfiles"
 NVIM_CONFIG_PATH="$HOME/.config/nvim"
 NVIM_SHARE_PATH="$HOME/.local/share/nvim"
 NVIM_DATA_PATH="$HOME/.local/share/nvim"
