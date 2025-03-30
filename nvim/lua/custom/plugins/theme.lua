@@ -55,7 +55,8 @@ end
 local function apply_theme(theme)
   if theme == 'light' then
     vim.o.background = 'light'
-    vim.cmd 'colorscheme vscode'
+    -- vim.cmd 'colorscheme vscode'
+    vim.cmd 'colorscheme night_owl_light'
     set_cursor_color(false)
   else
     vim.o.background = 'dark'
@@ -106,6 +107,11 @@ return {
     config = function()
       require('vscode').setup()
     end,
+  },
+  {
+    'macguirerintoul/night_owl_light.vim',
+    priority = 1000,
+    opts = {},
   },
   {
     'rose-pine/neovim',
