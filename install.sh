@@ -126,25 +126,40 @@ install_nvim() {
 
   echo "-> Copying Neovim configuration..."
 
-  ln -s "$DOTFILES_PATH/nvim" "$NVIM_CONFIG_PATH"
+  ln -s "$NVIM_CONFIG_PATH" "$DOTFILES_PATH/nvim" 
 
   printf "\u2705Neovim configuration installed successfully.\n"
 }
 
-install_zellij() {
-  if ! command -v zellij &>/dev/null; then
-    echo "-> Installing zellij..."
-    cd "$DOTFILES_PATH" || exit
-    wget -q -O "zellij.tar.xz" "https://github.com/zellij-org/zellij/releases/latest/download/zellij-x86_64-unknown-linux-musl.tar.gz"
-    tar -xvf "zellij.tar.xz" -C ./zj --strip-components=1 zellij
-    sudo install zellij "$HOME/.local/bin/zellij"
-    rm -rf zj zellij.tar.xz
-    cd "$CWD" || exit
+install_tmux() {
+   if ! command -v tmux &> /dev/null; then
+      echo "-> Installing tmux..."
+
+      case "$DISTRO" in
+          "ubuntu" | "debian")
+              sudo apt-get install -y tmux
+              ;;
+          "fedora")
+              sudo dnf install -y tmux
+              ;;
+          "arch")
+              sudo pacman -S tmux -y
+              ;;
+          "opensuse")
+              sudo zypper install -y tmux
+              ;;
+          "rhel" | "centos")
+              sudo yum install -y tmux
+              ;;
+          *)
+              echo "-> Unsupported distribution for tmux. Please install tmux manually."
+              ;;
+      esac
   fi
 
-  echo "-> Copying zellij configuration..."
-  ln -s "$DOTFILES_PATH/zellij" "$HOME/.config/"
-  printf "\u2705Zellij installed successfully...\n"
+  echo "-> Copying tmux configuration..."
+  ln -s "$HOME/tmux" "$DOTFILES_PATH/tmux"
+  printf "\u2705Tmux installed successfully...\n"
 }
 
 install_ghostty() {
@@ -182,7 +197,7 @@ install_ghostty() {
 
     "$zig_location/zig" build -p "$HOME/.local" -Doptimize=ReleaseFast
 
-    ln -s "$DOTFILES_PATH/ghostty" "$HOME/.config/ghostty"
+    ln -s "$HOME/.config/ghostty" "$DOTFILES_PATH/ghostty"
 
     cd "$CWD" || exit
 
@@ -205,14 +220,14 @@ install_fonts() {
 }
 
 install_ideavim() {
-  ln -s "$DOTFILES_PATH/idea/.ideavimrc" "$HOME/.ideavimrc"
+  ln -s "$HOME/.ideavimrc" "$DOTFILES_PATH/idea/.ideavimrc"
 }
 
 install_mise() {
   if ! command -v mise &>/dev/null; then
     # Install mise for managing multiple versions of languages. See https://mise.jdx.dev/
     wget -qO - https://mise.run | sh
-    tee -a "$HOME/.bashrc" <<<"eval \"\$(\$HOME/.local/bin/mise activate bash)\"" >/dev/null 2>&1
+    tee -a "$HOME/.zshrc" <<<"eval \"\$(\$HOME/.local/bin/mise activate bash)\"" >/dev/null 2>&1
     "$HOME/.local/bin/mise" use --global node@latest
   fi
 }
@@ -244,8 +259,8 @@ install_miscellaneous() {
     echo "-> Installing zoxide (cd alternative)..."
     cd "$DOTFILES_PATH" || exit
     wget -qO- https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
-    tee -a "$HOME/.bashrc" <<<"export PATH=\"\$PATH:\$HOME/.local/bin\"" >/dev/null 2>&1
-    tee -a "$HOME/.bashrc" <<<"eval \"\$(zoxide init bash)\"" >/dev/null 2>&1
+    tee -a "$HOME/.zshrc" <<<"export PATH=\"\$PATH:\$HOME/.local/bin\"" >/dev/null 2>&1
+    tee -a "$HOME/.zshrc" <<<"eval \"\$(zoxide init bash)\"" >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
@@ -280,8 +295,8 @@ install_miscellaneous() {
     wget -qO bat.tar.gz "https://github.com/sharkdp/bat/releases/download/v${BATCATVERSION}/bat-v${BATCATVERSION}-x86_64-unknown-linux-musl.tar.gz"
     tar xf bat.tar.gz
     sudo mv "bat-v${BATCATVERSION}-x86_64-unknown-linux-musl" "$HOME/.local/bin/bat"
-    tee -a "$HOME/.bashrc" <<<"alias bat='$HOME/.local/bin/bat/bat'" >/dev/null 2>&1
-    tee -a "$HOME/.bashrc" <<<"alias batcat='$HOME/.local/bin/bat/bat'" >/dev/null 2>&1
+    tee -a "$HOME/.zshrc" <<<"alias bat='$HOME/.local/bin/bat/bat'" >/dev/null 2>&1
+    tee -a "$HOME/.zshrc" <<<"alias batcat='$HOME/.local/bin/bat/bat'" >/dev/null 2>&1
     rm -rf bat.tar.gz
     cd "$CWD" || exit
   fi
@@ -319,6 +334,8 @@ install_zsh ()
 
 update_packages
 
+install_zsh
+
 install_git
 
 install_gh
@@ -333,13 +350,11 @@ install_mise
 
 install_ghostty
 
-install_zellij
+install_tmux
 
 install_nvim
 
 install_ideavim
-
-install_zsh
 
 echo ""
 printf "\u2705Done!\n"
