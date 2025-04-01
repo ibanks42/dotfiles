@@ -126,7 +126,7 @@ install_nvim() {
 
   echo "-> Copying Neovim configuration..."
 
-  ln -s "$NVIM_CONFIG_PATH" "$DOTFILES_PATH/nvim" 
+  ln -s "$DOTFILES_PATH/nvim" "$NVIM_CONFIG_PATH" 
 
   printf "\u2705Neovim configuration installed successfully.\n"
 }
@@ -136,19 +136,19 @@ install_tmux() {
       echo "-> Installing tmux..."
 
       case "$DISTRO" in
-          "ubuntu" | "debian")
+          *debian*)
               sudo apt-get install -y tmux
               ;;
-          "fedora")
+          *fedora*)
               sudo dnf install -y tmux
               ;;
-          "arch")
+          *arch*)
               sudo pacman -S tmux -y
               ;;
-          "opensuse")
+          *suse*)
               sudo zypper install -y tmux
               ;;
-          "rhel" | "centos")
+          *rhel* | *centos*)
               sudo yum install -y tmux
               ;;
           *)
@@ -158,24 +158,26 @@ install_tmux() {
   fi
 
   echo "-> Copying tmux configuration..."
-  ln -s "$HOME/tmux" "$DOTFILES_PATH/tmux"
+  ln -s "$DOTFILES_PATH/tmux" "$HOME/.config/tmux"
   printf "\u2705Tmux installed successfully...\n"
 }
 
 install_ghostty() {
   if ! command -v ghostty &>/dev/null; then
+    echo "-> Installing ghostty..."
     case "$DISTRO" in
     *debian*)
-      sudo apt install -y libgtk-4-dev libadwaita-1-dev
+      curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh
       ;;
     *fedora*)
-      sudo dnf install -y gtk4-devel libadwaita-devel
+      sudo dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
+      sudo dnf install ghostty
       ;;
     *arch*)
-      sudo pacman -S --no-confirm gtk4 libadwaita
+      sudo pacman -S --no-confirm ghostty
       ;;
     *suse*)
-      sudo zypper -y gtk4-tools libadwaita-devel pkgconf-pkg-config
+      sudo zypper -y ghostty
       ;;
     *)
       echo "-> Unsupported distribution \"$DISTRO\" for installing ghostty."
@@ -183,26 +185,14 @@ install_ghostty() {
       ;;
     esac
 
-    echo "-> Installing ghostty..."
-    cd "$DOTFILES_PATH" || exit
-    git clone https://github.com/ghostty-org/ghostty.git ghostty-src
-    cd ghostty-src || exit
-
-    if ! command -v zig &>/dev/null; then
-      echo "-> Installing zig..."
-      "$HOME/.local/bin/mise" use --global zig
-    fi
-
-    zig_location=$("$HOME/.local/bin/mise" where zig)
-
-    "$zig_location/zig" build -p "$HOME/.local" -Doptimize=ReleaseFast
-
-    ln -s "$HOME/.config/ghostty" "$DOTFILES_PATH/ghostty"
+    ln -s "$DOTFILES_PATH/ghostty" "$HOME/.config/ghostty"
 
     cd "$CWD" || exit
 
-    printf "\u2705Ghostty configuration installed\n"
   fi
+
+  rm -rf "$HOME/.config/ghostty"
+  ln -s "$DOTFILES_PATH/ghostty" "$HOME/.config/ghostty"
 }
 
 install_fonts() {
@@ -220,13 +210,14 @@ install_fonts() {
 }
 
 install_ideavim() {
-  ln -s "$HOME/.ideavimrc" "$DOTFILES_PATH/idea/.ideavimrc"
+  ln -s "$DOTFILES_PATH/idea/.ideavimrc" "$HOME/.ideavimrc"
 }
 
 install_mise() {
   if ! command -v mise &>/dev/null; then
     # Install mise for managing multiple versions of languages. See https://mise.jdx.dev/
-    wget -qO - https://mise.run | sh
+    wget -O ~/.local/bin/mise https://mise.jdx.dev/mise-latest-linux-x64
+    chmod +x ~/.local/bin/mise
     tee -a "$HOME/.zshrc" <<<"eval \"\$(\$HOME/.local/bin/mise activate bash)\"" >/dev/null 2>&1
     "$HOME/.local/bin/mise" use --global node@latest
   fi
