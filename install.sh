@@ -98,12 +98,12 @@ install_nvim() {
   if ! command -v nvim &>/dev/null; then
     echo "-> Installing neovim..."
     cd "$DOTFILES_PATH" || exit
-    wget -q -O nvim-linux64.tar.gz "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
-    tar -xf nvim-linux64.tar.gz
-    sudo install nvim-linux64/bin/nvim "$HOME/.local/bin/nvim"
-    sudo cp -R nvim-linux64/lib "$HOME/.local/bin"
-    sudo cp -R nvim-linux64/share "$HOME/.local/bin"
-    rm -rf nvim-linux64.tar.gz nvim-linux64
+    wget -O nvim.appimage "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage"
+    sudo mv nvim.appimage "$HOME/.local/bin"
+    sudo rm -rf "$HOME/.local/bin/nvim"
+    sudo mv "$HOME/.local/bin/nvim.appimage" "$HOME/.local/bin/nvim"
+    sudo chmod +x "$HOME/.local/bin/nvim"
+    sudo rm -rf nvim.appimage
     cd "$CWD" || exit
   fi
 
