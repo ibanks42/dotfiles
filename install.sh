@@ -215,10 +215,12 @@ install_ideavim() {
 
 install_mise() {
   if ! command -v mise &>/dev/null; then
-    # Install mise for managing multiple versions of languages. See https://mise.jdx.dev/
-    wget -O ~/.local/bin/mise https://mise.jdx.dev/mise-latest-linux-x64
-    chmod +x ~/.local/bin/mise
-    tee -a "$HOME/.zshrc" <<<"eval \"\$(\$HOME/.local/bin/mise activate bash)\"" >/dev/null 2>&1
+    echo "-> Installing mise..."
+    MISE_VERSION=$(wget -q "https://api.github.com/repos/jdx/mise/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
+    wget -qO mise "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64-musl"
+    sudo mv mise "$HOME/.local/bin"
+    chmod +x "$HOME/.local/bin/mise"
+    rm -rf mise
     "$HOME/.local/bin/mise" use --global node@latest
   fi
 }
@@ -279,6 +281,15 @@ install_miscellaneous() {
     cd "$CWD" || exit
   fi
 
+  if ! command -v mise &>/dev/null; then
+    echo "-> Installing mise..."
+    MISE_VERSION=$(wget -q "https://api.github.com/repos/jdx/mise/releases/latest" -O - | grep -Po '"tag_name": *"v\K[^"]*')
+    wget -qO mise "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64-musl"
+    sudo mv mise "$HOME/.local/bin"
+    chmod +x "$HOME/.local/bin/mise"
+    rm -rf mise
+  fi
+
   if ! command -v batcat &>/dev/null; then
     echo "-> Installing bat..."
     cd "$DOTFILES_PATH" || exit
@@ -327,8 +338,6 @@ install_zsh ()
 
 update_packages
 
-install_zsh
-
 install_git
 
 install_gh
@@ -348,6 +357,8 @@ install_tmux
 install_nvim
 
 install_ideavim
+
+install_zsh
 
 echo ""
 printf "\u2705Done!\n"
