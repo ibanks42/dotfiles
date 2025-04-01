@@ -321,6 +321,8 @@ install_zsh ()
   sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
  
   cp -f -r "$DOTFILES_PATH/zsh/.zshrc" "$HOME/.zshrc"
+
+  exec zsh
 }
 
 update_packages
