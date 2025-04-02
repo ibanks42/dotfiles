@@ -46,7 +46,7 @@ vim.wo.wrap = false
 vim.opt.listchars = { tab = '  ', trail = '·', nbsp = '␣' }
 
 require('lazy').setup({
-  'tpope/vim-sleuth',
+  { 'tpope/vim-sleuth' },
   {
     'lewis6991/gitsigns.nvim',
     opts = {
@@ -231,7 +231,6 @@ require('lazy').setup({
   require 'kickstart.plugins.debug',
   require 'kickstart.plugins.lint',
   require 'kickstart.plugins.autopairs',
-
   { import = 'custom.plugins' },
 }, {
   ui = {

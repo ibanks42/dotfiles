@@ -40,8 +40,6 @@ return {
   dependencies = { 'nvim-lspconfig', 'nvim-treesitter', 'kevinhwang91/promise-async' },
   event = 'VeryLazy',
   config = function()
-    require('ufo').setup {
-      fold_virt_text_handler = handler,
-    }
+    require('ufo').setup { fold_virt_text_handler = handler }
   end,
 }

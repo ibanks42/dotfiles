@@ -100,10 +100,10 @@ install_nvim() {
     cd "$DOTFILES_PATH" || exit
     wget -O nvim.appimage "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage"
     sudo mv nvim.appimage "$HOME/.local/bin"
-    sudo rm -rf "$HOME/.local/bin/nvim"
+    rm -rf "$HOME/.local/bin/nvim"
     sudo mv "$HOME/.local/bin/nvim.appimage" "$HOME/.local/bin/nvim"
     sudo chmod +x "$HOME/.local/bin/nvim"
-    sudo rm -rf nvim.appimage
+    rm -rf nvim.appimage
     cd "$CWD" || exit
   fi
 
@@ -126,6 +126,7 @@ install_nvim() {
 
   echo "-> Copying Neovim configuration..."
 
+  rm -rf "$NVIM_CONFIG_PATH"
   ln -s "$DOTFILES_PATH/nvim" "$NVIM_CONFIG_PATH" 
 
   printf "\u2705Neovim configuration installed successfully.\n"
@@ -158,6 +159,7 @@ install_tmux() {
   fi
 
   echo "-> Copying tmux configuration..."
+  rm -rf "$HOME/.config/tmux"
   ln -s "$DOTFILES_PATH/tmux" "$HOME/.config/tmux"
   printf "\u2705Tmux installed successfully...\n"
 }
@@ -185,10 +187,7 @@ install_ghostty() {
       ;;
     esac
 
-    ln -s "$DOTFILES_PATH/ghostty" "$HOME/.config/ghostty"
-
-    cd "$CWD" || exit
-
+    cd "$CWD"
   fi
 
   rm -rf "$HOME/.config/ghostty"
@@ -210,6 +209,7 @@ install_fonts() {
 }
 
 install_ideavim() {
+  rm -rf "$HOME/.ideavimrc"
   ln -s "$DOTFILES_PATH/idea/.ideavimrc" "$HOME/.ideavimrc"
 }
 
@@ -252,8 +252,6 @@ install_miscellaneous() {
     echo "-> Installing zoxide (cd alternative)..."
     cd "$DOTFILES_PATH" || exit
     wget -qO- https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
-    tee -a "$HOME/.zshrc" <<<"export PATH=\"\$PATH:\$HOME/.local/bin\"" >/dev/null 2>&1
-    tee -a "$HOME/.zshrc" <<<"eval \"\$(zoxide init bash)\"" >/dev/null 2>&1
     cd "$CWD" || exit
   fi
 
@@ -297,8 +295,6 @@ install_miscellaneous() {
     wget -qO bat.tar.gz "https://github.com/sharkdp/bat/releases/download/v${BATCATVERSION}/bat-v${BATCATVERSION}-x86_64-unknown-linux-musl.tar.gz"
     tar xf bat.tar.gz
     sudo mv "bat-v${BATCATVERSION}-x86_64-unknown-linux-musl" "$HOME/.local/bin/bat"
-    tee -a "$HOME/.zshrc" <<<"alias bat='$HOME/.local/bin/bat/bat'" >/dev/null 2>&1
-    tee -a "$HOME/.zshrc" <<<"alias batcat='$HOME/.local/bin/bat/bat'" >/dev/null 2>&1
     rm -rf bat.tar.gz
     cd "$CWD" || exit
   fi
@@ -331,7 +327,8 @@ install_zsh ()
  
   sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
  
-  cp -f -r "$DOTFILES_PATH/zsh/.zshrc" "$HOME/.zshrc"
+  rm -rf "$HOME/.zshrc"
+  sudo ln -s "$DOTFILES_PATH/zsh/.zshrc" "$HOME/.zshrc"
 
   exec zsh
 }
