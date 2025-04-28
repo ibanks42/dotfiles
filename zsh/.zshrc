@@ -129,3 +129,9 @@ export NVM_DIR="$HOME/.nvm"
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+export FLYCTL_INSTALL="/home/ibanks/.fly"
+export PATH="$FLYCTL_INSTALL/bin:$PATH"
+
+# bun completions
+[ -s "/home/ibanks/.bun/_bun" ] && source "/home/ibanks/.bun/_bun"
