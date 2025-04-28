@@ -7,14 +7,16 @@ return {
     'echasnovski/mini.nvim',
     version = false,
     config = function()
-      require('mini.files').setup()
-      -- local wk = require 'which-key'
-      -- wk.add { { '<leader>e', group = '[E]xplorer' } }
+      require('mini.files').setup {
+        mappings = {
+          go_in_plus = '<CR>',
+        },
+      }
 
       -- init.lua or keymaps.lua
       vim.keymap.set('n', '<leader>e', function()
         require('mini.files').open(vim.api.nvim_buf_get_name(0))
-      end, { desc = 'Open explorer' })
+      end, { desc = '[E]xplorer' })
     end,
   },
   -- {
