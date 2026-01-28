@@ -1,0 +1,233 @@
+// Zellij config - replicating tmux setup
+
+// Default shell
+default_shell "zsh"
+
+// General settings
+mouse_mode true
+copy_on_select true
+scrollback_editor "nvim"
+default_mode "normal"
+pane_frames false
+session_serialization true     // Enable session persistence (like tmux-resurrect)
+serialization_interval 60      // Autosave every 60 seconds (like tmux-continuum)
+
+// Use the custom layout with tabs at bottom, no status bar
+default_layout "default"
+
+// Disable the default status bar tips
+simplified_ui true
+
+// Theme - matching your tmux status bar colors
+// bg = tab bar background, green = active tab, blue/cyan = inactive tabs
+// black matches bg so odd inactive tabs blend with bar (no gray alternating)
+theme "custom"
+themes {
+    custom {
+        fg "#abb2bf"
+        bg "#333333"
+        black "#333333"
+        red "#e06c75"
+        green "#98c379"
+        yellow "#e5c07b"
+        blue "#5eacd3"
+        magenta "#5eacd3"
+        cyan "#5eacd3"
+        white "#abb2bf"
+        orange "#d19a66"
+    }
+}
+
+// UI settings
+ui {
+    pane_frames {
+        hide_session_name true
+    }
+}
+
+// Keybindings - don't clear defaults, just override what we need
+keybinds {
+    // Unbind defaults we want to replace
+    unbind "Ctrl b"  // default tmux prefix
+    unbind "Ctrl g"  // default lock mode
+    
+    // Normal mode - this is your main working mode
+    normal {
+        // Ctrl+Space as prefix to enter "tmux" mode
+        bind "Ctrl Space" { SwitchToMode "tmux"; }
+        
+        // Alt+number for tab switching (like tmux windows)
+        bind "Alt 1" { GoToTab 1; }
+        bind "Alt 2" { GoToTab 2; }
+        bind "Alt 3" { GoToTab 3; }
+        bind "Alt 4" { GoToTab 4; }
+        bind "Alt 5" { GoToTab 5; }
+        bind "Alt 6" { GoToTab 6; }
+        bind "Alt 7" { GoToTab 7; }
+        bind "Alt 8" { GoToTab 8; }
+        bind "Alt 9" { GoToTab 9; }
+        
+        // Ctrl+f for sessionizer (fzf project picker)
+        bind "Ctrl f" {
+            Run "zellij-sessionizer" {
+                floating true
+                close_on_exit true
+                x "20%"
+                y "10%"
+                width "60%"
+                height "80%"
+            }
+        }
+    }
+    
+    // "Tmux" mode - activated with Ctrl+Space prefix
+    tmux {
+        bind "Ctrl Space" { SwitchToMode "normal"; }
+        bind "Esc" { SwitchToMode "normal"; }
+        
+        // Pane navigation with Ctrl+hjkl
+        bind "Ctrl h" { MoveFocus "Left"; SwitchToMode "normal"; }
+        bind "Ctrl l" { MoveFocus "Right"; SwitchToMode "normal"; }
+        bind "Ctrl j" { MoveFocus "Down"; SwitchToMode "normal"; }
+        bind "Ctrl k" { MoveFocus "Up"; SwitchToMode "normal"; }
+        
+        // Also support hjkl without Ctrl in tmux mode
+        bind "h" { MoveFocus "Left"; SwitchToMode "normal"; }
+        bind "l" { MoveFocus "Right"; SwitchToMode "normal"; }
+        bind "j" { MoveFocus "Down"; SwitchToMode "normal"; }
+        bind "k" { MoveFocus "Up"; SwitchToMode "normal"; }
+        
+        // Split panes - | for horizontal, - for vertical (like tmux)
+        bind "|" { NewPane "Right"; SwitchToMode "normal"; }
+        bind "-" { NewPane "Down"; SwitchToMode "normal"; }
+        
+        // Tab (window) management
+        bind "n" { NewTab; SwitchToMode "normal"; }
+        bind "d" { CloseTab; SwitchToMode "normal"; }
+        bind "x" { CloseFocus; SwitchToMode "normal"; }
+        
+        // Session management
+        bind "q" { Detach; }                    // Detach (keeps session running, saves state)
+        bind "Q" { Quit; }                      // Force quit (destroys session)
+        
+        // Scroll/copy mode (like tmux copy-mode)
+        bind "[" { SwitchToMode "scroll"; }
+        bind "v" { SwitchToMode "scroll"; }
+        
+        // Resize mode
+        bind "z" { ToggleFocusFullscreen; SwitchToMode "normal"; }
+        bind "R" { SwitchToMode "resize"; }
+        
+        // Tab navigation
+        bind "p" { GoToPreviousTab; SwitchToMode "normal"; }
+        bind "Tab" { GoToNextTab; SwitchToMode "normal"; }
+        
+        // Session switcher
+        bind "s" {
+            LaunchOrFocusPlugin "session-manager" {
+                floating true
+                move_to_focused_tab true
+            }
+            SwitchToMode "normal"
+        }
+        
+        // Rename tab
+        bind "," { SwitchToMode "RenameTab"; TabNameInput 0; }
+        
+        // Floating pane toggle
+        bind "f" { ToggleFloatingPanes; SwitchToMode "normal"; }
+        bind "w" { TogglePaneEmbedOrFloating; SwitchToMode "normal"; }
+    }
+    
+    // Scroll/copy mode - vi keys
+    scroll {
+        bind "Esc" { SwitchToMode "normal"; }
+        bind "q" { SwitchToMode "normal"; }
+        bind "Ctrl c" { SwitchToMode "normal"; }
+        
+        // Vi navigation
+        bind "j" { ScrollDown; }
+        bind "k" { ScrollUp; }
+        bind "d" { HalfPageScrollDown; }
+        bind "u" { HalfPageScrollUp; }
+        bind "f" { PageScrollDown; }
+        bind "b" { PageScrollUp; }
+        bind "g" { ScrollToTop; }
+        bind "G" { ScrollToBottom; }
+        
+        // Search
+        bind "/" { SwitchToMode "entersearch"; SearchInput 0; }
+        bind "n" { Search "Down"; }
+        bind "N" { Search "Up"; }
+        
+        // Enter select mode for copying
+        bind "v" { SwitchToMode "search"; }
+        bind "Space" { SwitchToMode "search"; }
+    }
+    
+    search {
+        bind "Esc" { SwitchToMode "normal"; }
+        bind "q" { SwitchToMode "normal"; }
+        bind "Ctrl c" { SwitchToMode "normal"; }
+        
+        // Vi navigation in search/select mode
+        bind "j" { ScrollDown; }
+        bind "k" { ScrollUp; }
+        bind "d" { HalfPageScrollDown; }
+        bind "u" { HalfPageScrollUp; }
+        
+        // Search
+        bind "/" { SwitchToMode "entersearch"; SearchInput 0; }
+        bind "n" { Search "Down"; }
+        bind "N" { Search "Up"; }
+        
+        // Toggle search options
+        bind "c" { SearchToggleOption "CaseSensitivity"; }
+        bind "w" { SearchToggleOption "Wrap"; }
+        bind "o" { SearchToggleOption "WholeWord"; }
+        
+        // Copy
+        bind "y" { Copy; SwitchToMode "normal"; }
+    }
+    
+    entersearch {
+        bind "Esc" { SwitchToMode "scroll"; }
+        bind "Enter" { SwitchToMode "search"; }
+    }
+    
+    // Resize mode
+    resize {
+        bind "Esc" { SwitchToMode "normal"; }
+        bind "q" { SwitchToMode "normal"; }
+        bind "Enter" { SwitchToMode "normal"; }
+        
+        bind "h" { Resize "Left"; }
+        bind "l" { Resize "Right"; }
+        bind "j" { Resize "Down"; }
+        bind "k" { Resize "Up"; }
+        
+        bind "H" { Resize "Left"; Resize "Left"; Resize "Left"; }
+        bind "L" { Resize "Right"; Resize "Right"; Resize "Right"; }
+        bind "J" { Resize "Down"; Resize "Down"; Resize "Down"; }
+        bind "K" { Resize "Up"; Resize "Up"; Resize "Up"; }
+        
+        bind "=" { Resize "Increase"; }
+        bind "-" { Resize "Decrease"; }
+    }
+    
+    // Rename tab mode
+    RenameTab {
+        bind "Esc" { UndoRenameTab; SwitchToMode "normal"; }
+        bind "Enter" { SwitchToMode "normal"; }
+    }
+    
+    // Allow Ctrl+Space to exit back to normal from any mode
+    shared_except "normal" {
+        bind "Ctrl Space" { SwitchToMode "normal"; }
+    }
+}
+
+// Plugins
+plugins {
+    session-manager location="zellij:session-manager"
+}

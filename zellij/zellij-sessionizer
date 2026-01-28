@@ -1,0 +1,191 @@
+#!/usr/bin/env zsh
+
+# Zellij sessionizer - equivalent to tmux-sessionizer
+# Uses zellij-switch plugin for session management
+# Inspired by: https://github.com/victor-falcon/zellij-sessionizer
+
+# Configuration - customize these paths to match your setup
+# These are searched one level deep for project directories
+DEFAULT_SEARCH_PATHS=("$HOME/dev" "$HOME" "$HOME/.config" "$HOME/school" "$HOME/.local/bin")
+
+# Read from env or use defaults
+if [[ -n "$ZELLIJ_SESSIONIZER_SEARCH_PATHS" ]]; then
+    SEARCH_PATHS=("${(@s: :)ZELLIJ_SESSIONIZER_SEARCH_PATHS}")
+else
+    SEARCH_PATHS=("${DEFAULT_SEARCH_PATHS[@]}")
+fi
+
+# Specific paths to include directly (not searched, added as-is)
+if [[ -n "$ZELLIJ_SESSIONIZER_SPECIFIC_PATHS" ]]; then
+    SPECIFIC_PATHS=("${(@s: :)ZELLIJ_SESSIONIZER_SPECIFIC_PATHS}")
+else
+    SPECIFIC_PATHS=()
+fi
+
+OS_TYPE="${ZELLIJ_SESSIONIZER_OS_TYPE:-$(uname)}"
+ZELLIJ_SWITCH_PLUGIN="${ZELLIJ_SESSIONIZER_SWITCH_PLUGIN:-https://github.com/mostafaqanbaryan/zellij-switch/releases/download/0.2.1/zellij-switch.wasm}"
+
+# Layout to use - full path to the layout file
+ZELLIJ_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zellij"
+ZELLIJ_LAYOUT_PATH="${ZELLIJ_SESSIONIZER_LAYOUT:-$ZELLIJ_CONFIG_DIR/layouts/default.kdl}"
+
+get_atime() {
+    local dir="$1"
+    if [[ "$OS_TYPE" == "Linux" ]]; then
+        stat -c "%X" "$dir" 2>/dev/null || echo "0"
+    else
+        stat -f "%a" "$dir" 2>/dev/null || echo "0"
+    fi
+}
+
+# Function to extract session name from display line
+extract_session_name() {
+    local display_line="$1"
+    # Remove color codes and status info
+    local clean_path=$(echo "$display_line" | sed 's/ \x1b\[[0-9;]*m([^)]*)\x1b\[[0-9;]*m$//' | sed 's/ ([^)]*)$//')
+    local full_path
+    if [[ "$clean_path" == "~"* ]]; then
+        full_path="$HOME${clean_path:1}"
+    else
+        full_path="$clean_path"
+    fi
+    basename "$full_path" | tr . _
+}
+
+# Function to generate the display list
+generate_display_list() {
+    local -a all_dirs
+    all_dirs=()
+
+    # Add first-level directories from SEARCH_PATHS
+    for search_path in "${SEARCH_PATHS[@]}"; do
+        if [[ -d "$search_path" ]]; then
+            for dir in "$search_path"/*(/N); do
+                all_dirs+=("$dir")
+            done
+        fi
+    done
+
+    # Add SPECIFIC_PATHS
+    for specific_path in "${SPECIFIC_PATHS[@]}"; do
+        if [[ -d "$specific_path" ]]; then
+            all_dirs+=("$specific_path")
+        fi
+    done
+
+    # If no directories found, exit early
+    if [[ ${#all_dirs[@]} -eq 0 ]]; then
+        return
+    fi
+
+    # Sort directories by last access time (most recent first)
+    local -a sorted_dirs
+    sorted_dirs=()
+    local temp_file=$(mktemp)
+    
+    for dir in "${all_dirs[@]}"; do
+        local atime=$(get_atime "$dir")
+        echo "$atime $dir" >> "$temp_file"
+    done
+
+    while IFS= read -r line; do
+        local dir_name="${line#* }"
+        sorted_dirs+=("$dir_name")
+    done < <(sort -nr "$temp_file")
+
+    rm "$temp_file"
+
+    # Get zellij session information
+    typeset -A session_status
+    if (( $+commands[zellij] )); then
+        while IFS= read -r line; do
+            if [[ -n "$line" ]]; then
+                local session_name=$(echo "$line" | awk '{print $1}')
+                
+                if [[ "$line" == *"(current)"* ]]; then
+                    session_status[$session_name]=" $(tput setaf 2)(current)$(tput sgr0)"
+                elif [[ "$line" == *"(EXITED"* ]]; then
+                    session_status[$session_name]=" $(tput setaf 1)(exited)$(tput sgr0)"
+                else
+                    session_status[$session_name]=" $(tput setaf 3)(active)$(tput sgr0)"
+                fi
+            fi
+        done < <(zellij ls -n 2>/dev/null)
+    fi
+
+    # Create display names
+    for dir in "${sorted_dirs[@]}"; do
+        local display_name="${dir/#$HOME/~}"
+        local session_name=$(basename "$dir" | tr . _)
+        
+        if [[ -n "${session_status[$session_name]}" ]]; then
+            display_name="${display_name}${session_status[$session_name]}"
+        fi
+        
+        echo "$display_name"
+    done
+}
+
+# Handle --list flag for reload (must be before fzf call)
+if [[ "$1" == "--list" ]]; then
+    generate_display_list
+    exit 0
+fi
+
+# Helper script for fzf actions
+delete_session() {
+    local display_line="$1"
+    local session_name=$(extract_session_name "$display_line")
+    if [[ -n "$session_name" ]]; then
+        zellij delete-session "$session_name" --force 2>/dev/null
+    fi
+}
+
+# Export function for fzf to use
+export -f extract_session_name 2>/dev/null || true
+
+# Use fzf to select a project with delete capability
+selected_display=$(generate_display_list | fzf --ansi \
+    --prompt="Switch to project: " \
+    --header="Enter: Switch | Ctrl-d: Delete session" \
+    --height=100% \
+    --layout=reverse \
+    --border \
+    --bind="ctrl-d:execute-silent(zellij delete-session \$(echo {} | sed 's/ \x1b\[[0-9;]*m([^)]*)\x1b\[[0-9;]*m$//' | sed 's/ ([^)]*)$//' | sed 's|^~|$HOME|' | xargs basename | tr . _) --force 2>/dev/null)+reload($0 --list)")
+
+# Exit if nothing was selected
+if [[ -z "$selected_display" ]]; then
+    exit 0
+fi
+
+# Convert selected display name back to full path
+# Remove status information if present (including color codes)
+clean_display=$(echo "$selected_display" | sed 's/ \x1b\[[0-9;]*m([^)]*)\x1b\[[0-9;]*m$//' | sed 's/ ([^)]*)$//')
+
+if [[ "$clean_display" == "~"* ]]; then
+    selected_dir="$HOME${clean_display:1}"
+else
+    selected_dir="$clean_display"
+fi
+
+# Create session name from directory basename (replace . with _)
+session_name=$(basename "$selected_dir" | tr . _)
+
+# Check if session already exists
+session_exists=$(zellij list-sessions 2>/dev/null | grep -c "^$session_name")
+
+# Switch or create session
+if [[ -n "$ZELLIJ" ]]; then
+    if [[ $session_exists -gt 0 ]]; then
+        # Session exists - just switch to it
+        zellij pipe --plugin "$ZELLIJ_SWITCH_PLUGIN" -- "-s $session_name"
+    else
+        # New session - create it in background with correct cwd, then switch
+        zellij attach --create-background "$session_name" options --default-cwd "$selected_dir" --default-layout "$ZELLIJ_LAYOUT_PATH"
+        # Now switch to it
+        zellij pipe --plugin "$ZELLIJ_SWITCH_PLUGIN" -- "-s $session_name"
+    fi
+else
+    # Outside zellij - attach or create with cwd
+    zellij attach --create "$session_name" options --default-cwd "$selected_dir" --default-layout "$ZELLIJ_LAYOUT_PATH"
+fi
