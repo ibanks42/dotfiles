@@ -438,19 +438,19 @@ install_system_dependencies() {
 
     case "$DISTRO" in
     *debian* | *ubuntu*)
-        sudo apt-get install -y xz-utils build-essential curl wget
+        sudo apt-get install -y xz-utils build-essential curl wget unzip tar
         ;;
     *fedora*)
-        sudo dnf install -y xz tar gcc make curl wget
+        sudo dnf install -y xz tar gcc make curl wget unzip
         ;;
     *arch*)
-        sudo pacman -S --noconfirm --needed xz tar base-devel curl wget
+        sudo pacman -S --noconfirm --needed xz tar base-devel curl wget unzip
         ;;
     *suse*)
-        sudo zypper install -y xz tar gcc make curl wget
+        sudo zypper install -y xz tar gcc make curl wget unzip
         ;;
     *rhel* | *centos*)
-        sudo yum install -y xz tar gcc make curl wget
+        sudo yum install -y xz tar gcc make curl wget unzip
         ;;
     *)
         log_warning "Unsupported distribution '$DISTRO' for system dependencies"
@@ -790,15 +790,15 @@ install_mise() {
         runtimes+=("rust@latest")
     fi
     
-    if confirm "Install Bun via mise?" "y"; then
+    if confirm "Install Bun via mise?" "n"; then
         runtimes+=("bun@latest")
     fi
     
-    if confirm "Install Java via mise?" "y"; then
+    if confirm "Install Java via mise?" "n"; then
         runtimes+=("java@latest")
     fi
     
-    if confirm "Install Zig via mise?" "y"; then
+    if confirm "Install Zig via mise?" "n"; then
         runtimes+=("zig@latest")
     fi
     
@@ -806,10 +806,23 @@ install_mise() {
     if [[ ${#runtimes[@]} -gt 0 ]]; then
         for runtime in "${runtimes[@]}"; do
             log_info "Installing $runtime..."
-            if "$LOCAL_BIN/mise" use --global "$runtime"; then
+            if MISE_VERBOSE=1 "$LOCAL_BIN/mise" use --global "$runtime" 2>&1; then
                 log_success "$runtime installed"
             else
-                log_error "Failed to install $runtime"
+                log_warning "Failed to install $runtime"
+                
+                # Provide specific guidance for known problematic runtimes
+                case "$runtime" in
+                bun@*)
+                    log_info "Bun can be installed manually: curl -fsSL https://bun.sh/install | bash"
+                    ;;
+                java@*)
+                    log_info "Java can be installed via package manager: sudo apt install default-jdk"
+                    ;;
+                *)
+                    log_info "Try running manually: mise use --global $runtime"
+                    ;;
+                esac
             fi
         done
     else
