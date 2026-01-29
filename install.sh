@@ -790,15 +790,15 @@ install_mise() {
         runtimes+=("rust@latest")
     fi
     
-    if confirm "Install Bun via mise?" "n"; then
+    if confirm "Install Bun via mise?" "y"; then
         runtimes+=("bun@latest")
     fi
     
-    if confirm "Install Java via mise?" "n"; then
+    if confirm "Install Java via mise?" "y"; then
         runtimes+=("java@latest")
     fi
     
-    if confirm "Install Zig via mise?" "n"; then
+    if confirm "Install Zig via mise?" "y"; then
         runtimes+=("zig@latest")
     fi
     
