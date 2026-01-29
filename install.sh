@@ -717,29 +717,8 @@ install_nvim() {
 
     # Install neovim binary
     if ! command -v nvim &>/dev/null; then
-        log_info "Installing Neovim..."
-        
-        case "$DISTRO" in
-        *debian* | *ubuntu*)
-            # Try package manager first (might be old version)
-            if pkg_install neovim 2>/dev/null; then
-                log_success "Neovim installed via apt"
-            else
-                install_nvim_tarball
-            fi
-            ;;
-        *fedora*)
-            pkg_install neovim
-            log_success "Neovim installed via dnf"
-            ;;
-        *arch*)
-            pkg_install neovim
-            log_success "Neovim installed via pacman"
-            ;;
-        *)
-            install_nvim_tarball
-            ;;
-        esac
+        log_info "Installing latest Neovim nightly..."
+        install_nvim_nightly
     else
         log_success "Neovim already installed ($(nvim --version | head -1))"
     fi
@@ -759,10 +738,10 @@ install_nvim() {
     log_success "Neovim config linked"
 }
 
-install_nvim_tarball() {
-    log_info "Installing Neovim from tarball..."
+install_nvim_nightly() {
+    log_info "Downloading Neovim nightly build..."
     cd "$TMP_DIR"
-    wget -qO nvim.tar.gz "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
+    wget -qO nvim.tar.gz "https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz"
     tar xzf nvim.tar.gz
     
     # Install to ~/.local
@@ -773,7 +752,7 @@ install_nvim_tarball() {
     # Symlink binary
     ln -sf "$HOME/.local/nvim-linux64/bin/nvim" "$LOCAL_BIN/nvim"
     
-    log_success "Neovim installed from tarball"
+    log_success "Neovim nightly installed"
 }
 
 install_zellij() {
