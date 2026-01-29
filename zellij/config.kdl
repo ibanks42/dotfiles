@@ -224,12 +224,15 @@ keybinds {
         bind "Ctrl Space" { SwitchToMode "normal"; }
     }
 
-    // Clear default Ctrl+hjkl bindings that switch to move mode
+    // Clear default Ctrl+hjkl/npo bindings so they pass through to apps
     shared_except "locked" {
         unbind "Ctrl h"
         unbind "Ctrl j"
         unbind "Ctrl k"
         unbind "Ctrl l"
+        unbind "Ctrl n"
+        unbind "Ctrl p"
+        unbind "Ctrl o"
     }
 }
 
