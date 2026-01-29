@@ -382,9 +382,9 @@ show_component_menu() {
             IFS=':' read -r id name func default <<<"$comp_def"
             local status="[ ]"
             if [[ "${COMPONENT_ENABLED[$id]}" == "true" ]]; then
-                status="${GREEN}[X]${NC}"
+                status="[X]"
             fi
-            printf "  %s %2d. %s\n" "$status" "$i" "$name"
+            echo -e "  ${GREEN}${status}${NC} $i. $name"
             ((i++))
         done
 
@@ -423,8 +423,9 @@ show_component_menu() {
             done
         fi
 
-        # Clear screen and redraw
-        echo -e "\033[${#COMPONENTS[@]}A\033[J"
+        # Clear lines and redraw - need to clear prompt + components + blank line
+        local lines_to_clear=$((${#COMPONENTS[@]} + 2))
+        printf "\033[%dA\033[J" "$lines_to_clear"
     done
 }
 
@@ -716,12 +717,29 @@ install_nvim() {
 
     # Install neovim binary
     if ! command -v nvim &>/dev/null; then
-        log_info "Downloading Neovim..."
-        cd "$TMP_DIR"
-        wget -qO nvim.appimage "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage"
-        chmod +x nvim.appimage
-        mv nvim.appimage "$LOCAL_BIN/nvim"
-        log_success "Neovim installed"
+        log_info "Installing Neovim..."
+        
+        case "$DISTRO" in
+        *debian* | *ubuntu*)
+            # Try package manager first (might be old version)
+            if pkg_install neovim 2>/dev/null; then
+                log_success "Neovim installed via apt"
+            else
+                install_nvim_tarball
+            fi
+            ;;
+        *fedora*)
+            pkg_install neovim
+            log_success "Neovim installed via dnf"
+            ;;
+        *arch*)
+            pkg_install neovim
+            log_success "Neovim installed via pacman"
+            ;;
+        *)
+            install_nvim_tarball
+            ;;
+        esac
     else
         log_success "Neovim already installed ($(nvim --version | head -1))"
     fi
@@ -739,6 +757,23 @@ install_nvim() {
 
     ln -sf "$DOTFILES_PATH/nvim" "$nvim_config"
     log_success "Neovim config linked"
+}
+
+install_nvim_tarball() {
+    log_info "Installing Neovim from tarball..."
+    cd "$TMP_DIR"
+    wget -qO nvim.tar.gz "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
+    tar xzf nvim.tar.gz
+    
+    # Install to ~/.local
+    mkdir -p "$HOME/.local"
+    rm -rf "$HOME/.local/nvim-linux64"
+    mv nvim-linux64 "$HOME/.local/"
+    
+    # Symlink binary
+    ln -sf "$HOME/.local/nvim-linux64/bin/nvim" "$LOCAL_BIN/nvim"
+    
+    log_success "Neovim installed from tarball"
 }
 
 install_zellij() {
