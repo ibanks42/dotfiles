@@ -50,6 +50,7 @@ COMPONENTS=(
     "gh:GitHub CLI:install_gh:true"
     "fonts:Fonts:install_fonts:true"
     "cli:CLI Tools (fzf, eza, fd, lazygit, bat, zoxide):install_cli_tools:true"
+    "go:Go (latest):install_go:true"
     "mise:Mise (runtime manager):install_mise:true"
     "nvim:Neovim + config:install_nvim:true"
     "zellij:Zellij + config:install_zellij:true"
@@ -264,6 +265,7 @@ ${BOLD}Components:${NC}
     gh                  GitHub CLI
     fonts               Custom fonts (requires gh auth for private repo)
     cli                 CLI tools (fzf, eza, fd, lazygit, bat, zoxide)
+    go                  Go (latest version)
     mise                Mise runtime manager
     nvim                Neovim + configuration
     zellij              Zellij terminal multiplexer + config
@@ -275,7 +277,7 @@ ${BOLD}Examples:${NC}
     ./install.sh                    # Interactive mode
     ./install.sh --yes              # Install all defaults non-interactively
     ./install.sh nvim zellij        # Install only nvim and zellij
-    ./install.sh --yes cli mise     # Install cli tools and mise non-interactively
+    ./install.sh --yes cli mise go  # Install cli tools, mise, and go non-interactively
 
 EOF
 }
@@ -432,6 +434,34 @@ show_component_menu() {
 # =============================================================================
 # Prerequisites
 # =============================================================================
+
+install_system_dependencies() {
+    log_step "Installing system dependencies"
+
+    case "$DISTRO" in
+    *debian* | *ubuntu*)
+        sudo apt-get install -y xz-utils build-essential curl wget
+        ;;
+    *fedora*)
+        sudo dnf install -y xz tar gcc make curl wget
+        ;;
+    *arch*)
+        sudo pacman -S --noconfirm --needed xz tar base-devel curl wget
+        ;;
+    *suse*)
+        sudo zypper install -y xz tar gcc make curl wget
+        ;;
+    *rhel* | *centos*)
+        sudo yum install -y xz tar gcc make curl wget
+        ;;
+    *)
+        log_warning "Unsupported distribution '$DISTRO' for system dependencies"
+        return 1
+        ;;
+    esac
+
+    log_success "System dependencies installed"
+}
 
 update_packages() {
     if [[ "$SKIP_UPDATE" == "true" ]]; then
@@ -684,6 +714,49 @@ install_cli_tools() {
     else
         log_success "zoxide already installed"
     fi
+}
+
+install_go() {
+    log_step "Installing Go"
+
+    if command -v go &>/dev/null; then
+        log_success "Go already installed ($(go version))"
+        return 0
+    fi
+
+    log_info "Installing latest Go..."
+    
+    # Get latest Go version
+    local go_version
+    go_version=$(curl -sL 'https://go.dev/VERSION?m=text' | head -1)
+    
+    if [[ -z "$go_version" ]]; then
+        log_error "Failed to get latest Go version"
+        return 1
+    fi
+    
+    log_info "Latest Go version: $go_version"
+    
+    cd "$TMP_DIR"
+    wget -qO go.tar.gz "https://go.dev/dl/${go_version}.linux-amd64.tar.gz"
+    
+    # Remove old installation if exists
+    sudo rm -rf /usr/local/go
+    
+    # Extract to /usr/local
+    sudo tar -C /usr/local -xzf go.tar.gz
+    
+    # Add to PATH in profile if not already there
+    if ! grep -q '/usr/local/go/bin' "$HOME/.profile" 2>/dev/null; then
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> "$HOME/.profile"
+        log_info "Added Go to PATH in ~/.profile"
+    fi
+    
+    # Also add to current session
+    export PATH=$PATH:/usr/local/go/bin
+    
+    log_success "Go ${go_version} installed"
+    log_info "Go bin location: /usr/local/go/bin"
 }
 
 install_mise() {
@@ -948,6 +1021,9 @@ main() {
     setup_temp
     detect_system
     mkdir -p "$LOCAL_BIN" "$CONFIG_DIR"
+
+    # Install system dependencies first
+    install_system_dependencies
 
     # Initialize component selection
     init_component_selection

@@ -87,6 +87,7 @@ The installer supports various options:
 - `gh` - GitHub CLI (required for private fonts repo)
 - `fonts` - Custom fonts
 - `cli` - CLI tools (fzf, eza, fd, lazygit, bat, zoxide)
+- `go` - Go (latest version)
 - `mise` - Mise runtime manager
 - `nvim` - Neovim + configuration
 - `zellij` - Zellij terminal multiplexer + config
