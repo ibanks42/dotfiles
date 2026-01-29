@@ -718,7 +718,10 @@ install_nvim() {
     # Install neovim binary
     if ! command -v nvim &>/dev/null; then
         log_info "Installing latest Neovim nightly..."
-        install_nvim_nightly
+        if ! install_nvim_nightly; then
+            log_error "Neovim installation failed"
+            return 1
+        fi
     else
         log_success "Neovim already installed ($(nvim --version | head -1))"
     fi
@@ -741,13 +744,27 @@ install_nvim() {
 install_nvim_nightly() {
     log_info "Downloading Neovim nightly build..."
     cd "$TMP_DIR"
-    wget -qO nvim.tar.gz "https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz"
-    tar xzf nvim.tar.gz
+    
+    if ! wget -qO nvim.tar.gz "https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.tar.gz"; then
+        log_error "Failed to download Neovim nightly"
+        return 1
+    fi
+    
+    if ! tar xzf nvim.tar.gz; then
+        log_error "Failed to extract Neovim tarball"
+        return 1
+    fi
+    
+    # The extracted directory is nvim-linux-x86_64 for nightly
+    if [[ ! -d "nvim-linux-x86_64" ]]; then
+        log_error "Expected nvim-linux-x86_64 directory not found after extraction"
+        return 1
+    fi
     
     # Install to ~/.local
     mkdir -p "$HOME/.local"
     rm -rf "$HOME/.local/nvim-linux64"
-    mv nvim-linux64 "$HOME/.local/"
+    mv nvim-linux-x86_64 "$HOME/.local/nvim-linux64"
     
     # Symlink binary
     ln -sf "$HOME/.local/nvim-linux64/bin/nvim" "$LOCAL_BIN/nvim"
