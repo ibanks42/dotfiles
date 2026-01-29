@@ -108,8 +108,8 @@ PROMPT+=' $(git_prompt_info)'
 
 export PATH="$PATH:$HOME/.local/bin"
 
-eval "$(zoxide init bash)"
-eval "$($HOME/.local/bin/mise activate bash)"
+eval "$(zoxide init zsh)"
+eval "$($HOME/.local/bin/mise activate zsh)"
 
 alias bat='/usr/local/bat/bat'
 alias batcat='/usr/local/bat/bat'

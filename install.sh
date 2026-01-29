@@ -50,8 +50,7 @@ COMPONENTS=(
     "gh:GitHub CLI:install_gh:true"
     "fonts:Fonts:install_fonts:true"
     "cli:CLI Tools (fzf, eza, fd, lazygit, bat, zoxide):install_cli_tools:true"
-    "go:Go (latest):install_go:true"
-    "mise:Mise (runtime manager):install_mise:true"
+    "mise:Mise (runtime manager + runtimes):install_mise:true"
     "nvim:Neovim + config:install_nvim:true"
     "zellij:Zellij + config:install_zellij:true"
     "ghostty:Ghostty terminal:install_ghostty:false"
@@ -265,8 +264,7 @@ ${BOLD}Components:${NC}
     gh                  GitHub CLI
     fonts               Custom fonts (requires gh auth for private repo)
     cli                 CLI tools (fzf, eza, fd, lazygit, bat, zoxide)
-    go                  Go (latest version)
-    mise                Mise runtime manager
+    mise                Mise (runtime manager) - installs Node, Go, .NET, etc.
     nvim                Neovim + configuration
     zellij              Zellij terminal multiplexer + config
     ghostty             Ghostty terminal emulator
@@ -277,7 +275,7 @@ ${BOLD}Examples:${NC}
     ./install.sh                    # Interactive mode
     ./install.sh --yes              # Install all defaults non-interactively
     ./install.sh nvim zellij        # Install only nvim and zellij
-    ./install.sh --yes cli mise go  # Install cli tools, mise, and go non-interactively
+    ./install.sh --yes cli mise     # Install cli tools and mise with runtimes
 
 EOF
 }
@@ -504,7 +502,38 @@ update_packages() {
 handle_dotfiles_repo() {
     log_step "Dotfiles Repository"
 
-    if [[ -d "$DOTFILES_PATH" ]]; then
+    # Check if we're running the script from within the dotfiles repo
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    # Check if this directory is the dotfiles repo
+    if [[ -d "$script_dir/.git" ]]; then
+        local remote_url
+        remote_url=$(cd "$script_dir" && git config --get remote.origin.url 2>/dev/null || echo "")
+        
+        if [[ "$remote_url" == *"ibanks42/dotfiles"* ]] || [[ "$remote_url" == *"$REPO_URL"* ]]; then
+            log_info "Running from dotfiles repository at $script_dir"
+            
+            # Use this directory as DOTFILES_PATH
+            DOTFILES_PATH="$script_dir"
+            
+            if [[ "$AUTO_YES" == "true" ]]; then
+                log_info "Using current directory as dotfiles location"
+                cd "$DOTFILES_PATH"
+                git submodule update --init --recursive
+                return 0
+            fi
+            
+            if confirm "Use current directory ($script_dir) as dotfiles location?"; then
+                log_success "Using $DOTFILES_PATH"
+                cd "$DOTFILES_PATH"
+                git submodule update --init --recursive
+                return 0
+            fi
+        fi
+    fi
+
+    if [[ -d "$DOTFILES_PATH" ]] && [[ "$DOTFILES_PATH" != "$script_dir" ]]; then
         echo ""
         log_info "Dotfiles directory found at $DOTFILES_PATH"
 
@@ -716,71 +745,78 @@ install_cli_tools() {
     fi
 }
 
-install_go() {
-    log_step "Installing Go"
-
-    if command -v go &>/dev/null; then
-        log_success "Go already installed ($(go version))"
-        return 0
-    fi
-
-    log_info "Installing latest Go..."
-    
-    # Get latest Go version
-    local go_version
-    go_version=$(curl -sL 'https://go.dev/VERSION?m=text' | head -1)
-    
-    if [[ -z "$go_version" ]]; then
-        log_error "Failed to get latest Go version"
-        return 1
-    fi
-    
-    log_info "Latest Go version: $go_version"
-    
-    cd "$TMP_DIR"
-    wget -qO go.tar.gz "https://go.dev/dl/${go_version}.linux-amd64.tar.gz"
-    
-    # Remove old installation if exists
-    sudo rm -rf /usr/local/go
-    
-    # Extract to /usr/local
-    sudo tar -C /usr/local -xzf go.tar.gz
-    
-    # Add to PATH in profile if not already there
-    if ! grep -q '/usr/local/go/bin' "$HOME/.profile" 2>/dev/null; then
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> "$HOME/.profile"
-        log_info "Added Go to PATH in ~/.profile"
-    fi
-    
-    # Also add to current session
-    export PATH=$PATH:/usr/local/go/bin
-    
-    log_success "Go ${go_version} installed"
-    log_info "Go bin location: /usr/local/go/bin"
-}
-
 install_mise() {
     log_step "Installing Mise"
 
-    if command -v mise &>/dev/null; then
+    # Install mise binary
+    if ! command -v mise &>/dev/null; then
+        log_info "Installing mise..."
+        local version
+        version=$(get_github_version "jdx/mise")
+        
+        cd "$TMP_DIR"
+        wget -qO mise "https://github.com/jdx/mise/releases/download/v${version}/mise-v${version}-linux-x64-musl"
+        install mise "$LOCAL_BIN"
+        chmod +x "$LOCAL_BIN/mise"
+        
+        log_success "Mise installed"
+    else
         log_success "Mise already installed ($(mise --version))"
-        return 0
     fi
 
-    local version
-    version=$(get_github_version "jdx/mise")
+    # Install runtimes
+    log_info "Installing language runtimes via mise..."
     
-    cd "$TMP_DIR"
-    wget -qO mise "https://github.com/jdx/mise/releases/download/v${version}/mise-v${version}-linux-x64-musl"
-    install mise "$LOCAL_BIN"
-    chmod +x "$LOCAL_BIN/mise"
+    # Create array of runtimes to install
+    local -a runtimes=()
     
-    log_success "Mise installed"
-
-    if confirm "Install Node.js via mise?"; then
-        "$LOCAL_BIN/mise" use --global node@latest
-        log_success "Node.js installed via mise"
+    if confirm "Install Node.js via mise?" "y"; then
+        runtimes+=("node@latest")
     fi
+    
+    if confirm "Install Go via mise?" "y"; then
+        runtimes+=("go@latest")
+    fi
+    
+    if confirm "Install .NET via mise?" "y"; then
+        runtimes+=("dotnet@latest")
+    fi
+    
+    if confirm "Install Python via mise?" "n"; then
+        runtimes+=("python@latest")
+    fi
+    
+    if confirm "Install Rust via mise?" "n"; then
+        runtimes+=("rust@latest")
+    fi
+    
+    if confirm "Install Bun via mise?" "y"; then
+        runtimes+=("bun@latest")
+    fi
+    
+    if confirm "Install Java via mise?" "y"; then
+        runtimes+=("java@latest")
+    fi
+    
+    if confirm "Install Zig via mise?" "y"; then
+        runtimes+=("zig@latest")
+    fi
+    
+    # Install all selected runtimes
+    if [[ ${#runtimes[@]} -gt 0 ]]; then
+        for runtime in "${runtimes[@]}"; do
+            log_info "Installing $runtime..."
+            if "$LOCAL_BIN/mise" use --global "$runtime"; then
+                log_success "$runtime installed"
+            else
+                log_error "Failed to install $runtime"
+            fi
+        done
+    else
+        log_info "No runtimes selected"
+    fi
+    
+    log_success "Mise setup complete"
 }
 
 install_nvim() {
