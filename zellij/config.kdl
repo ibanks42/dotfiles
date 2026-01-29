@@ -50,12 +50,16 @@ keybinds {
     // Unbind defaults we want to replace
     unbind "Ctrl b"  // default tmux prefix
     unbind "Ctrl g"  // default lock mode
-    
+    unbind "Ctrl h"  // default pane navigation
+    unbind "Ctrl j"  // default pane navigation
+    unbind "Ctrl k"  // default pane navigation
+    unbind "Ctrl l"  // default pane navigation
+ 
     // Normal mode - this is your main working mode
     normal {
         // Ctrl+Space as prefix to enter "tmux" mode
         bind "Ctrl Space" { SwitchToMode "tmux"; }
-        
+ 
         // Alt+number for tab switching (like tmux windows)
         bind "Alt 1" { GoToTab 1; }
         bind "Alt 2" { GoToTab 2; }
@@ -66,7 +70,7 @@ keybinds {
         bind "Alt 7" { GoToTab 7; }
         bind "Alt 8" { GoToTab 8; }
         bind "Alt 9" { GoToTab 9; }
-        
+
         // Ctrl+f for sessionizer (fzf project picker)
         bind "Ctrl f" {
             Run "zellij-sessionizer" {
@@ -79,49 +83,43 @@ keybinds {
             }
         }
     }
-    
+
     // "Tmux" mode - activated with Ctrl+Space prefix
     tmux {
         bind "Ctrl Space" { SwitchToMode "normal"; }
         bind "Esc" { SwitchToMode "normal"; }
-        
-        // Pane navigation with Ctrl+hjkl
-        bind "Ctrl h" { MoveFocus "Left"; SwitchToMode "normal"; }
-        bind "Ctrl l" { MoveFocus "Right"; SwitchToMode "normal"; }
-        bind "Ctrl j" { MoveFocus "Down"; SwitchToMode "normal"; }
-        bind "Ctrl k" { MoveFocus "Up"; SwitchToMode "normal"; }
-        
+
         // Also support hjkl without Ctrl in tmux mode
         bind "h" { MoveFocus "Left"; SwitchToMode "normal"; }
         bind "l" { MoveFocus "Right"; SwitchToMode "normal"; }
         bind "j" { MoveFocus "Down"; SwitchToMode "normal"; }
         bind "k" { MoveFocus "Up"; SwitchToMode "normal"; }
-        
+
         // Split panes - | for horizontal, - for vertical (like tmux)
         bind "|" { NewPane "Right"; SwitchToMode "normal"; }
         bind "-" { NewPane "Down"; SwitchToMode "normal"; }
-        
+
         // Tab (window) management
         bind "n" { NewTab; SwitchToMode "normal"; }
         bind "d" { CloseTab; SwitchToMode "normal"; }
         bind "x" { CloseFocus; SwitchToMode "normal"; }
-        
+
         // Session management
         bind "q" { Detach; }                    // Detach (keeps session running, saves state)
         bind "Q" { Quit; }                      // Force quit (destroys session)
-        
+
         // Scroll/copy mode (like tmux copy-mode)
         bind "[" { SwitchToMode "scroll"; }
         bind "v" { SwitchToMode "scroll"; }
-        
+
         // Resize mode
         bind "z" { ToggleFocusFullscreen; SwitchToMode "normal"; }
         bind "R" { SwitchToMode "resize"; }
-        
+
         // Tab navigation
         bind "p" { GoToPreviousTab; SwitchToMode "normal"; }
         bind "Tab" { GoToNextTab; SwitchToMode "normal"; }
-        
+
         // Session switcher
         bind "s" {
             LaunchOrFocusPlugin "session-manager" {
@@ -130,21 +128,21 @@ keybinds {
             }
             SwitchToMode "normal"
         }
-        
+
         // Rename tab
         bind "," { SwitchToMode "RenameTab"; TabNameInput 0; }
-        
+
         // Floating pane toggle
         bind "f" { ToggleFloatingPanes; SwitchToMode "normal"; }
         bind "w" { TogglePaneEmbedOrFloating; SwitchToMode "normal"; }
     }
-    
+
     // Scroll/copy mode - vi keys
     scroll {
         bind "Esc" { SwitchToMode "normal"; }
         bind "q" { SwitchToMode "normal"; }
         bind "Ctrl c" { SwitchToMode "normal"; }
-        
+
         // Vi navigation
         bind "j" { ScrollDown; }
         bind "k" { ScrollUp; }
@@ -154,76 +152,84 @@ keybinds {
         bind "b" { PageScrollUp; }
         bind "g" { ScrollToTop; }
         bind "G" { ScrollToBottom; }
-        
+
         // Search
         bind "/" { SwitchToMode "entersearch"; SearchInput 0; }
         bind "n" { Search "Down"; }
         bind "N" { Search "Up"; }
-        
+
         // Enter select mode for copying
         bind "v" { SwitchToMode "search"; }
         bind "Space" { SwitchToMode "search"; }
     }
-    
+
     search {
         bind "Esc" { SwitchToMode "normal"; }
         bind "q" { SwitchToMode "normal"; }
         bind "Ctrl c" { SwitchToMode "normal"; }
-        
+
         // Vi navigation in search/select mode
         bind "j" { ScrollDown; }
         bind "k" { ScrollUp; }
         bind "d" { HalfPageScrollDown; }
         bind "u" { HalfPageScrollUp; }
-        
+
         // Search
         bind "/" { SwitchToMode "entersearch"; SearchInput 0; }
         bind "n" { Search "Down"; }
         bind "N" { Search "Up"; }
-        
+
         // Toggle search options
         bind "c" { SearchToggleOption "CaseSensitivity"; }
         bind "w" { SearchToggleOption "Wrap"; }
         bind "o" { SearchToggleOption "WholeWord"; }
-        
+
         // Copy
         bind "y" { Copy; SwitchToMode "normal"; }
     }
-    
+
     entersearch {
         bind "Esc" { SwitchToMode "scroll"; }
         bind "Enter" { SwitchToMode "search"; }
     }
-    
+
     // Resize mode
     resize {
         bind "Esc" { SwitchToMode "normal"; }
         bind "q" { SwitchToMode "normal"; }
         bind "Enter" { SwitchToMode "normal"; }
-        
+
         bind "h" { Resize "Left"; }
         bind "l" { Resize "Right"; }
         bind "j" { Resize "Down"; }
         bind "k" { Resize "Up"; }
-        
+
         bind "H" { Resize "Left"; Resize "Left"; Resize "Left"; }
         bind "L" { Resize "Right"; Resize "Right"; Resize "Right"; }
         bind "J" { Resize "Down"; Resize "Down"; Resize "Down"; }
         bind "K" { Resize "Up"; Resize "Up"; Resize "Up"; }
-        
+
         bind "=" { Resize "Increase"; }
         bind "-" { Resize "Decrease"; }
     }
-    
+
     // Rename tab mode
     RenameTab {
         bind "Esc" { UndoRenameTab; SwitchToMode "normal"; }
         bind "Enter" { SwitchToMode "normal"; }
     }
-    
+
     // Allow Ctrl+Space to exit back to normal from any mode
     shared_except "normal" {
         bind "Ctrl Space" { SwitchToMode "normal"; }
+    }
+
+    // Clear default Ctrl+hjkl bindings that switch to move mode
+    shared_except "locked" {
+        unbind "Ctrl h"
+        unbind "Ctrl j"
+        unbind "Ctrl k"
+        unbind "Ctrl l"
     }
 }
 
