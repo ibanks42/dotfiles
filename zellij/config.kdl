@@ -59,6 +59,9 @@ keybinds {
     normal {
         // Ctrl+Space as prefix to enter "tmux" mode
         bind "Ctrl Space" { SwitchToMode "tmux"; }
+
+        // Ctrl+q to detach (exit but keep session running)
+        bind "Ctrl q" { Detach; }
  
         // Alt+number for tab switching (like tmux windows)
         bind "Alt 1" { GoToTab 1; }

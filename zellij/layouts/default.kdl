@@ -63,7 +63,7 @@ layout {
 
                 // Date/time format like tmux
                 datetime          "#[fg=#5eacd3,bold] {format} "
-                datetime_format   "%H:%M %d-%b-%y"
+                datetime_format   "%I:%M %p %d-%b-%y"
                 datetime_timezone "America/New_York"
             }
         }
