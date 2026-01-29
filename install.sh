@@ -17,14 +17,32 @@ LOCAL_BIN="$HOME/.local/bin"
 CONFIG_DIR="$HOME/.config"
 TMP_DIR="/tmp/dotfiles-install-$$"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m' # No Color
+# Detect if we have a TTY for interactive input
+# When piped (wget | bash), stdin is the script itself, not a terminal
+if [[ -t 0 ]]; then
+    HAS_TTY="true"
+else
+    HAS_TTY="false"
+fi
+
+# Colors (disable if not outputting to terminal)
+if [[ -t 1 ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[0;33m'
+    BLUE='\033[0;34m'
+    CYAN='\033[0;36m'
+    BOLD='\033[1m'
+    NC='\033[0m' # No Color
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    CYAN=''
+    BOLD=''
+    NC=''
+fi
 
 # Component list (order matters for dependencies)
 COMPONENTS=(
@@ -74,7 +92,7 @@ confirm() {
     local default="${2:-y}"
     local reply
 
-    if [[ "$AUTO_YES" == "true" ]]; then
+    if [[ "$AUTO_YES" == "true" ]] || [[ "$HAS_TTY" == "false" ]]; then
         return 0
     fi
 
@@ -97,6 +115,12 @@ get_choice() {
     shift
     local options=("$@")
     local choice
+
+    # If no TTY, return default (option 2 for dotfiles = pull latest)
+    if [[ "$HAS_TTY" == "false" ]] || [[ "$AUTO_YES" == "true" ]]; then
+        echo "2"
+        return 0
+    fi
 
     echo -e "${YELLOW}${prompt}${NC}"
     for i in "${!options[@]}"; do
@@ -330,6 +354,12 @@ init_component_selection() {
 }
 
 show_component_menu() {
+    # Skip menu if no TTY (piped execution)
+    if [[ "$HAS_TTY" == "false" ]]; then
+        log_info "No TTY detected (piped execution) - using default components"
+        return 0
+    fi
+
     if [[ "$AUTO_YES" == "true" ]] && [[ ${#SELECTED_COMPONENTS[@]} -eq 0 ]]; then
         # Auto mode with no specific components - use defaults
         return 0
@@ -535,9 +565,14 @@ install_gh() {
     if gh auth status &>/dev/null; then
         log_success "Already authenticated with GitHub"
     else
-        log_info "GitHub authentication required (needed for private fonts repo)"
-        echo ""
-        gh auth login
+        if [[ "$HAS_TTY" == "false" ]]; then
+            log_warning "GitHub authentication required but no TTY available"
+            log_warning "Run 'gh auth login' manually after installation to access private repos"
+        else
+            log_info "GitHub authentication required (needed for private fonts repo)"
+            echo ""
+            gh auth login
+        fi
     fi
 }
 
@@ -869,6 +904,14 @@ main() {
     echo -e "${BOLD}║     ${CYAN}Dotfiles Installation Script${NC}${BOLD}       ║${NC}"
     echo -e "${BOLD}╚═══════════════════════════════════════╝${NC}"
     echo ""
+
+    # Warn about piped execution
+    if [[ "$HAS_TTY" == "false" ]]; then
+        log_warning "Running in non-interactive mode (piped execution detected)"
+        log_info "Using default component selection. For interactive mode, run:"
+        log_info "  bash -c \"\$(wget -qO- https://raw.githubusercontent.com/ibanks42/dotfiles/main/install.sh)\""
+        echo ""
+    fi
 
     # Setup
     setup_temp
