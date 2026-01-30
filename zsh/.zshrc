@@ -121,6 +121,7 @@ alias lsa="ls -a"
 alias lt="eza --tree --level=2 --long --icons --git"
 alias ls="eza -lh --group-directories-first --icons"
 alias la="ls -a"
+alias zj="zellij"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
