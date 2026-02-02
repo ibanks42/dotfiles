@@ -82,7 +82,7 @@ generate_display_list() {
     local -a sorted_dirs
     sorted_dirs=()
     local temp_file=$(mktemp)
-    
+
     for dir in "${all_dirs[@]}"; do
         local atime=$(get_atime "$dir")
         echo "$atime $dir" >> "$temp_file"
@@ -101,7 +101,7 @@ generate_display_list() {
         while IFS= read -r line; do
             if [[ -n "$line" ]]; then
                 local session_name=$(echo "$line" | awk '{print $1}')
-                
+
                 if [[ "$line" == *"(current)"* ]]; then
                     session_status[$session_name]=" $(tput setaf 2)(current)$(tput sgr0)"
                 elif [[ "$line" == *"(EXITED"* ]]; then
@@ -117,11 +117,11 @@ generate_display_list() {
     for dir in "${sorted_dirs[@]}"; do
         local display_name="${dir/#$HOME/~}"
         local session_name=$(basename "$dir" | tr . _)
-        
+
         if [[ -n "${session_status[$session_name]}" ]]; then
             display_name="${display_name}${session_status[$session_name]}"
         fi
-        
+
         echo "$display_name"
     done
 }
