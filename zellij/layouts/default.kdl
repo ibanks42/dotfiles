@@ -17,7 +17,7 @@ layout {
                 // Only show hints when in a mode, completely empty for normal
                 mode_normal        ""
                 mode_locked        "#[bg=#e06c75,fg=#1e1e1e,bold] LOCKED: Ctrl+g to unlock "
-                mode_tmux          "#[bg=#e5c07b,fg=#1e1e1e,bold] PREFIX: q=detach  n=new-tab  |=vsplit  -=hsplit  hjkl=navigate  s=sessions  ,=rename  f=find "
+                mode_tmux          "#[bg=#e5c07b,fg=#1e1e1e,bold] PREFIX: d=deatch  q=close-tab  n=new-tab  |=vsplit  -=hsplit  hjkl=navigate  s=sessions  ,=rename  f=find "
                 mode_resize        "#[bg=#c678dd,fg=#1e1e1e,bold] RESIZE: h/j/k/l=resize  +/-=grow/shrink  Enter/Esc=confirm "
                 mode_scroll        "#[bg=#56b6c2,fg=#1e1e1e,bold] SCROLL: j/k=scroll  d/u=half-page  Ctrl+f/b=page  /=search "
                 mode_enter_search  "#[bg=#d19a66,fg=#1e1e1e,bold] SEARCH: type query, Enter=confirm  Esc=cancel "

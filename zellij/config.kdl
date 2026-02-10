@@ -85,12 +85,13 @@ keybinds clear-defaults=true {
         // Tab management
         bind "n" { NewTab; SwitchToMode "normal"; }
         bind "x" { CloseTab; SwitchToMode "normal"; }
+        bind "q" { CloseTab; SwitchToMode "normal"; }
         bind "p" { GoToPreviousTab; SwitchToMode "normal"; }
         bind "Tab" { GoToNextTab; SwitchToMode "normal"; }
         bind "," { SwitchToMode "RenameTab"; TabNameInput 0; }
 
         // Session management
-        bind "q" { Detach; }                    // Detach (keeps session running)
+        bind "d" { Detach; }                    // Detach (keeps session running)
         bind "Q" { Quit; }                      // Force quit (destroys session)
         bind "s" {
             LaunchOrFocusPlugin "session-manager" {
