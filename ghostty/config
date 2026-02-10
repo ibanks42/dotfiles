@@ -38,3 +38,5 @@ keybind = alt+digit_7=unbind
 keybind = alt+digit_8=unbind
 keybind = alt+digit_9=unbind
 keybind = alt+digit_0=unbind
+
+keybind = global:super+grave_accent=toggle_quick_terminal
