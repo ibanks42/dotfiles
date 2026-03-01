@@ -1,30 +1,37 @@
 return {
-  "NickvanDyke/opencode.nvim",
-  dependencies = {
-    -- Recommended for `ask()` and `select()`.
-    -- Required for `snacks` provider.
-    ---@module 'snacks' <- Loads `snacks.nvim` types for configuration intellisense.
-    { "folke/snacks.nvim", opts = { input = {}, picker = {}, terminal = {} } },
-  },
+  "sudo-tee/opencode.nvim",
   config = function()
-    ---@type opencode.Opts
-    vim.g.opencode_opts = {
-      -- Your configuration, if any — see `lua/opencode/config.lua`, or "goto definition" on the type or field.
-    }
+    require("opencode").setup({
+      preferred_picker = "fzf-lua",
+      keymap = {
+        input_window = {
+          ["<S-cr>"] = { "\n", mode = { "n", "i" } },
+          ["<cr>"] = { "submit_input_prompt", mode = { "n", "i" } },
+        },
+      },
+      quick_chat = {
+        default_model = "github-copilot/gpt-5.1-codex-mini",
+        default_agent = "build",
+        instructions = nil,
+      },
+    })
 
-    -- Required for `opts.events.reload`.
-    vim.o.autoread = true
-
-    -- Recommended/example keymaps.
-    vim.keymap.set({ "n", "x" }, "<leader>ac", function()
-      require("opencode").ask("@this: ", { submit = true })
-    end, { desc = "Ask opencode…" })
-    vim.keymap.set({ "n", "t" }, "<leader>at", function()
-      require("opencode").toggle()
-    end, { desc = "Toggle opencode" })
-
-    -- You may want these if you stick with the opinionated "<C-a>" and "<C-x>" above — otherwise consider "<leader>o…".
-    -- vim.keymap.set("n", "+", "<C-a>", { desc = "Increment under cursor", noremap = true })
-    -- vim.keymap.set("n", "-", "<C-x>", { desc = "Decrement under cursor", noremap = true })
+    local wk = require("which-key")
+    wk.add({
+      { "<leader>o", group = "opencode" },
+    })
   end,
+  dependencies = {
+    "nvim-lua/plenary.nvim",
+    {
+      "MeanderingProgrammer/render-markdown.nvim",
+      opts = {
+        anti_conceal = { enabled = false },
+        file_types = { "markdown", "opencode_output" },
+      },
+      ft = { "markdown", "Avante", "copilot-chat", "opencode_output" },
+    },
+    "saghen/blink.cmp",
+    "ibhagwan/fzf-lua",
+  },
 }
