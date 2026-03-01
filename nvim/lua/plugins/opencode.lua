@@ -2,7 +2,7 @@ return {
   "sudo-tee/opencode.nvim",
   config = function()
     require("opencode").setup({
-      preferred_picker = "fzf-lua",
+      preferred_picker = "fzf",
       keymap = {
         input_window = {
           ["<S-cr>"] = { "\n", mode = { "n", "i" } },
