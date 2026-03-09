@@ -1,9 +1,17 @@
 local M = {}
 
 local state_file = vim.fn.stdpath("data") .. "/theme_state.lua"
+M.default_theme = "bearded-arc"
 
--- Flag to prevent autosave during startup loading
 M._startup_complete = false
+
+function M.is_bearded_theme(theme_name)
+  return type(theme_name) == "string" and theme_name:match("^bearded") ~= nil
+end
+
+function M.is_bearded_variant(theme_name)
+  return type(theme_name) == "string" and theme_name:match("^bearded%-") ~= nil
+end
 
 function M.get_saved_theme()
   local f = io.open(state_file, "r")
@@ -30,37 +38,75 @@ function M.save_theme(theme_name)
   end
 end
 
+function M.normalize_theme(theme_name)
+  if type(theme_name) ~= "string" or theme_name == "" then
+    return nil
+  end
+
+  if theme_name == "bearded" then
+    local existing = M.get_saved_theme()
+    if M.is_bearded_variant(existing) then
+      return existing
+    end
+    return M.default_theme
+  end
+
+  return theme_name
+end
+
+function M.resolve_bearded_theme(theme_name)
+  local normalized = M.normalize_theme(theme_name)
+  if M.is_bearded_variant(normalized) then
+    return normalized
+  end
+  return M.default_theme
+end
+
+function M.get_bearded_flavor(theme_name)
+  return M.resolve_bearded_theme(theme_name):gsub("^bearded%-", "")
+end
+
+function M.apply_theme(theme_name)
+  local resolved_theme = M.normalize_theme(theme_name)
+  if not resolved_theme then
+    return false, nil
+  end
+
+  local ok_loader, loader = pcall(require, "lazy.core.loader")
+  if ok_loader then
+    pcall(loader.colorscheme, resolved_theme)
+  end
+
+  local ok = pcall(vim.cmd, "colorscheme " .. resolved_theme)
+  if not ok then
+    return false, resolved_theme
+  end
+
+  return true, resolved_theme
+end
+
 function M.setup_autosave()
+  local group = vim.api.nvim_create_augroup("ThemeSwitcher", { clear = true })
+
   vim.api.nvim_create_autocmd("ColorScheme", {
-    group = vim.api.nvim_create_augroup("ThemeSwitcher", { clear = true }),
+    group = group,
     callback = function(args)
-      -- Only save if startup is complete (prevents overwriting during theme loading)
-      if M._startup_complete then
-        -- Prefer the explicit colorscheme name from the event.
-        -- Some themes emit a follow-up generic event (e.g. "bearded") after a
-        -- specific variant event (e.g. "bearded-hc-flurry"). Guard against
-        -- that generic overwrite so variant selections persist across restarts.
-        local theme_name = args.match
-        if not theme_name or theme_name == "" then
-          return
-        end
-
-        if theme_name == "bearded" then
-          local existing = M.get_saved_theme()
-          if existing and existing:match("^bearded%-") then
-            return
-          end
-        end
-
-        M.save_theme(theme_name)
+      if not M._startup_complete then
+        return
       end
+
+      local theme_name = M.normalize_theme(args.match)
+      if not theme_name then
+        return
+      end
+
+      M.save_theme(theme_name)
     end,
   })
-  
-  -- Mark startup as complete after a delay
+
   vim.defer_fn(function()
     M._startup_complete = true
-  end, 500)
+  end, 100)
 end
 
 return M
