@@ -25,9 +25,9 @@ fi
 OS_TYPE="${ZELLIJ_SESSIONIZER_OS_TYPE:-$(uname)}"
 ZELLIJ_SWITCH_PLUGIN="${ZELLIJ_SESSIONIZER_SWITCH_PLUGIN:-https://github.com/mostafaqanbaryan/zellij-switch/releases/download/0.2.1/zellij-switch.wasm}"
 
-# Layout to use - full path to the layout file
+# Layout to use - builtin layout name or full path to a layout file
 ZELLIJ_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zellij"
-ZELLIJ_LAYOUT_PATH="${ZELLIJ_SESSIONIZER_LAYOUT:-$ZELLIJ_CONFIG_DIR/layouts/default.kdl}"
+ZELLIJ_LAYOUT_PATH="${ZELLIJ_SESSIONIZER_LAYOUT:-compact}"
 
 get_atime() {
     local dir="$1"
@@ -38,18 +38,47 @@ get_atime() {
     fi
 }
 
-# Function to extract session name from display line
-extract_session_name() {
+display_line_to_dir() {
     local display_line="$1"
-    # Remove color codes and status info
-    local clean_path=$(echo "$display_line" | sed 's/ \x1b\[[0-9;]*m([^)]*)\x1b\[[0-9;]*m$//' | sed 's/ ([^)]*)$//')
-    local full_path
+    local clean_path
+    clean_path=$(printf '%s\n' "$display_line" | sed 's/ \x1b\[[0-9;]*m([^)]*)\x1b\[[0-9;]*m$//' | sed 's/ ([^)]*)$//')
+
     if [[ "$clean_path" == "~"* ]]; then
-        full_path="$HOME${clean_path:1}"
+        printf '%s\n' "$HOME${clean_path:1}"
     else
-        full_path="$clean_path"
+        printf '%s\n' "$clean_path"
     fi
-    basename "$full_path" | tr . _
+}
+
+session_name_for_path() {
+    local dir="$1"
+    local normalized="$dir"
+
+    if (( $+commands[realpath] )); then
+        normalized=$(realpath -m "$dir" 2>/dev/null || printf '%s' "$dir")
+    fi
+
+    local session_name
+    if [[ "$normalized" == "$HOME" ]]; then
+        session_name="home"
+    elif [[ "$normalized" == "$HOME/"* ]]; then
+        session_name="${normalized#$HOME/}"
+    else
+        session_name="${normalized#/}"
+    fi
+
+    session_name="${session_name//\//__}"
+    session_name="${session_name//./_}"
+    session_name="${session_name// /_}"
+    session_name="${session_name//:/_}"
+
+    printf '%s\n' "$session_name"
+}
+
+close_current_pane() {
+    if [[ -n "$ZELLIJ" ]]; then
+        zellij action close-pane >/dev/null 2>&1
+    fi
 }
 
 # Function to generate the display list
@@ -116,7 +145,7 @@ generate_display_list() {
     # Create display names
     for dir in "${sorted_dirs[@]}"; do
         local display_name="${dir/#$HOME/~}"
-        local session_name=$(basename "$dir" | tr . _)
+        local session_name=$(session_name_for_path "$dir")
 
         if [[ -n "${session_status[$session_name]}" ]]; then
             display_name="${display_name}${session_status[$session_name]}"
@@ -132,17 +161,13 @@ if [[ "$1" == "--list" ]]; then
     exit 0
 fi
 
-# Helper script for fzf actions
-delete_session() {
-    local display_line="$1"
-    local session_name=$(extract_session_name "$display_line")
-    if [[ -n "$session_name" ]]; then
-        zellij delete-session "$session_name" --force 2>/dev/null
+if [[ "$1" == "--delete" ]]; then
+    selected_dir=$(display_line_to_dir "$2")
+    if [[ -n "$selected_dir" ]]; then
+        zellij delete-session "$(session_name_for_path "$selected_dir")" --force 2>/dev/null
     fi
-}
-
-# Export function for fzf to use
-export -f extract_session_name 2>/dev/null || true
+    exit 0
+fi
 
 # Use fzf to select a project with delete capability
 selected_display=$(generate_display_list | fzf --ansi \
@@ -151,28 +176,30 @@ selected_display=$(generate_display_list | fzf --ansi \
     --height=100% \
     --layout=reverse \
     --border \
-    --bind="ctrl-d:execute-silent(zellij delete-session \$(echo {} | sed 's/ \x1b\[[0-9;]*m([^)]*)\x1b\[[0-9;]*m$//' | sed 's/ ([^)]*)$//' | sed 's|^~|$HOME|' | xargs basename | tr . _) --force 2>/dev/null)+reload($0 --list)")
+    --bind="esc:abort" \
+    --bind="ctrl-d:execute-silent($0 --delete {})+reload($0 --list)")
+
+fzf_status=$?
+
+if [[ $fzf_status -ne 0 ]]; then
+    close_current_pane
+    exit 0
+fi
 
 # Exit if nothing was selected
 if [[ -z "$selected_display" ]]; then
+    close_current_pane
     exit 0
 fi
 
 # Convert selected display name back to full path
-# Remove status information if present (including color codes)
-clean_display=$(echo "$selected_display" | sed 's/ \x1b\[[0-9;]*m([^)]*)\x1b\[[0-9;]*m$//' | sed 's/ ([^)]*)$//')
+selected_dir=$(display_line_to_dir "$selected_display")
 
-if [[ "$clean_display" == "~"* ]]; then
-    selected_dir="$HOME${clean_display:1}"
-else
-    selected_dir="$clean_display"
-fi
-
-# Create session name from directory basename (replace . with _)
-session_name=$(basename "$selected_dir" | tr . _)
+# Create a unique session name from the selected path
+session_name=$(session_name_for_path "$selected_dir")
 
 # Check if session already exists
-session_exists=$(zellij list-sessions 2>/dev/null | grep -c "^$session_name")
+session_exists=$(zellij list-sessions -n 2>/dev/null | grep -Fxc "$session_name")
 
 # Switch or create session
 if [[ -n "$ZELLIJ" ]]; then

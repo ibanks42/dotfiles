@@ -1,59 +1,21 @@
-// Zellij config - tabs only, no panes
-
-// Default shell
 default_shell "zsh"
+default_mode "normal"
+default_layout "compact"
 
-// General settings
 mouse_mode true
 copy_on_select true
 scrollback_editor "nvim"
-default_mode "normal"
 pane_frames false
-session_serialization true     // Enable session persistence (like tmux-resurrect)
-serialization_interval 60      // Autosave every 60 seconds (like tmux-continuum)
-
-// Use the custom layout with tabs at bottom, no status bar
-default_layout "default"
-
-// Disable the default status bar tips
 simplified_ui true
+session_serialization true
+serialization_interval 60
+show_startup_tips false
 
-// Theme - matching your tmux status bar colors
 theme "custom"
-themes {
-    custom {
-        fg "#abb2bf"
-        bg "#333333"
-        black "#333333"
-        red "#e06c75"
-        green "#98c379"
-        yellow "#e5c07b"
-        blue "#5eacd3"
-        magenta "#5eacd3"
-        cyan "#5eacd3"
-        white "#abb2bf"
-        orange "#d19a66"
-    }
-}
 
-// UI settings
-ui {
-    pane_frames {
-        hide_session_name true
-    }
-}
-
-// Keybindings - clear all defaults and only bind what we need
 keybinds clear-defaults=true {
-    // Normal mode - main working mode
     normal {
-        // Ctrl+. as prefix to enter "tmux" mode
         bind "Ctrl ." { SwitchToMode "tmux"; }
-
-        // Ctrl+q to detach (exit but keep session running)
-        bind "Ctrl q" { Detach; }
-
-        // Alt+number for tab switching
         bind "Alt 1" { GoToTab 1; }
         bind "Alt 2" { GoToTab 2; }
         bind "Alt 3" { GoToTab 3; }
@@ -63,117 +25,199 @@ keybinds clear-defaults=true {
         bind "Alt 7" { GoToTab 7; }
         bind "Alt 8" { GoToTab 8; }
         bind "Alt 9" { GoToTab 9; }
-
-        // Ctrl+f for sessionizer (fzf project picker)
-        bind "Ctrl f" {
-            Run "zellij-sessionizer" {
-                floating true
-                close_on_exit true
-                x "20%"
-                y "10%"
-                width "60%"
-                height "80%"
-            }
-        }
+        bind "Ctrl q" { Detach; }
     }
-
-    // "Tmux" mode - activated with Ctrl+. prefix
-    tmux {
-        bind "Ctrl ." { SwitchToMode "normal"; }
-        bind "Esc" { SwitchToMode "normal"; }
-
-        // Tab management
-        bind "n" { NewTab; SwitchToMode "normal"; }
-        bind "x" { CloseTab; SwitchToMode "normal"; }
-        bind "q" { CloseTab; SwitchToMode "normal"; }
-        bind "p" { GoToPreviousTab; SwitchToMode "normal"; }
-        bind "Tab" { GoToNextTab; SwitchToMode "normal"; }
-        bind "," { SwitchToMode "RenameTab"; TabNameInput 0; }
-
-        // Session management
-        bind "d" { Detach; }                    // Detach (keeps session running)
-        bind "Q" { Quit; }                      // Force quit (destroys session)
-        bind "s" {
-            LaunchOrFocusPlugin "session-manager" {
-                floating true
-                move_to_focused_tab true
-            }
-            SwitchToMode "normal"
-        }
-
-        // Scroll/copy mode
-        bind "[" { SwitchToMode "scroll"; }
-        bind "v" { SwitchToMode "scroll"; }
-    }
-
-    // Scroll/copy mode - vi keys
     scroll {
-        bind "Esc" { SwitchToMode "normal"; }
-        bind "q" { SwitchToMode "normal"; }
-        bind "Ctrl c" { SwitchToMode "normal"; }
-        bind "Ctrl ." { SwitchToMode "normal"; }
-
-        // Vi navigation
-        bind "j" { ScrollDown; }
-        bind "k" { ScrollUp; }
-        bind "d" { HalfPageScrollDown; }
-        bind "u" { HalfPageScrollUp; }
-        bind "f" { PageScrollDown; }
-        bind "b" { PageScrollUp; }
-        bind "g" { ScrollToTop; }
+        bind "space" { SwitchToMode "search"; }
         bind "G" { ScrollToBottom; }
-
-        // Search
-        bind "/" { SwitchToMode "entersearch"; SearchInput 0; }
-        bind "n" { Search "Down"; }
-        bind "N" { Search "Up"; }
-
-        // Enter select mode for copying
+        bind "b" { PageScrollUp; }
+        bind "f" { PageScrollDown; }
+        bind "g" { ScrollToTop; }
         bind "v" { SwitchToMode "search"; }
-        bind "Space" { SwitchToMode "search"; }
     }
-
     search {
-        bind "Esc" { SwitchToMode "normal"; }
-        bind "q" { SwitchToMode "normal"; }
-        bind "Ctrl c" { SwitchToMode "normal"; }
-        bind "Ctrl ." { SwitchToMode "normal"; }
-
-        // Vi navigation in search/select mode
-        bind "j" { ScrollDown; }
-        bind "k" { ScrollUp; }
-        bind "d" { HalfPageScrollDown; }
-        bind "u" { HalfPageScrollUp; }
-
-        // Search
-        bind "/" { SwitchToMode "entersearch"; SearchInput 0; }
-        bind "n" { Search "Down"; }
-        bind "N" { Search "Up"; }
-
-        // Toggle search options
         bind "c" { SearchToggleOption "CaseSensitivity"; }
-        bind "w" { SearchToggleOption "Wrap"; }
         bind "o" { SearchToggleOption "WholeWord"; }
-
-        // Copy
+        bind "w" { SearchToggleOption "Wrap"; }
         bind "y" { Copy; SwitchToMode "normal"; }
     }
-
-    entersearch {
-        bind "Esc" { SwitchToMode "scroll"; }
+    shared_among "scroll" "entersearch" "search" "renametab" "tmux" {
         bind "Ctrl ." { SwitchToMode "normal"; }
-        bind "Enter" { SwitchToMode "search"; }
     }
-
-    // Rename tab mode
-    RenameTab {
-        bind "Esc" { UndoRenameTab; SwitchToMode "normal"; }
-        bind "Ctrl ." { SwitchToMode "normal"; }
-        bind "Enter" { SwitchToMode "normal"; }
+    shared_among "scroll" "search" {
+        bind "/" { SwitchToMode "entersearch"; SearchInput 0; }
+        bind "N" { Search "up"; }
+        bind "Ctrl c" { SwitchToMode "normal"; }
+        bind "d" { HalfPageScrollDown; }
+        bind "j" { ScrollDown; }
+        bind "k" { ScrollUp; }
+        bind "n" { Search "down"; }
+        bind "q" { SwitchToMode "normal"; }
+        bind "u" { HalfPageScrollUp; }
+    }
+    shared_among "scroll" "search" "tmux" {
+        bind "esc" { SwitchToMode "normal"; }
+    }
+    entersearch {
+        bind "esc" { SwitchToMode "scroll"; }
+        bind "enter" { SwitchToMode "search"; }
+    }
+    renametab {
+        bind "esc" { UndoRenameTab; SwitchToMode "normal"; }
+        bind "enter" { SwitchToMode "normal"; }
+    }
+    tmux {
+        bind "," { SwitchToMode "renametab"; TabNameInput 0; }
+        bind "Q" { Quit; }
+        bind "[" { SwitchToMode "scroll"; }
+        bind "d" { Detach; }
+        bind "n" { NewTab; SwitchToMode "normal"; }
+        bind "p" { GoToPreviousTab; SwitchToMode "normal"; }
+        bind "q" { CloseTab; SwitchToMode "normal"; }
+        bind "f" {
+          Run "zellij-sessionizer" {
+            floating true
+            hold_on_close false
+            x "20%"
+            y "10%"
+            width "60%"
+            height "80%"
+          }
+          SwitchToMode "normal";
+        }
+        bind "v" { SwitchToMode "scroll"; }
+        bind "x" { CloseTab; SwitchToMode "normal"; }
+        bind "tab" { GoToNextTab; SwitchToMode "normal"; }
     }
 }
 
-// Plugins
+themes {
+    custom {
+        text_unselected {
+            base 171 178 191
+            background 51 51 51
+            emphasis_0 209 154 102
+            emphasis_1 94 172 211
+            emphasis_2 152 195 121
+            emphasis_3 94 172 211
+        }
+        text_selected {
+            base 171 178 191
+            background 51 51 51
+            emphasis_0 209 154 102
+            emphasis_1 94 172 211
+            emphasis_2 152 195 121
+            emphasis_3 94 172 211
+        }
+        ribbon_selected {
+            base 51 51 51
+            background 152 195 121
+            emphasis_0 224 108 117
+            emphasis_1 209 154 102
+            emphasis_2 94 172 211
+            emphasis_3 94 172 211
+        }
+        ribbon_unselected {
+            base 51 51 51
+            background 171 178 191
+            emphasis_0 224 108 117
+            emphasis_1 171 178 191
+            emphasis_2 94 172 211
+            emphasis_3 94 172 211
+        }
+        table_title {
+            base 152 195 121
+            background 0
+            emphasis_0 209 154 102
+            emphasis_1 94 172 211
+            emphasis_2 152 195 121
+            emphasis_3 94 172 211
+        }
+        table_cell_selected {
+            base 171 178 191
+            background 51 51 51
+            emphasis_0 209 154 102
+            emphasis_1 94 172 211
+            emphasis_2 152 195 121
+            emphasis_3 94 172 211
+        }
+        table_cell_unselected {
+            base 171 178 191
+            background 51 51 51
+            emphasis_0 209 154 102
+            emphasis_1 94 172 211
+            emphasis_2 152 195 121
+            emphasis_3 94 172 211
+        }
+        list_selected {
+            base 171 178 191
+            background 51 51 51
+            emphasis_0 209 154 102
+            emphasis_1 94 172 211
+            emphasis_2 152 195 121
+            emphasis_3 94 172 211
+        }
+        list_unselected {
+            base 171 178 191
+            background 51 51 51
+            emphasis_0 209 154 102
+            emphasis_1 94 172 211
+            emphasis_2 152 195 121
+            emphasis_3 94 172 211
+        }
+        frame_selected {
+            base 152 195 121
+            background 0
+            emphasis_0 209 154 102
+            emphasis_1 94 172 211
+            emphasis_2 94 172 211
+            emphasis_3 0
+        }
+        frame_highlight {
+            base 209 154 102
+            background 0
+            emphasis_0 94 172 211
+            emphasis_1 0
+            emphasis_2 209 154 102
+            emphasis_3 209 154 102
+        }
+        exit_code_success {
+            base 152 195 121
+            background 0
+            emphasis_0 94 172 211
+            emphasis_1 51 51 51
+            emphasis_2 94 172 211
+            emphasis_3 94 172 211
+        }
+        exit_code_error {
+            base 224 108 117
+            background 0
+            emphasis_0 229 192 123
+            emphasis_1 0
+            emphasis_2 0
+            emphasis_3 0
+        }
+        multiplayer_user_colors {
+            player_1 94 172 211
+            player_2 94 172 211
+            player_3 0
+            player_4 229 192 123
+            player_5 94 172 211
+            player_6 0
+            player_7 224 108 117
+            player_8 0
+            player_9 0
+            player_10 0
+        }
+    }
+}
+
 plugins {
     session-manager location="zellij:session-manager"
+}
+
+ui {
+    pane_frames {
+        hide_session_name true
+    }
 }
