@@ -66,7 +66,7 @@ Or install specific components:
 # Download and run with specific components
 wget -qO- https://raw.githubusercontent.com/ibanks42/dotfiles/main/install.sh > /tmp/install.sh
 chmod +x /tmp/install.sh
-/tmp/install.sh nvim zellij cli
+/tmp/install.sh nvim tmux cli
 ```
 
 </details>
@@ -78,7 +78,7 @@ The installer supports various options:
 ```bash
 ./install.sh --help              # Show all options
 ./install.sh --yes               # Non-interactive, install all defaults
-./install.sh nvim zellij         # Install only specific components
+./install.sh nvim tmux           # Install only specific components
 ./install.sh --skip-update       # Skip system package updates
 ```
 
@@ -89,12 +89,25 @@ The installer supports various options:
 - `cli` - CLI tools (fzf, eza, fd, lazygit, bat, zoxide)
 - `mise` - Mise runtime manager (installs Node.js, Go, .NET, Python, Rust)
 - `nvim` - Neovim + configuration
-- `zellij` - Zellij terminal multiplexer + config
+- `tmux` - tmux terminal multiplexer + config
 - `ghostty` - Ghostty terminal emulator
 - `ideavim` - IdeaVim configuration
 - `zsh` - Zsh + Oh My Zsh
 
 </details>
+
+### tmux sessionizer on new machines
+
+The custom `tmux-sessionizer` picker is installed with the tmux config and exposed on your `PATH`.
+On a new machine, install the `tmux` component to link:
+
+```bash
+~/.config/tmux/tmux-sessionizer
+```
+
+Notes:
+- The default window commands live in `tmux/tmux_sessionizer.conf`.
+- Project-specific overrides can live in `.tmux_sessionizer.conf` inside a project directory.
 
 <details><summary>Windows</summary>
 

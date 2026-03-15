@@ -1,0 +1,607 @@
+#!/usr/bin/env bash
+
+SEARCH_CONFIG_FILE_NAME="tmux-sessionizer.conf"
+SEARCH_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-sessionizer"
+SEARCH_CONFIG_FILE="$SEARCH_CONFIG_DIR/$SEARCH_CONFIG_FILE_NAME"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
+WINDOW_CONFIG_FILE_NAME=".tmux_sessionizer.conf"
+GLOBAL_WINDOW_CONFIG_FILE="$SCRIPT_DIR/tmux_sessionizer.conf"
+
+if [[ -f "$SEARCH_CONFIG_FILE" ]]; then
+  source "$SEARCH_CONFIG_FILE"
+fi
+
+if [[ -f "$SEARCH_CONFIG_FILE_NAME" ]]; then
+  source "$SEARCH_CONFIG_FILE_NAME"
+fi
+
+list_only="false"
+delete_target=""
+user_selected=""
+list_search_paths_override="false"
+list_search_paths=()
+
+COLOR_GREEN=$'\033[32m'
+COLOR_CYAN=$'\033[36m'
+COLOR_YELLOW=$'\033[33m'
+COLOR_RESET=$'\033[0m'
+
+declare -A SESSION_STATUS_BY_ID
+declare -A SESSION_NAME_BY_ID
+declare -A SESSION_PATH_BY_ID
+declare -A REPRESENTATIVE_ID_BY_PATH
+SESSION_PATH_ORDER=()
+SESSION_WINDOW_COMMANDS=()
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+  --list)
+    list_only="true"
+    ;;
+  --delete)
+    delete_target="$2"
+    if [[ -z "$delete_target" ]]; then
+      echo "Error: --delete requires an entry"
+      exit 1
+    fi
+    shift
+    ;;
+  --search-path)
+    if [[ -z "$2" ]]; then
+      echo "Error: --search-path requires a value"
+      exit 1
+    fi
+
+    list_search_paths_override="true"
+    list_search_paths+=("$2")
+    shift
+    ;;
+  -*)
+    echo "Error: unsupported option '$1'"
+    exit 1
+    ;;
+  *)
+    user_selected="$1"
+    ;;
+  esac
+  shift
+done
+
+if [[ -z "${TS_SEARCH_PATHS+x}" ]]; then
+  TS_SEARCH_PATHS=(~/dev/work ~/dev/personal ~/)
+fi
+
+if [[ "$list_search_paths_override" == "true" ]]; then
+  TS_SEARCH_PATHS=("${list_search_paths[@]}")
+elif [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
+  TS_SEARCH_PATHS+=("${TS_EXTRA_SEARCH_PATHS[@]}")
+fi
+
+switch_to() {
+  if [[ -z $TMUX ]]; then
+    tmux attach-session -t "$1"
+  else
+    tmux switch-client -t "$1"
+  fi
+}
+
+get_current_session_id() {
+  if [[ -z "$TMUX" ]]; then
+    printf ''
+    return
+  fi
+
+  tmux display-message -p '#{session_id}' 2>/dev/null
+}
+
+find_dirs() {
+  local entry
+  local depth
+  local path
+
+  for entry in "${TS_SEARCH_PATHS[@]}"; do
+    depth=""
+    path=""
+
+    if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
+      path="${BASH_REMATCH[1]}"
+      depth="${BASH_REMATCH[2]}"
+    else
+      path="$entry"
+    fi
+
+    [[ -d "$path" ]] && find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" -path '*/.git' -prune -o -type d -print
+  done
+}
+
+canonical_path() {
+  local path="$1"
+
+  if [[ -z "$path" ]]; then
+    printf ''
+    return
+  fi
+
+  if [[ -d "$path" ]]; then
+    (cd "$path" 2>/dev/null && pwd -P) || printf '%s' "$path"
+  else
+    printf '%s' "$path"
+  fi
+}
+
+display_path() {
+  local path="$1"
+
+  if [[ "$path" == "$HOME" ]]; then
+    printf '~'
+  elif [[ "$path" == "$HOME/"* ]]; then
+    printf "$HOME/%s" "${path#"$HOME/"}"
+  else
+    printf '%s' "$path"
+  fi
+}
+
+session_name_for_path() {
+  local path="$1"
+  local name
+
+  path=$(canonical_path "$path")
+
+  if [[ "$path" == "$HOME" ]]; then
+    name="home"
+  else
+    name=$(basename "$path")
+  fi
+
+  name=$(printf '%s' "$name" | tr '.:' '_' | tr -cd '[:alnum:]_-')
+  [[ -z "$name" ]] && name="session"
+
+  printf '%s' "$name"
+}
+
+resolve_unique_session_name() {
+  local preferred_name="$1"
+  local canonical_target_path="$2"
+  local candidate="$preferred_name"
+  local suffix=2
+  local existing_session_id=""
+  local existing_session_path=""
+
+  while tmux has-session -t "$candidate" 2>/dev/null; do
+    existing_session_id=$(tmux display-message -p -t "$candidate" '#{session_id}' 2>/dev/null)
+    existing_session_path="${SESSION_PATH_BY_ID[$existing_session_id]}"
+
+    if [[ -n "$existing_session_id" && "$existing_session_path" == "$canonical_target_path" ]]; then
+      printf '%s' "$candidate"
+      return
+    fi
+
+    candidate="${preferred_name}_${suffix}"
+    ((suffix++))
+  done
+
+  printf '%s' "$candidate"
+}
+
+rename_session_to_path_basename() {
+  local session_id="$1"
+  local canonical_target_path="$2"
+  local preferred_name
+  local current_name
+  local existing_session_id=""
+
+  [[ -z "$session_id" ]] && return
+  [[ -z "$canonical_target_path" ]] && return
+  [[ "$canonical_target_path" == session-name:* ]] && return
+
+  preferred_name=$(session_name_for_path "$canonical_target_path")
+  [[ -z "$preferred_name" ]] && return
+
+  current_name="${SESSION_NAME_BY_ID[$session_id]}"
+  [[ "$current_name" == "$preferred_name" ]] && return
+
+  if tmux has-session -t "$preferred_name" 2>/dev/null; then
+    existing_session_id=$(tmux display-message -p -t "$preferred_name" '#{session_id}' 2>/dev/null)
+    [[ "$existing_session_id" != "$session_id" ]] && return
+  fi
+
+  if tmux rename-session -t "$session_id" "$preferred_name" 2>/dev/null; then
+    SESSION_NAME_BY_ID["$session_id"]="$preferred_name"
+  fi
+}
+
+load_window_commands_for_path() {
+  local project_path="$1"
+  local local_window_config="$project_path/$WINDOW_CONFIG_FILE_NAME"
+  local config_file
+  local had_existing_window_commands="false"
+  local -a previous_window_commands=()
+  local -a commands=("nvim" "opencode" "" "")
+
+  if declare -p TS_WINDOW_COMMANDS >/dev/null 2>&1; then
+    had_existing_window_commands="true"
+    previous_window_commands=("${TS_WINDOW_COMMANDS[@]}")
+  fi
+
+  for config_file in "$GLOBAL_WINDOW_CONFIG_FILE" "$local_window_config"; do
+    [[ -f "$config_file" ]] || continue
+
+    TS_WINDOW_COMMANDS=("${commands[@]}")
+
+    # shellcheck disable=SC1090
+    source "$config_file"
+
+    if [[ ${#TS_WINDOW_COMMANDS[@]} -gt 0 ]]; then
+      commands=("${TS_WINDOW_COMMANDS[@]}")
+    fi
+  done
+
+  SESSION_WINDOW_COMMANDS=("${commands[@]}")
+
+  if [[ "$had_existing_window_commands" == "true" ]]; then
+    TS_WINDOW_COMMANDS=("${previous_window_commands[@]}")
+  else
+    unset TS_WINDOW_COMMANDS
+  fi
+}
+
+setup_session_windows() {
+  local session_name="$1"
+  local session_path="$2"
+  local command=""
+  local index
+
+  load_window_commands_for_path "$session_path"
+
+  if [[ ${#SESSION_WINDOW_COMMANDS[@]} -eq 0 ]]; then
+    SESSION_WINDOW_COMMANDS=("nvim" "opencode" "" "")
+  fi
+
+  command="${SESSION_WINDOW_COMMANDS[0]}"
+  if [[ -n "$command" ]]; then
+    tmux send-keys -t "${session_name}:1" "$command" C-m
+  fi
+
+  for ((index = 1; index < ${#SESSION_WINDOW_COMMANDS[@]}; index++)); do
+    command="${SESSION_WINDOW_COMMANDS[$index]}"
+
+    if [[ -n "$command" ]]; then
+      tmux new-window -dt "${session_name}:$((index + 1))" -c "$session_path"
+      tmux send-keys -t "${session_name}:$((index + 1))" "$command" C-m
+    else
+      tmux new-window -dt "${session_name}:$((index + 1))" -c "$session_path"
+    fi
+  done
+}
+
+load_session_status() {
+  SESSION_STATUS_BY_ID=()
+  SESSION_NAME_BY_ID=()
+  SESSION_PATH_BY_ID=()
+  REPRESENTATIVE_ID_BY_PATH=()
+  SESSION_PATH_ORDER=()
+
+  local current_session_id
+  current_session_id=$(get_current_session_id)
+
+  while IFS=$'\t' read -r session_name attached session_id session_path; do
+    [[ -z "$session_id" ]] && continue
+
+    local canonical_session_path
+    local session_status
+    local existing_representative_id
+    local existing_representative_status
+
+    canonical_session_path=$(canonical_path "$session_path")
+    [[ -z "$canonical_session_path" ]] && canonical_session_path="session-name:$session_name"
+
+    SESSION_NAME_BY_ID["$session_id"]="$session_name"
+    SESSION_PATH_BY_ID["$session_id"]="$canonical_session_path"
+
+    if [[ "$session_id" == "$current_session_id" ]] || [[ "${attached:-0}" -gt 0 ]]; then
+      session_status="active"
+    else
+      session_status="detached"
+    fi
+
+    SESSION_STATUS_BY_ID["$session_id"]="$session_status"
+
+    existing_representative_id="${REPRESENTATIVE_ID_BY_PATH[$canonical_session_path]}"
+    if [[ -z "$existing_representative_id" ]]; then
+      SESSION_PATH_ORDER+=("$canonical_session_path")
+      REPRESENTATIVE_ID_BY_PATH["$canonical_session_path"]="$session_id"
+      continue
+    fi
+
+    existing_representative_status="${SESSION_STATUS_BY_ID[$existing_representative_id]}"
+    if [[ "$existing_representative_status" != "active" && "$session_status" == "active" ]]; then
+      REPRESENTATIVE_ID_BY_PATH["$canonical_session_path"]="$session_id"
+    fi
+  done < <(tmux list-sessions -F "#{session_name}"$'\t'"#{session_attached}"$'\t'"#{session_id}"$'\t'"#{session_path}" 2>/dev/null)
+}
+
+session_status_suffix() {
+  local session_id="$1"
+  local status="${SESSION_STATUS_BY_ID[$session_id]}"
+
+  case "$status" in
+  active)
+    printf ' %s[ACTIVE]%s' "$COLOR_GREEN" "$COLOR_RESET"
+    ;;
+  detached)
+    printf ' %s[DETACHED]%s' "$COLOR_CYAN" "$COLOR_RESET"
+    ;;
+  esac
+}
+
+display_label_for_path() {
+  local path="$1"
+  local representative_id="$2"
+
+  if [[ "$path" == session-name:* ]]; then
+    local fallback_name
+    fallback_name="${SESSION_NAME_BY_ID[$representative_id]}"
+    printf '%s' "${fallback_name:-${path#session-name:}}"
+  else
+    local project_name
+    local parent_path
+    local scope
+
+    project_name=$(basename "$path")
+    parent_path=$(dirname "$path")
+
+    if [[ "$parent_path" == "$HOME" ]]; then
+      scope='~'
+    else
+      scope=$(basename "$parent_path")
+    fi
+
+    if [[ -z "$scope" || "$scope" == "/" || "$scope" == "." ]]; then
+      display_path "$path"
+      return
+    fi
+
+    printf '%s[%s]%s %s' \
+      "$COLOR_YELLOW" \
+      "$scope" \
+      "$COLOR_RESET" \
+      "$project_name"
+  fi
+}
+
+print_selection_row() {
+  local path="$1"
+  local representative_id="$2"
+  local key="path:$path"
+
+  if [[ "$path" == session-name:* ]]; then
+    key="tmux-id:$representative_id"
+  fi
+
+  if [[ -n "$representative_id" ]]; then
+    printf '%s\t%s%s\n' "$key" "$(display_label_for_path "$path" "$representative_id")" "$(session_status_suffix "$representative_id")"
+  else
+    printf '%s\t%s\n' "$key" "$(display_label_for_path "$path" "")"
+  fi
+}
+
+render_selection_list() {
+  load_session_status
+
+  declare -A seen_paths
+  local canonical_entry
+  local representative_id
+  local entry
+  local session_path
+
+  while IFS= read -r entry; do
+    [[ -z "$entry" ]] && continue
+
+    canonical_entry=$(canonical_path "$entry")
+    [[ -z "$canonical_entry" ]] && continue
+    [[ -n "${seen_paths[$canonical_entry]}" ]] && continue
+
+    seen_paths["$canonical_entry"]=1
+    representative_id="${REPRESENTATIVE_ID_BY_PATH[$canonical_entry]}"
+    print_selection_row "$canonical_entry" "$representative_id"
+  done < <(find_dirs)
+
+  for session_path in "${SESSION_PATH_ORDER[@]}"; do
+    [[ -n "${seen_paths[$session_path]}" ]] && continue
+
+    representative_id="${REPRESENTATIVE_ID_BY_PATH[$session_path]}"
+    [[ -z "$representative_id" ]] && continue
+
+    seen_paths["$session_path"]=1
+    print_selection_row "$session_path" "$representative_id"
+  done
+}
+
+find_most_recent_session_id_excluding() {
+  local excluded_session_id="$1"
+  local most_recent_session_id=""
+  local most_recent_last_attached=-1
+  local session_id
+  local last_attached
+
+  while IFS=$'\t' read -r session_id last_attached; do
+    [[ -z "$session_id" ]] && continue
+    [[ "$session_id" == "$excluded_session_id" ]] && continue
+
+    if [[ ! "$last_attached" =~ ^[0-9]+$ ]]; then
+      last_attached=0
+    fi
+
+    if ((last_attached > most_recent_last_attached)); then
+      most_recent_last_attached="$last_attached"
+      most_recent_session_id="$session_id"
+    fi
+  done < <(tmux list-sessions -F "#{session_id}"$'\t'"#{session_last_attached}" 2>/dev/null)
+
+  printf '%s' "$most_recent_session_id"
+}
+
+create_unique_session_name() {
+  local base_name="$1"
+  local candidate="$base_name"
+  local suffix=2
+
+  while tmux has-session -t "$candidate" 2>/dev/null; do
+    candidate="${base_name}_${suffix}"
+    ((suffix++))
+  done
+
+  printf '%s' "$candidate"
+}
+
+ensure_home_session() {
+  if ! tmux has-session -t home 2>/dev/null; then
+    tmux new-session -ds home -c "$HOME"
+  fi
+
+  printf 'home'
+}
+
+delete_session_by_id() {
+  local target_id="$1"
+  local current_session_id="$2"
+  local target_name=""
+  local fallback_target=""
+  local temporary_home_fallback=""
+
+  [[ -z "$target_id" ]] && return
+  tmux has-session -t "$target_id" 2>/dev/null || return
+
+  target_name="${SESSION_NAME_BY_ID[$target_id]}"
+
+  if [[ -n "$current_session_id" && "$target_id" == "$current_session_id" ]]; then
+    fallback_target=$(find_most_recent_session_id_excluding "$target_id")
+
+    if [[ -z "$fallback_target" ]]; then
+      if [[ "$target_name" == "home" ]]; then
+        temporary_home_fallback=$(create_unique_session_name "home_fallback")
+        tmux new-session -ds "$temporary_home_fallback" -c "$HOME"
+        fallback_target="$temporary_home_fallback"
+      else
+        fallback_target=$(ensure_home_session)
+      fi
+    fi
+
+    [[ -n "$fallback_target" ]] && tmux switch-client -t "$fallback_target" 2>/dev/null
+  fi
+
+  tmux kill-session -t "$target_id" 2>/dev/null
+
+  if [[ -n "$temporary_home_fallback" ]]; then
+    if tmux has-session -t home 2>/dev/null; then
+      tmux kill-session -t "$temporary_home_fallback" 2>/dev/null
+    else
+      tmux rename-session -t "$temporary_home_fallback" home 2>/dev/null
+    fi
+  fi
+}
+
+delete_session_entry() {
+  local entry="$1"
+  local current_session_id=""
+  local target_path=""
+  local target_id=""
+
+  current_session_id=$(get_current_session_id)
+  load_session_status
+
+  if [[ "$entry" == tmux-id:* ]]; then
+    target_id="${entry#tmux-id:}"
+    delete_session_by_id "$target_id" "$current_session_id"
+    return
+  fi
+
+  if [[ "$entry" == path:* ]]; then
+    target_path=$(canonical_path "${entry#path:}")
+  else
+    target_path=$(canonical_path "$entry")
+  fi
+
+  [[ -z "$target_path" ]] && return
+
+  target_id="${REPRESENTATIVE_ID_BY_PATH[$target_path]}"
+  delete_session_by_id "$target_id" "$current_session_id"
+}
+
+if [[ -n "$delete_target" ]]; then
+  delete_session_entry "$delete_target"
+  exit 0
+fi
+
+if [[ "$list_only" == "true" ]]; then
+  render_selection_list
+  exit 0
+fi
+
+if [[ -n "$user_selected" ]]; then
+  selected="$user_selected"
+else
+  list_command=("$0" --list)
+  search_path=""
+
+  for search_path in "${TS_SEARCH_PATHS[@]}"; do
+    list_command+=(--search-path "$search_path")
+  done
+
+  list_reload_command=$(printf '%q ' "${list_command[@]}")
+
+  selected=$(
+    "${list_command[@]}" | fzf \
+      --ansi \
+      --delimiter=$'\t' \
+      --with-nth=2.. \
+      --height=100% \
+      --layout=reverse \
+      --border \
+      --border-label=' tmux-sessionizer ' \
+      --prompt='Switch to project: ' \
+      --header='Enter: Switch | Ctrl-d: Delete session' \
+      --bind='esc:abort' \
+      --bind="ctrl-d:execute-silent($0 --delete {1})+reload($list_reload_command)"
+  )
+
+  selected="${selected%%$'\t'*}"
+fi
+
+if [[ -z "$selected" ]]; then
+  exit 0
+fi
+
+if [[ "$selected" == tmux-id:* ]]; then
+  switch_to "${selected#tmux-id:}"
+  exit 0
+fi
+
+if [[ "$selected" == path:* ]]; then
+  selected="${selected#path:}"
+fi
+
+selected=$(canonical_path "$selected")
+[[ -z "$selected" ]] && exit 0
+
+load_session_status
+existing_session_id="${REPRESENTATIVE_ID_BY_PATH[$selected]}"
+
+if [[ -n "$existing_session_id" ]]; then
+  rename_session_to_path_basename "$existing_session_id" "$selected"
+  switch_to "$existing_session_id"
+  exit 0
+fi
+
+if [[ ! -d "$selected" ]]; then
+  echo "Directory does not exist: $selected"
+  exit 1
+fi
+
+selected_name=$(resolve_unique_session_name "$(session_name_for_path "$selected")" "$selected")
+
+tmux new-session -ds "$selected_name" -c "$selected"
+setup_session_windows "$selected_name" "$selected"
+
+switch_to "$selected_name"

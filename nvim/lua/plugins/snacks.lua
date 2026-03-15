@@ -10,6 +10,8 @@ return {
       opts.picker = vim.tbl_deep_extend("force", opts.picker or {}, {
         enabled = false,
       })
+
+      opts.scroll = { enabled = false }
       opts.picker.ignored = true
       opts.picker.sources = opts.picker.sources or {}
       opts.picker.sources.colorschemes = vim.tbl_deep_extend("force", opts.picker.sources.colorschemes or {}, {

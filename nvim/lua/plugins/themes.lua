@@ -4,6 +4,10 @@ theme_util.setup_autosave()
 
 return {
   {
+    "kepano/flexoki-neovim",
+    opts = {},
+  },
+  {
     "Ferouk/bearded-nvim",
     lazy = false,
     priority = 1000,

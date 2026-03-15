@@ -52,7 +52,7 @@ COMPONENTS=(
   "cli:CLI Tools (fzf, eza, fd, lazygit, bat, zoxide):install_cli_tools:true"
   "mise:Mise (runtime manager + runtimes):install_mise:true"
   "nvim:Neovim + config:install_nvim:true"
-  "zellij:Zellij + config:install_zellij:true"
+  "tmux:tmux + config:install_tmux:true"
   "ghostty:Ghostty terminal:install_ghostty:false"
   "ideavim:IdeaVim config:install_ideavim:false"
   "zsh:Zsh + Oh My Zsh:install_zsh:true"
@@ -266,7 +266,7 @@ ${BOLD}Components:${NC}
     cli                 CLI tools (fzf, eza, fd, lazygit, bat, zoxide)
     mise                Mise (runtime manager) - installs Node, Go, .NET, etc.
     nvim                Neovim + configuration
-    zellij              Zellij terminal multiplexer + config
+    tmux                tmux terminal multiplexer + config
     ghostty             Ghostty terminal emulator
     ideavim             IdeaVim configuration
     zsh                 Zsh + Oh My Zsh
@@ -274,7 +274,7 @@ ${BOLD}Components:${NC}
 ${BOLD}Examples:${NC}
     ./install.sh                    # Interactive mode
     ./install.sh --yes              # Install all defaults non-interactively
-    ./install.sh nvim zellij        # Install only nvim and zellij
+    ./install.sh nvim tmux          # Install only nvim and tmux
     ./install.sh --yes cli mise     # Install cli tools and mise with runtimes
 
 EOF
@@ -894,56 +894,42 @@ install_nvim_nightly() {
   log_success "Neovim nightly installed"
 }
 
-install_zellij() {
-  log_step "Installing Zellij"
+install_tmux() {
+  log_step "Installing tmux"
 
   mkdir -p "$LOCAL_BIN"
 
-  # Install zellij binary
-  if ! command -v zellij &>/dev/null; then
+  if ! command -v tmux &>/dev/null; then
     case "$DISTRO" in
     *debian* | *ubuntu*)
-      pkg_install zellij 2>/dev/null || install_zellij_binary
+      pkg_install tmux
       ;;
     *fedora*)
-      pkg_install zellij 2>/dev/null || install_zellij_binary
+      pkg_install tmux
       ;;
     *arch*)
-      pkg_install zellij
+      pkg_install tmux
       ;;
     *)
-      install_zellij_binary
+      pkg_install tmux
       ;;
     esac
-    log_success "Zellij installed"
+    log_success "tmux installed"
   else
-    log_success "Zellij already installed ($(zellij --version))"
+    log_success "tmux already installed ($(tmux -V))"
   fi
 
-  # Setup config
-  local zellij_config="$CONFIG_DIR/zellij"
+  local tmux_config="$CONFIG_DIR/tmux"
 
-  if [[ -e "$zellij_config" ]] || [[ -L "$zellij_config" ]]; then
-    backup_config "$zellij_config" "zellij"
+  if [[ -e "$tmux_config" ]] || [[ -L "$tmux_config" ]]; then
+    backup_config "$tmux_config" "tmux"
   fi
 
-  ln -sf "$DOTFILES_PATH/zellij" "$zellij_config"
-  log_success "Zellij config linked"
+  ln -sf "$DOTFILES_PATH/tmux" "$tmux_config"
+  log_success "tmux config linked"
 
-  # Symlink sessionizer to PATH
-  ln -sf "$CONFIG_DIR/zellij/zellij-sessionizer" "$LOCAL_BIN/zellij-sessionizer"
-  log_success "zellij-sessionizer added to PATH"
-}
-
-install_zellij_binary() {
-  local version
-  version=$(get_github_version "zellij-org/zellij")
-
-  cd "$TMP_DIR"
-  wget -qO zellij.tar.gz "https://github.com/zellij-org/zellij/releases/download/v${version}/zellij-x86_64-unknown-linux-musl.tar.gz"
-  tar xf zellij.tar.gz
-  install zellij "$LOCAL_BIN"
-  rm -rf zellij.tar.gz zellij
+  ln -sf "$CONFIG_DIR/tmux/tmux-sessionizer" "$LOCAL_BIN/tmux-sessionizer"
+  log_success "tmux-sessionizer added to PATH"
 }
 
 install_ghostty() {
@@ -1019,15 +1005,18 @@ install_zsh() {
     log_success "Oh My Zsh already installed"
   fi
 
-  # Link zshrc
-  local zshrc="$HOME/.zshrc"
+  # Link Oh My Zsh custom config
+  local zsh_custom_dir="$HOME/.oh-my-zsh/custom"
+  local custom_zsh="$zsh_custom_dir/custom.zsh"
 
-  if [[ -e "$zshrc" ]] || [[ -L "$zshrc" ]]; then
-    backup_config "$zshrc" "zshrc"
+  mkdir -p "$zsh_custom_dir"
+
+  if [[ -e "$custom_zsh" ]] || [[ -L "$custom_zsh" ]]; then
+    backup_config "$custom_zsh" "oh-my-zsh-custom.zsh"
   fi
 
-  ln -sf "$DOTFILES_PATH/zsh/.zshrc" "$zshrc"
-  log_success "Zsh config linked"
+  ln -sf "$DOTFILES_PATH/zsh/custom.zsh" "$custom_zsh"
+  log_success "Oh My Zsh custom config linked"
 
   # Change default shell
   if [[ "$SHELL" != *"zsh"* ]]; then
