@@ -85,9 +85,6 @@ export PATH="$FLYCTL_INSTALL/bin:$PATH"
 # Added by LM Studio CLI tool (lms)
 export PATH="$PATH:/home/server/.lmstudio/bin"
 
-# OpenClaw Completion
-source "/home/server/.openclaw/completions/openclaw.zsh"
-
 # pnpm
 export PNPM_HOME="/home/server/.local/share/pnpm"
 case ":$PATH:" in
@@ -96,4 +93,3 @@ case ":$PATH:" in
 esac
 # pnpm end
 
-HA_VM_IP=192.168.0.14
