@@ -30,6 +30,7 @@ COLOR_RESET=$'\033[0m'
 declare -A SESSION_STATUS_BY_ID
 declare -A SESSION_NAME_BY_ID
 declare -A SESSION_PATH_BY_ID
+declare -A SESSION_IDS_BY_PATH
 declare -A REPRESENTATIVE_ID_BY_PATH
 SESSION_PATH_ORDER=()
 SESSION_WINDOW_COMMANDS=()
@@ -279,6 +280,7 @@ load_session_status() {
   SESSION_STATUS_BY_ID=()
   SESSION_NAME_BY_ID=()
   SESSION_PATH_BY_ID=()
+  SESSION_IDS_BY_PATH=()
   REPRESENTATIVE_ID_BY_PATH=()
   SESSION_PATH_ORDER=()
 
@@ -298,6 +300,7 @@ load_session_status() {
 
     SESSION_NAME_BY_ID["$session_id"]="$session_name"
     SESSION_PATH_BY_ID["$session_id"]="$canonical_session_path"
+    SESSION_IDS_BY_PATH["$canonical_session_path"]+="$session_id"$'\n'
 
     if [[ "$session_id" == "$current_session_id" ]] || [[ "${attached:-0}" -gt 0 ]]; then
       session_status="active"
@@ -333,6 +336,62 @@ session_status_suffix() {
     printf ' %s[DETACHED]%s' "$COLOR_CYAN" "$COLOR_RESET"
     ;;
   esac
+}
+
+session_sort_fields() {
+  local path="$1"
+  local representative_id="$2"
+  local project_name
+  local parent_path
+  local scope
+
+  if [[ "$path" == session-name:* ]]; then
+    project_name="${SESSION_NAME_BY_ID[$representative_id]}"
+    [[ -z "$project_name" ]] && project_name="${path#session-name:}"
+    printf '~~~\t%s\t%s' "$project_name" "$project_name"
+    return
+  fi
+
+  project_name=$(basename "$path")
+  parent_path=$(dirname "$path")
+
+  if [[ "$path" == "$HOME" || "$parent_path" == "$HOME" ]]; then
+    scope='~'
+  else
+    scope=$(basename "$parent_path")
+  fi
+
+  printf '%s\t%s\t%s' "$scope" "$project_name" "$path"
+}
+
+best_session_id_for_path_excluding() {
+  local path="$1"
+  local excluded_session_id="$2"
+  local session_ids="${SESSION_IDS_BY_PATH[$path]}"
+  local session_id
+  local best_session_id=""
+  local best_status=""
+  local session_status=""
+
+  while IFS= read -r session_id; do
+    [[ -z "$session_id" ]] && continue
+    [[ -n "$excluded_session_id" && "$session_id" == "$excluded_session_id" ]] && continue
+
+    session_status="${SESSION_STATUS_BY_ID[$session_id]}"
+
+    if [[ -z "$best_session_id" ]]; then
+      best_session_id="$session_id"
+      best_status="$session_status"
+      continue
+    fi
+
+    if [[ "$best_status" != "active" && "$session_status" == "active" ]]; then
+      best_session_id="$session_id"
+      best_status="$session_status"
+    fi
+  done <<< "$session_ids"
+
+  printf '%s' "$best_session_id"
 }
 
 display_label_for_path() {
@@ -375,7 +434,7 @@ print_selection_row() {
   local representative_id="$2"
   local key="path:$path"
 
-  if [[ "$path" == session-name:* ]]; then
+  if [[ -n "$representative_id" ]]; then
     key="tmux-id:$representative_id"
   fi
 
@@ -386,36 +445,57 @@ print_selection_row() {
   fi
 }
 
+print_sorted_selection_rows() {
+  local row
+
+  [[ "$#" -eq 0 ]] && return
+
+  while IFS= read -r row; do
+    row="${row#*$'\t'}"
+    row="${row#*$'\t'}"
+    row="${row#*$'\t'}"
+    printf '%s\n' "$row"
+  done < <(printf '%s\n' "$@" | sort -t $'\t' -f -k1,1 -k2,2 -k3,3)
+}
+
 render_selection_list() {
   load_session_status
 
   declare -A seen_paths
+  local -a session_rows=()
+  local -a directory_rows=()
   local canonical_entry
   local representative_id
   local entry
   local session_path
+  local current_session_id
+  local current_session_path
+
+  current_session_id=$(get_current_session_id)
+  current_session_path="${SESSION_PATH_BY_ID[$current_session_id]}"
+
+  for session_path in "${SESSION_PATH_ORDER[@]}"; do
+    representative_id=$(best_session_id_for_path_excluding "$session_path" "$current_session_id")
+    [[ -z "$representative_id" ]] && continue
+
+    seen_paths["$session_path"]=1
+    session_rows+=("$(session_sort_fields "$session_path" "$representative_id")"$'\t'"$(print_selection_row "$session_path" "$representative_id")")
+  done
 
   while IFS= read -r entry; do
     [[ -z "$entry" ]] && continue
 
     canonical_entry=$(canonical_path "$entry")
     [[ -z "$canonical_entry" ]] && continue
+    [[ -n "$current_session_path" && "$canonical_entry" == "$current_session_path" ]] && continue
     [[ -n "${seen_paths[$canonical_entry]}" ]] && continue
 
     seen_paths["$canonical_entry"]=1
-    representative_id="${REPRESENTATIVE_ID_BY_PATH[$canonical_entry]}"
-    print_selection_row "$canonical_entry" "$representative_id"
+    directory_rows+=("$(session_sort_fields "$canonical_entry" "")"$'\t'"$(print_selection_row "$canonical_entry" "")")
   done < <(find_dirs)
 
-  for session_path in "${SESSION_PATH_ORDER[@]}"; do
-    [[ -n "${seen_paths[$session_path]}" ]] && continue
-
-    representative_id="${REPRESENTATIVE_ID_BY_PATH[$session_path]}"
-    [[ -z "$representative_id" ]] && continue
-
-    seen_paths["$session_path"]=1
-    print_selection_row "$session_path" "$representative_id"
-  done
+  print_sorted_selection_rows "${session_rows[@]}"
+  print_sorted_selection_rows "${directory_rows[@]}"
 }
 
 find_most_recent_session_id_excluding() {
