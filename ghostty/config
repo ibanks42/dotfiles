@@ -1,5 +1,4 @@
-#font-family = Liga SFMono Nerd Font
-font-family = Berkeley Mono
+font-family = Liga SFMono Nerd Font
 
 command = zsh
 
@@ -41,3 +40,5 @@ keybind = alt+digit_9=unbind
 keybind = alt+digit_0=unbind
 
 keybind = global:super+grave_accent=toggle_quick_terminal
+
+theme = Flexoki Dark
