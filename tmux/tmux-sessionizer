@@ -8,6 +8,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
 WINDOW_CONFIG_FILE_NAME=".tmux_sessionizer.conf"
 GLOBAL_WINDOW_CONFIG_FILE="$SCRIPT_DIR/tmux_sessionizer.conf"
 
+# ============================================================================
+# CONFIGURATION: Define your search paths here
+# ============================================================================
+# Directories are searched in this order. Each path can optionally include
+# a depth suffix like "~/projects:2" to search 2 levels deep.
+# If not set via environment or config file, these defaults are used:
+TS_SEARCH_PATHS=(
+  ~/dev/work     # Work projects
+  ~/dev/personal # Personal projects
+  ~/             # Home directory (depth 1 by default)
+  ~/.config      # Config files
+)
+# ============================================================================
+
+
+
 if [[ -f "$SEARCH_CONFIG_FILE" ]]; then
   source "$SEARCH_CONFIG_FILE"
 fi
@@ -69,10 +85,6 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
-if [[ -z "${TS_SEARCH_PATHS+x}" ]]; then
-  TS_SEARCH_PATHS=(~/dev/work ~/dev/personal ~/)
-fi
-
 if [[ "$list_search_paths_override" == "true" ]]; then
   TS_SEARCH_PATHS=("${list_search_paths[@]}")
 elif [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
@@ -129,6 +141,47 @@ canonical_path() {
   else
     printf '%s' "$path"
   fi
+}
+
+# Pre-computed lookup tables for fast search path matching
+declare -a TS_SEARCH_PATHS_CANONICAL=()
+declare -A TS_SEARCH_PATH_INDEX_BY_PREFIX=()
+
+init_search_paths() {
+  local i
+  local path
+  local canonical
+
+  for ((i=0; i<${#TS_SEARCH_PATHS[@]}; i++)); do
+    local entry="${TS_SEARCH_PATHS[$i]}"
+
+    if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
+      path="${BASH_REMATCH[1]}"
+    else
+      path="$entry"
+    fi
+
+    canonical=$(canonical_path "$path")
+    TS_SEARCH_PATHS_CANONICAL+=("$canonical")
+    TS_SEARCH_PATH_INDEX_BY_PREFIX["$canonical"]="$i"
+  done
+}
+
+get_search_path_index() {
+  local path="$1"
+  local i
+  
+  # Use pre-computed canonical paths for fast prefix matching
+  # TS_SEARCH_PATHS_CANONICAL is ordered by search priority
+  for ((i=0; i<${#TS_SEARCH_PATHS_CANONICAL[@]}; i++)); do
+    local prefix="${TS_SEARCH_PATHS_CANONICAL[$i]}"
+    if [[ "$path" == "$prefix" || "$path" == "$prefix"/* ]]; then
+      printf '%d' "$i"
+      return
+    fi
+  done
+  
+  printf '999'
 }
 
 display_path() {
@@ -344,24 +397,28 @@ session_sort_fields() {
   local project_name
   local parent_path
   local scope
+  local search_path_index
+
+  search_path_index=$(get_search_path_index "$path")
 
   if [[ "$path" == session-name:* ]]; then
     project_name="${SESSION_NAME_BY_ID[$representative_id]}"
     [[ -z "$project_name" ]] && project_name="${path#session-name:}"
-    printf '~~~\t%s\t%s' "$project_name" "$project_name"
+    printf '%s\t~~~\t%s\t%s' "$search_path_index" "$project_name" "$project_name"
     return
   fi
 
-  project_name=$(basename "$path")
-  parent_path=$(dirname "$path")
+  # Use parameter expansion instead of basename/dirname for speed
+  project_name="${path##*/}"
+  parent_path="${path%/*}"
 
   if [[ "$path" == "$HOME" || "$parent_path" == "$HOME" ]]; then
     scope='~'
   else
-    scope=$(basename "$parent_path")
+    scope="${parent_path##*/}"
   fi
 
-  printf '%s\t%s\t%s' "$scope" "$project_name" "$path"
+  printf '%s\t%s\t%s\t%s' "$search_path_index" "$scope" "$project_name" "$path"
 }
 
 best_session_id_for_path_excluding() {
@@ -407,13 +464,14 @@ display_label_for_path() {
     local parent_path
     local scope
 
-    project_name=$(basename "$path")
-    parent_path=$(dirname "$path")
+    # Use parameter expansion instead of basename/dirname for speed
+    project_name="${path##*/}"
+    parent_path="${path%/*}"
 
     if [[ "$parent_path" == "$HOME" ]]; then
       scope='~'
     else
-      scope=$(basename "$parent_path")
+      scope="${parent_path##*/}"
     fi
 
     if [[ -z "$scope" || "$scope" == "/" || "$scope" == "." ]]; then
@@ -454,48 +512,169 @@ print_sorted_selection_rows() {
     row="${row#*$'\t'}"
     row="${row#*$'\t'}"
     row="${row#*$'\t'}"
+    row="${row#*$'\t'}"
     printf '%s\n' "$row"
-  done < <(printf '%s\n' "$@" | sort -t $'\t' -f -k1,1 -k2,2 -k3,3)
+  done < <(printf '%s\n' "$@" | sort -t $'\t' -k1,1n -k2,2 -k3,3 -k4,4)
 }
 
 render_selection_list() {
   load_session_status
 
   declare -A seen_paths
-  local -a session_rows=()
-  local -a directory_rows=()
-  local canonical_entry
+  local session_path
   local representative_id
   local entry
-  local session_path
   local current_session_id
   local current_session_path
+  local temp_file
+  local search_path_index project_name parent_path scope label key
+  local status
+
+  temp_file=$(mktemp)
+  # shellcheck disable=SC2064
+  trap "rm -f '$temp_file'" EXIT
 
   current_session_id=$(get_current_session_id)
   current_session_path="${SESSION_PATH_BY_ID[$current_session_id]}"
 
+  # Open temp file for writing using file descriptor to avoid subshells
+  exec 3>"$temp_file"
+
+  # Process sessions - all logic inlined to avoid subshell overhead
   for session_path in "${SESSION_PATH_ORDER[@]}"; do
     representative_id=$(best_session_id_for_path_excluding "$session_path" "$current_session_id")
     [[ -z "$representative_id" ]] && continue
 
     seen_paths["$session_path"]=1
-    session_rows+=("$(session_sort_fields "$session_path" "$representative_id")"$'\t'"$(print_selection_row "$session_path" "$representative_id")")
+
+    # Inline get_search_path_index
+    search_path_index=999
+    for ((i=0; i<${#TS_SEARCH_PATHS_CANONICAL[@]}; i++)); do
+      local prefix="${TS_SEARCH_PATHS_CANONICAL[$i]}"
+      if [[ "$session_path" == "$prefix" || "$session_path" == "$prefix"/* ]]; then
+        search_path_index=$i
+        break
+      fi
+    done
+
+    # Inline session_sort_fields logic
+    if [[ "$session_path" == session-name:* ]]; then
+      project_name="${SESSION_NAME_BY_ID[$representative_id]}"
+      [[ -z "$project_name" ]] && project_name="${session_path#session-name:}"
+      printf '%d\t~~~\t%s\t%s\t' "$search_path_index" "$project_name" "$project_name" >&3
+    else
+      project_name="${session_path##*/}"
+      parent_path="${session_path%/*}"
+
+      if [[ "$session_path" == "$HOME" || "$parent_path" == "$HOME" ]]; then
+        scope='~'
+      else
+        scope="${parent_path##*/}"
+      fi
+
+      printf '%d\t%s\t%s\t%s\t' "$search_path_index" "$scope" "$project_name" "$session_path" >&3
+    fi
+
+    # Inline print_selection_row logic
+    if [[ "$session_path" == session-name:* ]]; then
+      key="tmux-id:$representative_id"
+      label="${SESSION_NAME_BY_ID[$representative_id]:-${session_path#session-name:}}"
+    else
+      key="path:$session_path"
+      parent_path="${session_path%/*}"
+      if [[ "$parent_path" == "$HOME" ]]; then
+        scope='~'
+      else
+        scope="${parent_path##*/}"
+      fi
+
+      if [[ -z "$scope" || "$scope" == "/" || "$scope" == "." ]]; then
+        # Inline display_path for home
+        if [[ "$session_path" == "$HOME" ]]; then
+          label='~'
+        elif [[ "$session_path" == "$HOME/"* ]]; then
+          label="~/${session_path#"$HOME/"}"
+        else
+          label="$session_path"
+        fi
+      else
+        label=$(printf '%s[%s]%s %s' "$COLOR_YELLOW" "$scope" "$COLOR_RESET" "$project_name")
+      fi
+    fi
+
+    # Add status suffix
+    status="${SESSION_STATUS_BY_ID[$representative_id]}"
+    case "$status" in
+    active)
+      label="$label ${COLOR_GREEN}[ACTIVE]${COLOR_RESET}"
+      ;;
+    detached)
+      label="$label ${COLOR_CYAN}[DETACHED]${COLOR_RESET}"
+      ;;
+    esac
+
+    printf '%s\t%s\n' "$key" "$label" >&3
   done
 
+  # Process directories - all logic inlined
   while IFS= read -r entry; do
     [[ -z "$entry" ]] && continue
+    [[ -n "$current_session_path" && "$entry" == "$current_session_path" ]] && continue
+    [[ -n "${seen_paths[$entry]}" ]] && continue
 
-    canonical_entry=$(canonical_path "$entry")
-    [[ -z "$canonical_entry" ]] && continue
-    [[ -n "$current_session_path" && "$canonical_entry" == "$current_session_path" ]] && continue
-    [[ -n "${seen_paths[$canonical_entry]}" ]] && continue
+    seen_paths["$entry"]=1
 
-    seen_paths["$canonical_entry"]=1
-    directory_rows+=("$(session_sort_fields "$canonical_entry" "")"$'\t'"$(print_selection_row "$canonical_entry" "")")
+    # Inline get_search_path_index
+    search_path_index=999
+    for ((i=0; i<${#TS_SEARCH_PATHS_CANONICAL[@]}; i++)); do
+      local prefix="${TS_SEARCH_PATHS_CANONICAL[$i]}"
+      if [[ "$entry" == "$prefix" || "$entry" == "$prefix"/* ]]; then
+        search_path_index=$i
+        break
+      fi
+    done
+
+    # Inline session_sort_fields logic
+    project_name="${entry##*/}"
+    parent_path="${entry%/*}"
+
+    if [[ "$entry" == "$HOME" || "$parent_path" == "$HOME" ]]; then
+      scope='~'
+    else
+      scope="${parent_path##*/}"
+    fi
+
+    printf '%d\t%s\t%s\t%s\t' "$search_path_index" "$scope" "$project_name" "$entry" >&3
+
+    # Inline print_selection_row logic
+    key="path:$entry"
+    if [[ "$parent_path" == "$HOME" ]]; then
+      scope='~'
+    else
+      scope="${parent_path##*/}"
+    fi
+
+    if [[ -z "$scope" || "$scope" == "/" || "$scope" == "." ]]; then
+      if [[ "$entry" == "$HOME" ]]; then
+        label='~'
+      elif [[ "$entry" == "$HOME/"* ]]; then
+        label="~/${entry#"$HOME/"}"
+      else
+        label="$entry"
+      fi
+    else
+      label=$(printf '%s[%s]%s %s' "$COLOR_YELLOW" "$scope" "$COLOR_RESET" "$project_name")
+    fi
+
+    printf '%s\t%s\n' "$key" "$label" >&3
   done < <(find_dirs)
 
-  print_sorted_selection_rows "${session_rows[@]}"
-  print_sorted_selection_rows "${directory_rows[@]}"
+  exec 3>&-
+
+  # Sort and output
+  sort -t $'\t' -k1,1n -k2,2 -k3,3 -k4,4 "$temp_file" | while IFS=$'\t' read -r _ _ _ _ key label; do
+    printf '%s\t%s\n' "$key" "$label"
+  done
 }
 
 find_most_recent_session_id_excluding() {
@@ -608,6 +787,9 @@ delete_session_entry() {
   target_id="${REPRESENTATIVE_ID_BY_PATH[$target_path]}"
   delete_session_by_id "$target_id" "$current_session_id"
 }
+
+# Initialize canonical search path lookups for fast sorting
+init_search_paths
 
 if [[ -n "$delete_target" ]]; then
   delete_session_entry "$delete_target"
