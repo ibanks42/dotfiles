@@ -1,0 +1,51 @@
+installed_providers = [
+  "desktopapplications",
+  "websearch",
+  "providerlist",
+  "calc",
+  "files",
+  "symbols",
+  "unicode",
+  "bitwarden",
+]
+
+theme = "default"
+
+[providers]
+default = ["desktopapplications", "websearch", "calc"]
+empty = ["desktopapplications"]
+
+[[providers.prefixes]]
+prefix = "@"
+provider = "websearch"
+
+[[providers.prefixes]]
+prefix = "="
+provider = "calc"
+
+[[providers.prefixes]]
+prefix = "/"
+provider = "files"
+
+[[providers.prefixes]]
+prefix = "."
+provider = "symbols"
+
+[[providers.prefixes]]
+prefix = ";"
+provider = "providerlist"
+
+[[providers.prefixes]]
+prefix = "!"
+provider = "bitwarden"
+
+[providers.actions]
+bitwarden = [
+  { action = "copypassword", label = "copy password", default = true, bind = "Return" },
+  { action = "typepassword", label = "type password", bind = "ctrl p" },
+  { action = "copyusername", label = "copy username", bind = "shift Return" },
+  { action = "typeusername", label = "type username", bind = "ctrl u" },
+  { action = "copytotp", label = "copy 2fa", bind = "ctrl Return" },
+  { action = "typetotp", label = "type 2fa", bind = "ctrl t" },
+  { action = "syncvault", label = "sync", bind = "ctrl s" },
+]

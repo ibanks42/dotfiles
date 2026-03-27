@@ -70,7 +70,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [[ -z "${TS_SEARCH_PATHS+x}" ]]; then
-  TS_SEARCH_PATHS=(~/dev/work ~/dev/personal ~/)
+  TS_SEARCH_PATHS=(~/dev/work ~/dev/personal ~/ ~/.config)
 fi
 
 if [[ "$list_search_paths_override" == "true" ]]; then
@@ -389,7 +389,7 @@ best_session_id_for_path_excluding() {
       best_session_id="$session_id"
       best_status="$session_status"
     fi
-  done <<< "$session_ids"
+  done <<<"$session_ids"
 
   printf '%s' "$best_session_id"
 }

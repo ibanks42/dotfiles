@@ -1,0 +1,86 @@
+* {
+  font-family: "Segoe UI", "Inter", sans-serif;
+  font-size: 13px;
+  border: none;
+  border-radius: 14px;
+  min-height: 0;
+  color: #cecdc3;
+}
+
+window#waybar {
+  background: transparent;
+  color: #cecdc3;
+}
+
+.modules-left,
+.modules-center,
+.modules-right {
+  margin: 6px 10px 10px;
+}
+
+#workspaces,
+#window,
+#clock,
+#pulseaudio,
+#network,
+#battery,
+#tray {
+  background: rgba(28, 27, 26, 0.94);
+  border: 1px solid rgba(64, 62, 60, 0.92);
+  box-shadow: inset 0 1px 0 rgba(87, 86, 83, 0.12);
+}
+
+#workspaces {
+  padding: 4px 6px;
+}
+
+#workspaces button {
+  padding: 0 12px;
+  margin: 0 3px;
+  min-width: 30px;
+  color: #878580;
+  background: transparent;
+}
+
+#workspaces button:hover {
+  color: #cecdc3;
+  background: rgba(52, 51, 49, 0.95);
+}
+
+#workspaces button.active {
+  background: #4385be;
+  color: #100f0f;
+}
+
+#workspaces button.urgent {
+  background: #d14d41;
+  color: #100f0f;
+}
+
+#window {
+  padding: 0 14px;
+  margin: 0 4px;
+  color: #b7b5ac;
+}
+
+#clock,
+#pulseaudio,
+#network,
+#battery,
+#tray {
+  padding: 0 12px;
+  margin: 0 4px;
+}
+
+#battery.charging,
+#battery.plugged {
+  color: #879a39;
+}
+
+#battery.warning:not(.charging) {
+  color: #d0a215;
+}
+
+#battery.critical:not(.charging) {
+  color: #d14d41;
+}

@@ -42,3 +42,5 @@ keybind = alt+digit_0=unbind
 keybind = global:super+grave_accent=toggle_quick_terminal
 
 theme = Flexoki Dark
+
+mouse-scroll-multiplier = discrete:0.75

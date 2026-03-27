@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg viewBox="0 0 50 50"
+ xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.2" baseProfile="tiny">
+<title>Qt SVG Document</title>
+<desc>Generated with Qt</desc>
+<defs>
+</defs>
+<g fill="none" stroke="black" stroke-width="1" fill-rule="evenodd" stroke-linecap="square" stroke-linejoin="bevel" >
+
+<g fill="#000000" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" transform="matrix(1,0,0,1,0,0)"
+font-family="Noto Sans" font-size="10" font-weight="400" font-style="normal" 
+opacity="0.35" >
+<image x="-5" y="-5" width="61" height="61" preserveAspectRatio="none" image-rendering="optimizeQuality" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAD0AAAA9CAYAAAAeYmHpAAAACW9GRnP////7////+wAF/NJvAAAACXBIWXMAAA7EAAAOxAGVKw4bAAACkUlEQVRoge3Yv2sTYRzH8fdzZ9BSUKMIXYJ9rp1KpFIpCAoKLhbESScRhwoOTg6uQumo+A9YBwcnQVCkakFw8EeHotjBJeRJQhYRFRXbtA13X4ecUIq2SXkutPh9LZc8PM9z3w/35O7JgVJKKaWUUkoppZT6O9OtEznnhkVkyBgTrm4XEQmC4Escx+8HBwc/d6OWzEM75w4C94FjG3QVY8xbYNJa+yzLmjINXa/Xe5rN5gsgWqdbAOxPj62ijHm4sLBwqVgs/sqirq4t7/XU6/WeOI5PJkkyCRyhtezfNRqNE1kED9rok7lCodDo7+9/WqvVjorIBBAbY0Z6e3vvZXE+71e6VCrtDILgmjFmDNizUX8RiY0xH4GbURTNA5TL5QljzA1aS/20tfa5zxq9hq5UKn0iMgMc2sTwFeBqFEVTc3NzuXw+P2uMGTHGvLHWbnQT7IjX0M65R8BZYAm4C1TbGLYLOAcMp8FHoyiar1arY0mSTAOSJEmfz8fZDl8TOeeG08CIyPmBgYEn7Y6tVCq3RGQ2DX4duBiG4cskSRIgCILgMDDjq1ZvNzIRGUo/fu8kMIC1dgl4sHqeQqHQAL6mbQd81YnP0Kt2WsubnGJ5zTwASdrm9We4JR5Z3aah/xfbIrSIxD7n2xah0x2bN9sh9Osoij74nHCrh3bABd+TetuRZSGXy51KNyle+bzSP9LjvlKptHsT4/vT488/DVkExmfoMAxfpQXnwjCc6iR4uVw+A4zTulNP+6rpX3z/y7oM3Em/NoFvbQzbCexNP88vLi6OFovFFZ91reX9JYJzbhy4DXS6xB8bY65Yaz/5rmmtTN6R1Wq1fBzHxzt5c+L7saSUUkoppZRSSimlVJt+A0VW0l4YU7q3AAAAAElFTkSuQmCC" />
+</g>
+
+<g fill="none" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="square" stroke-linejoin="bevel" transform="matrix(1,0,0,1,0,0)"
+font-family="Noto Sans" font-size="10" font-weight="400" font-style="normal" 
+>
+</g>
+</g>
+</svg>

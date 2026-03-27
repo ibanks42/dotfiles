@@ -1,0 +1,7 @@
+# ~/.config/elephant/bitwarden.toml
+
+clear_after = 10
+autotype_support = true
+autotype_delay = 500
+copy_command = "wl-copy --trim-newline --"
+clear_command = "wl-copy --clear"

@@ -1,0 +1,205 @@
+@define-color flex-base #100F0F;
+@define-color flex-surface #1C1B1A;
+@define-color flex-surface-2 #282726;
+@define-color flex-border #403E3C;
+@define-color flex-border-soft #575653;
+@define-color flex-text #CECDC3;
+@define-color flex-muted #878580;
+@define-color flex-blue #4385BE;
+@define-color flex-cyan #3AA99F;
+@define-color flex-red #D14D41;
+@define-color flex-green #879A39;
+
+* {
+  all: unset;
+  color: @flex-text;
+}
+
+popover {
+  background: @flex-surface;
+  border: 1px solid @flex-border;
+  border-radius: 18px;
+  padding: 10px;
+}
+
+.normal-icons {
+  -gtk-icon-size: 16px;
+}
+
+.large-icons {
+  -gtk-icon-size: 32px;
+}
+
+scrollbar {
+  opacity: 0;
+}
+
+.box-wrapper {
+  background: alpha(@flex-surface, 0.98);
+  padding: 20px;
+  border-radius: 22px;
+  border: 1px solid alpha(@flex-border-soft, 0.88);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(135, 133, 128, 0.04);
+}
+
+.preview-box,
+.elephant-hint,
+.placeholder {
+  color: @flex-muted;
+}
+
+.search-container {
+  background: alpha(@flex-base, 0.96);
+  border: 1px solid alpha(@flex-border, 0.95);
+  border-radius: 16px;
+}
+
+.input placeholder {
+  color: alpha(@flex-muted, 0.9);
+}
+
+.input selection {
+  background: alpha(@flex-blue, 0.28);
+  color: @flex-text;
+}
+
+.input {
+  caret-color: @flex-text;
+  background: transparent;
+  padding: 13px 15px;
+  color: @flex-text;
+  font-family: "Segoe UI", "Inter", sans-serif;
+  font-size: 15px;
+}
+
+.list {
+  color: @flex-text;
+}
+
+.item-box {
+  border-radius: 14px;
+  padding: 11px 13px;
+  border: 1px solid alpha(@flex-border, 0.35);
+  background: alpha(@flex-base, 0.26);
+}
+
+child:hover .item-box {
+  background: alpha(@flex-surface-2, 0.92);
+  border-color: alpha(@flex-border-soft, 0.82);
+}
+
+child:selected .item-box,
+row:selected .item-box {
+  background: alpha(@flex-blue, 0.12);
+  border-color: alpha(@flex-blue, 0.72);
+}
+
+.bitwarden child:selected .item-box,
+.bitwarden row:selected .item-box {
+  background: alpha(@flex-cyan, 0.12);
+  border-color: alpha(@flex-cyan, 0.74);
+}
+
+.item-text {
+  color: @flex-text;
+  font-weight: 600;
+}
+
+.item-subtext {
+  font-size: 12px;
+  color: #b7b5ac;
+}
+
+.providerlist .item-subtext {
+  font-size: unset;
+  color: @flex-blue;
+}
+
+.item-image-text {
+  font-size: 28px;
+}
+
+.item-quick-activation {
+  background: alpha(@flex-surface-2, 0.82);
+  color: @flex-muted;
+  border-radius: 999px;
+  padding: 6px 9px;
+  border: 1px solid alpha(@flex-border, 0.85);
+}
+
+.preview {
+  border: 1px solid alpha(@flex-border, 0.95);
+  border-radius: 16px;
+  background: alpha(@flex-base, 0.88);
+  color: @flex-text;
+}
+
+.calc .item-text {
+  font-size: 24px;
+}
+
+.symbols .item-image {
+  font-size: 24px;
+}
+
+.todo.done .item-text-box {
+  opacity: 0.25;
+}
+
+.todo.active {
+  font-weight: bold;
+}
+
+.bluetooth.disconnected {
+  opacity: 0.5;
+}
+
+.preview .large-icons {
+  -gtk-icon-size: 64px;
+}
+
+.keybinds {
+  padding-top: 12px;
+  border-top: 1px solid alpha(@flex-border, 0.95);
+  font-size: 12px;
+  color: #b7b5ac;
+}
+
+.keybind-button {
+  opacity: 0.65;
+}
+
+.keybind-button:hover {
+  opacity: 0.95;
+}
+
+.keybind-bind {
+  text-transform: lowercase;
+  color: @flex-muted;
+}
+
+.keybind-label {
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid alpha(@flex-border-soft, 0.9);
+  color: @flex-text;
+  background: alpha(@flex-base, 0.92);
+}
+
+.error {
+  padding: 12px;
+  background: alpha(@flex-red, 0.24);
+  color: @flex-text;
+  border-radius: 14px;
+}
+
+:not(.calc).current {
+  font-style: italic;
+}
+
+.preview-content.archlinuxpkgs,
+.preview-content.dnfpackages {
+  font-family: monospace;
+}

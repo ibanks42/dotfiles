@@ -1,0 +1,91 @@
+diff --git a/internal/providers/bitwarden/query.go b/internal/providers/bitwarden/query.go
+index 0000000..1111111 100644
+--- a/internal/providers/bitwarden/query.go
++++ b/internal/providers/bitwarden/query.go
+@@
+-import (
+-	"encoding/json"
++import (
+ 	"fmt"
+ 	"log/slog"
+ 	"net"
+ 	"os/exec"
+ 	"strings"
+@@
+ func initItems() {
+ 	cachedItems = nil
+-	cmd := exec.Command("rbw", "list", "--raw")
++	cmd := exec.Command("rbw", "list", "--fields", "id,name,user,folder")
+ 	output, err := cmd.CombinedOutput()
+ 	if err != nil {
+ 		slog.Error(Name, "init", err, "msg", output)
+ 		return
+ 	}
+ 
+-	if err := json.Unmarshal(output, &cachedItems); err != nil {
+-		slog.Error(Name, "parse", err, "msg", output)
+-		return
++	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
++		if line == "" {
++			continue
++		}
++
++		parts := strings.SplitN(line, "\t", 4)
++		for len(parts) < 4 {
++			parts = append(parts, "")
++		}
++
++		cachedItems = append(cachedItems, RbwItem{
++			ID:     strings.TrimSpace(parts[0]),
++			Name:   strings.TrimSpace(parts[1]),
++			User:   strings.TrimSpace(parts[2]),
++			Folder: strings.TrimSpace(parts[3]),
++		})
+ 	}
+ }
+diff --git a/internal/providers/bitwarden/activate.go b/internal/providers/bitwarden/activate.go
+index 2222222..3333333 100644
+--- a/internal/providers/bitwarden/activate.go
++++ b/internal/providers/bitwarden/activate.go
+@@
+ func clearClipboard() {
+ 	if config.ClearAfter > 0 {
+ 		time.Sleep(time.Duration(config.ClearAfter) * time.Second)
+-		exec.Command("wl-copy", "--clear").Run()
++		cmd := common.ReplaceResultOrStdinCmd(config.ClearCommand, "")
++		cmd.Run()
+ 	}
+ }
++
++func copyWithCommand(command string, identifier string, logStr string) {
++	cmd := common.ReplaceResultOrStdinCmd(command, identifier)
++	err := cmd.Start()
++	if err != nil {
++		slog.Error(Name, fmt.Sprintf("%s failed", logStr), err)
++		return
++	}
++
++	go func() {
++		if err := cmd.Wait(); err != nil {
++			slog.Error(Name, fmt.Sprintf("%s failed", logStr), err)
++			return
++		}
++
++		exec.Command("notify-send", fmt.Sprintf("%s succeeded", logStr)).Run()
++		clearClipboard()
++	}()
++}
+@@
+ 	switch action {
+ 	case ActionCopyUsername:
+ 		copyToClipboard(item.Data.Username, "Username copy")
+ 	case ActionCopyPassword:
+-		copyToClipboard(*item.Data.Password, "Password copy")
++		copyWithCommand("rbw get %VALUE% --clipboard", identifier, "Password copy")
+ 	case ActionCopyTotp:
+-		cmd := common.ReplaceResultOrStdinCmd("rbw totp %VALUE% --clipboard", identifier)
++		cmd := common.ReplaceResultOrStdinCmd("rbw code %VALUE% --clipboard", identifier)
+@@
+ 	case ActionTypeTotp:
+-		cmd := common.ReplaceResultOrStdinCmd("rbw totp %VALUE%", identifier)
++		cmd := common.ReplaceResultOrStdinCmd("rbw code %VALUE%", identifier)

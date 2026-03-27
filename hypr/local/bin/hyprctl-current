@@ -1,0 +1,11 @@
+#!/bin/sh
+
+sig="${HYPRLAND_INSTANCE_SIGNATURE:-$(systemctl --user show-environment | sed -n 's/^HYPRLAND_INSTANCE_SIGNATURE=//p' | head -n 1)}"
+
+if [ -z "$sig" ]; then
+    printf '%s\n' 'Could not determine HYPRLAND_INSTANCE_SIGNATURE from the current shell or the systemd user environment.' >&2
+    exit 1
+fi
+
+export HYPRLAND_INSTANCE_SIGNATURE="$sig"
+exec hyprctl "$@"
