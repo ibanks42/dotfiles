@@ -1,0 +1,12 @@
+[Unit]
+Description=Restart Elephant after rbw unlock
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/home/ibanks/.local/bin/elephant-rbw-watch
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

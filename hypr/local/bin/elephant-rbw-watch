@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+state="unknown"
+
+while sleep 2; do
+  if rbw unlocked >/dev/null 2>&1; then
+    if [ "$state" != "unlocked" ]; then
+      systemctl --user try-restart elephant.service >/dev/null 2>&1 || true
+      state="unlocked"
+    fi
+  else
+    state="locked"
+  fi
+done

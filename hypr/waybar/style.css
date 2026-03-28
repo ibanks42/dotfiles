@@ -20,6 +20,7 @@ window#waybar {
 
 #workspaces,
 #window,
+#windowcount,
 #clock,
 #pulseaudio,
 #network,
@@ -35,9 +36,9 @@ window#waybar {
 }
 
 #workspaces button {
-  padding: 0 12px;
-  margin: 0 3px;
-  min-width: 30px;
+  padding: 0 8px;
+  margin: 0 2px;
+  min-width: 24px;
   color: #878580;
   background: transparent;
 }
@@ -57,10 +58,35 @@ window#waybar {
   color: #100f0f;
 }
 
+#workspaces button.visible {
+  color: #cecdc3;
+}
+
+#workspaces .taskbar-window {
+  padding: 0 4px;
+  margin: 0 1px;
+  border-radius: 8px;
+}
+
+#workspaces .taskbar-window.active {
+  background: rgba(67, 133, 190, 0.3);
+}
+
+#workspaces .taskbar-window:hover {
+  background: rgba(52, 51, 49, 0.95);
+}
+
 #window {
   padding: 0 14px;
   margin: 0 4px;
   color: #b7b5ac;
+}
+
+#windowcount {
+  padding: 0 8px;
+  margin: 0 4px;
+  color: #878580;
+  font-size: 11px;
 }
 
 #clock,

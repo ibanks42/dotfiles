@@ -5,7 +5,8 @@
   "spacing": 6,
   "modules-left": [
     "hyprland/workspaces",
-    "hyprland/window"
+    "hyprland/window",
+    "hyprland/windowcount"
   ],
   "modules-center": [
     "clock"
@@ -19,10 +20,27 @@
   "hyprland/workspaces": {
     "disable-scroll": false,
     "all-outputs": false,
-    "format": "{id}"
+    "format": "{icon}",
+    "format-icons": {
+      "active": "",
+      "default": "",
+      "persistent": ""
+    },
+    "workspace-taskbar": {
+      "enable": true,
+      "update-active-window": true,
+      "format": "{icon}",
+      "icon-size": 16,
+      "on-click-window": "/home/ibanks/.local/bin/hypr-workspacectl focus-window {address}"
+    }
   },
   "hyprland/window": {
     "max-length": 80,
+    "separate-outputs": true
+  },
+  "hyprland/windowcount": {
+    "format": "[{}]",
+    "format-empty": "",
     "separate-outputs": true
   },
   "clock": {

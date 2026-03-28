@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+local_elephant="$HOME/.local/lib/elephant/bin/elephant"
+local_provider_dir="$HOME/.local/lib/elephant/providers-walker"
+
+if [ -x "$local_elephant" ]; then
+  if [ -d "$local_provider_dir" ]; then
+    export ELEPHANT_PROVIDER_DIR="$local_provider_dir"
+  fi
+  exec "$local_elephant" "$@"
+fi
+
+exec elephant "$@"

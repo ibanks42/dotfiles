@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+if rbw unlock; then
+  systemctl --user restart elephant.service
+fi

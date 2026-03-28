@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import subprocess
 import sys
 
-MONITORS = ["eDP-1", "DP-5", "DP-6"]
 WORKSPACES_PER_MONITOR = 9
+HISTORY_FILE = "/tmp/hypr-workspacectl-history.json"
+SCRATCHPAD_APPS = (
+    {"command": "steam", "classes": {"steam", "Steam"}},
+    {"command": "spotify-launcher", "classes": {"spotify", "Spotify"}},
+)
 
 
 def run_hyprctl(*args: str) -> str:
@@ -22,43 +27,106 @@ def monitors_json() -> list[dict]:
     return json.loads(run_hyprctl("-j", "monitors"))
 
 
+def active_window() -> dict:
+    return json.loads(run_hyprctl("-j", "activewindow"))
+
+
+def ordered_monitors() -> list[dict]:
+    monitors = [monitor for monitor in monitors_json() if not monitor.get("disabled")]
+    monitors.sort(key=lambda monitor: (int(monitor.get("x", 0)), int(monitor.get("id", 0))))
+    return monitors
+
+
+def monitor_count() -> int:
+    count = len(ordered_monitors())
+    if count == 0:
+        raise SystemExit("No enabled monitors found.")
+    return count
+
+
 def focused_monitor_name() -> str:
-    for monitor in monitors_json():
+    for monitor in ordered_monitors():
         if monitor.get("focused"):
             return monitor["name"]
     raise SystemExit("No focused monitor found.")
 
 
 def monitor_slot(name: str) -> int:
+    for index, monitor in enumerate(ordered_monitors(), start=1):
+        if monitor["name"] == name:
+            return index
+    raise SystemExit(f"Unknown monitor '{name}'.")
+
+
+def monitor_name(slot: int) -> str:
+    monitors = ordered_monitors()
     try:
-        return MONITORS.index(name) + 1
-    except ValueError as exc:
-        raise SystemExit(f"Unknown monitor '{name}'. Update {__file__}.") from exc
+        return monitors[slot - 1]["name"]
+    except IndexError as exc:
+        raise SystemExit(f"Monitor slot must be 1-{len(monitors)}.") from exc
 
 
 def workspace_id(slot: int, logical_index: int) -> int:
-    return slot + len(MONITORS) * (logical_index - 1)
+    return slot + monitor_count() * (logical_index - 1)
+
+
+def logical_workspace_from_id(current_id: int, slot: int) -> int | None:
+    offset = current_id - slot
+    if offset < 0 or offset % monitor_count() != 0:
+        return None
+
+    logical_index = offset // monitor_count() + 1
+    if 1 <= logical_index <= WORKSPACES_PER_MONITOR:
+        return logical_index
+    return None
+
+
+def active_monitor_slot() -> int:
+    window = active_window()
+    current_id = window.get("workspace", {}).get("id")
+    if isinstance(current_id, int) and current_id > 0:
+        slot = (current_id - 1) % monitor_count() + 1
+        if logical_workspace_from_id(current_id, slot) is not None:
+            return slot
+
+    monitor_id = window.get("monitor")
+    if isinstance(monitor_id, int):
+        for index, monitor in enumerate(ordered_monitors(), start=1):
+            if int(monitor.get("id", -1)) == monitor_id:
+                return index
+
+    return monitor_slot(focused_monitor_name())
+
+
+def focused_monitor_slot() -> int:
+    return monitor_slot(focused_monitor_name())
+
+
+def monitor_workspace_id(slot: int) -> int:
+    return int(ordered_monitors()[slot - 1]["activeWorkspace"]["id"])
+
+
+def monitor_history_id(slot: int) -> str:
+    monitor = ordered_monitors()[slot - 1]
+    return str(monitor.get("id", slot))
+
+
+def logical_workspace_for_slot(slot: int) -> int:
+    logical_index = logical_workspace_from_id(monitor_workspace_id(slot), slot)
+    if logical_index is not None:
+        return logical_index
+    return 1
 
 
 def current_logical_workspace() -> int:
-    focused_name = focused_monitor_name()
-    slot = monitor_slot(focused_name)
+    return logical_workspace_for_slot(focused_monitor_slot())
 
-    for monitor in monitors_json():
-        if monitor["name"] != focused_name:
-            continue
 
-        current_id = int(monitor["activeWorkspace"]["id"])
-        offset = current_id - slot
-        if offset < 0 or offset % len(MONITORS) != 0:
-            return 1
-
-        logical_index = offset // len(MONITORS) + 1
-        if 1 <= logical_index <= WORKSPACES_PER_MONITOR:
-            return logical_index
-        return 1
-
-    return 1
+def active_logical_workspace() -> int:
+    logical_index = logical_workspace_from_id(active_workspace_id(), active_monitor_slot())
+    if logical_index is not None:
+        return logical_index
+    return current_logical_workspace()
 
 
 def dispatch(*args: str) -> None:
@@ -68,10 +136,18 @@ def dispatch(*args: str) -> None:
     )
 
 
+def active_window_address() -> str:
+    address = active_window().get("address", "0x0")
+    if address == "0x0":
+        raise SystemExit("No active window found.")
+    return address
+
+
 def parse_slot(value: str) -> int:
     slot = int(value)
-    if slot < 1 or slot > len(MONITORS):
-        raise SystemExit(f"Monitor slot must be 1-{len(MONITORS)}.")
+    count = monitor_count()
+    if slot < 1 or slot > count:
+        raise SystemExit(f"Monitor slot must be 1-{count}.")
     return slot
 
 
@@ -82,49 +158,355 @@ def parse_workspace(value: str) -> int:
     return logical_index
 
 
+# Workspace history functions
+def load_history() -> dict:
+    """Load workspace history from file."""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return {}
+
+
+def save_history(history: dict) -> None:
+    """Save workspace history to file."""
+    try:
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(history, f)
+    except IOError:
+        pass
+
+
+def update_workspace_history(slot: int, workspace_id: int) -> None:
+    """Update workspace history for a monitor slot."""
+    history = load_history()
+    monitor_id = monitor_history_id(slot)
+    current = monitor_workspace_id(slot)
+    entry = history.get(monitor_id, {})
+    history[monitor_id] = {
+        "previous": current if current != workspace_id else entry.get("previous"),
+        "current": workspace_id,
+    }
+    save_history(history)
+
+
+def get_previous_workspace(slot: int) -> int | None:
+    """Get the previous workspace for a monitor slot."""
+    history = load_history()
+    previous = history.get(monitor_history_id(slot), {}).get("previous")
+    if not isinstance(previous, int):
+        return None
+
+    if logical_workspace_from_id(previous, slot) is None:
+        return None
+    return previous
+
+
 def focus_monitor(slot: int) -> None:
-    dispatch("focusmonitor", MONITORS[slot - 1])
+    dispatch("focusmonitor", monitor_name(slot))
+
+
+def activate_workspace(slot: int, target_workspace: int) -> None:
+    focus_monitor(slot)
+    update_workspace_history(slot, target_workspace)
+    dispatch("workspace", str(target_workspace))
+    focus_monitor(slot)
+
+
+def focus_monitor_or_cycle(slot: int) -> None:
+    current_slot = focused_monitor_slot()
+    if current_slot == slot:
+        cycle_workspace_windows(monitor_workspace_id(slot))
+        return
+
+    dispatch("focusmonitor", monitor_name(slot))
+
+
+def cycle_monitor(delta: int) -> None:
+    count = monitor_count()
+    slot = focused_monitor_slot() + delta
+    if slot < 1:
+        slot = count
+    elif slot > count:
+        slot = 1
+
+    focus_monitor(slot)
+
+
+def relative_monitor_slot(delta: int) -> int:
+    count = monitor_count()
+    slot = focused_monitor_slot() + delta
+    if slot < 1:
+        slot = count
+    elif slot > count:
+        slot = 1
+    return slot
 
 
 def move_to_monitor(slot: int) -> None:
-    logical_index = current_logical_workspace()
-    dispatch("movetoworkspacesilent", str(workspace_id(slot, logical_index)))
+    logical_index = active_logical_workspace()
+    target_workspace = str(workspace_id(slot, logical_index))
+    dispatch("movetoworkspacesilent", f"{target_workspace},address:{active_window_address()}")
+    dispatch("workspace", target_workspace)
+
+
+def move_to_relative_monitor(delta: int) -> None:
+    move_to_monitor(relative_monitor_slot(delta))
 
 
 def goto_workspace(logical_index: int) -> None:
-    slot = monitor_slot(focused_monitor_name())
-    dispatch("workspace", str(workspace_id(slot, logical_index)))
+    slot = focused_monitor_slot()
+    target_id = workspace_id(slot, logical_index)
+    activate_workspace(slot, target_id)
+
+
+def goto_previous_workspace() -> None:
+    """Go to the previous workspace on the current monitor."""
+    slot = focused_monitor_slot()
+    current_id = monitor_workspace_id(slot)
+    previous_id = get_previous_workspace(slot)
+
+    if previous_id is not None and previous_id != current_id:
+        activate_workspace(slot, previous_id)
+
+
+def clients_json() -> list[dict]:
+    return json.loads(run_hyprctl("-j", "clients"))
+
+
+def clients_on_workspace(workspace_id: int) -> list[dict]:
+    return [c for c in clients_json() if c.get("workspace", {}).get("id") == workspace_id]
+
+
+def client_by_address(address: str) -> dict | None:
+    for client in clients_json():
+        if client.get("address") == address:
+            return client
+    return None
+
+
+def occupied_logical_workspaces(slot: int) -> list[int]:
+    occupied: set[int] = set()
+    for client in clients_json():
+        workspace = client.get("workspace", {}).get("id")
+        if not isinstance(workspace, int):
+            continue
+
+        logical_index = logical_workspace_from_id(workspace, slot)
+        if logical_index is not None:
+            occupied.add(logical_index)
+
+    return sorted(occupied)
+
+
+def cycleable_logical_workspaces(slot: int, current_logical: int) -> list[int]:
+    occupied = occupied_logical_workspaces(slot)
+    if not occupied:
+        return [1]
+
+    logicals = set(occupied)
+    logicals.add(min(max(occupied) + 1, WORKSPACES_PER_MONITOR))
+    logicals.add(current_logical)
+    return sorted(logicals)
+
+
+def has_client_class(class_names: set[str]) -> bool:
+    lower_names = {name.lower() for name in class_names}
+    for client in clients_json():
+        if str(client.get("class", "")).lower() in lower_names:
+            return True
+    return False
+
+
+def launch(command: str) -> None:
+    dispatch("exec", command)
+
+
+def ensure_scratchpad_apps() -> None:
+    for app in SCRATCHPAD_APPS:
+        if not has_client_class(app["classes"]):
+            launch(app["command"])
+
+
+def active_workspace_id() -> int:
+    current_id = active_window().get("workspace", {}).get("id")
+    if isinstance(current_id, int) and current_id > 0:
+        return current_id
+
+    for monitor in ordered_monitors():
+        if monitor.get("focused"):
+            return int(monitor["activeWorkspace"]["id"])
+    return 0
+
+
+def cycle_workspace_windows(workspace_id: int, delta: int = 1) -> None:
+    clients = clients_on_workspace(workspace_id)
+    addresses = [client.get("address") for client in clients if client.get("address")]
+    if len(addresses) < 2:
+        return
+
+    active_address = active_window().get("address")
+    if active_address in addresses:
+        current_index = addresses.index(active_address)
+    else:
+        current_index = -1 if delta > 0 else 0
+
+    next_index = (current_index + delta) % len(addresses)
+    dispatch("focuswindow", f"address:{addresses[next_index]}")
+
+
+def focus_window(address: str) -> None:
+    client = client_by_address(address)
+    if client is not None:
+        target_workspace = client.get("workspace", {}).get("id")
+        if isinstance(target_workspace, int) and target_workspace > 0:
+            slot = (target_workspace - 1) % monitor_count() + 1
+            update_workspace_history(slot, target_workspace)
+
+    dispatch("focuswindow", f"address:{address}")
+
+
+def goto_workspace_or_cycle(logical_index: int) -> None:
+    slot = focused_monitor_slot()
+    target_id = workspace_id(slot, logical_index)
+    current_id = monitor_workspace_id(slot)
+
+    if current_id == target_id:
+        cycle_workspace_windows(target_id)
+        return
+
+    activate_workspace(slot, target_id)
 
 
 def move_to_workspace(logical_index: int) -> None:
-    slot = monitor_slot(focused_monitor_name())
-    dispatch("movetoworkspacesilent", str(workspace_id(slot, logical_index)))
+    slot = active_monitor_slot()
+    target_workspace = str(workspace_id(slot, logical_index))
+    dispatch("movetoworkspacesilent", f"{target_workspace},address:{active_window_address()}")
+    activate_workspace(slot, int(target_workspace))
+
+
+def move_to_relative_workspace(delta: int) -> None:
+    """Move active window to adjacent workspace on current monitor."""
+    slot = active_monitor_slot()
+    current_logical = active_logical_workspace()
+    new_logical = current_logical + delta
+    if new_logical < 1:
+        new_logical = WORKSPACES_PER_MONITOR
+    elif new_logical > WORKSPACES_PER_MONITOR:
+        new_logical = 1
+    target_workspace = str(workspace_id(slot, new_logical))
+    dispatch("movetoworkspacesilent", f"{target_workspace},address:{active_window_address()}")
+    activate_workspace(slot, int(target_workspace))
+
+
+def cycle_workspace(delta: int) -> None:
+    slot = focused_monitor_slot()
+    current_logical = logical_workspace_for_slot(slot)
+    logicals = cycleable_logical_workspaces(slot, current_logical)
+
+    if current_logical in logicals:
+        current_index = logicals.index(current_logical)
+    else:
+        current_index = 0
+
+    logical_index = logicals[(current_index + delta) % len(logicals)]
+
+    target_id = workspace_id(slot, logical_index)
+    activate_workspace(slot, target_id)
+
+
+def toggle_scratchpad() -> None:
+    """Toggle the special scratchpad workspace."""
+    ensure_scratchpad_apps()
+    dispatch("togglespecialworkspace", "scratchpad")
+
+
+def move_to_scratchpad() -> None:
+    """Move active window to the scratchpad workspace."""
+    dispatch("movetoworkspacesilent", "special:scratchpad")
 
 
 def usage() -> str:
     return (
         "Usage:\n"
-        "  hypr-workspacectl focus-monitor <1-3>\n"
-        "  hypr-workspacectl move-to-monitor <1-3>\n"
+        "  hypr-workspacectl focus-monitor <slot>\n"
+        "  hypr-workspacectl focus-monitor-or-cycle <slot>\n"
+        "  hypr-workspacectl cycle-monitor <-1|1>\n"
+        "  hypr-workspacectl move-to-monitor <slot>\n"
+        "  hypr-workspacectl move-to-relative-monitor <-1|1>\n"
         "  hypr-workspacectl goto-workspace <1-9>\n"
+        "  hypr-workspacectl goto-workspace-or-cycle <1-9>\n"
         "  hypr-workspacectl move-to-workspace <1-9>\n"
+        "  hypr-workspacectl move-to-relative-workspace <-1|1>\n"
+        "  hypr-workspacectl cycle-workspace <-1|1>\n"
+        "  hypr-workspacectl previous-workspace\n"
+        "  hypr-workspacectl focus-window <address>\n"
+        "  hypr-workspacectl toggle-scratchpad\n"
+        "  hypr-workspacectl move-to-scratchpad\n"
     )
 
 
 def main() -> None:
+    if len(sys.argv) < 2:
+        raise SystemExit(usage())
+
+    command = sys.argv[1]
+    
+    # Commands that don't need a value argument
+    if command == "previous-workspace":
+        goto_previous_workspace()
+        return
+    elif command == "focus-window":
+        if len(sys.argv) != 3:
+            raise SystemExit(usage())
+        focus_window(sys.argv[2])
+        return
+    elif command == "toggle-scratchpad":
+        toggle_scratchpad()
+        return
+    elif command == "move-to-scratchpad":
+        move_to_scratchpad()
+        return
+
     if len(sys.argv) != 3:
         raise SystemExit(usage())
 
-    command, value = sys.argv[1], sys.argv[2]
+    value = sys.argv[2]
 
     if command == "focus-monitor":
         focus_monitor(parse_slot(value))
+    elif command == "focus-monitor-or-cycle":
+        focus_monitor_or_cycle(parse_slot(value))
+    elif command == "cycle-monitor":
+        delta = int(value)
+        if delta not in (-1, 1):
+            raise SystemExit("Monitor cycle delta must be -1 or 1.")
+        cycle_monitor(delta)
     elif command == "move-to-monitor":
         move_to_monitor(parse_slot(value))
+    elif command == "move-to-relative-monitor":
+        delta = int(value)
+        if delta not in (-1, 1):
+            raise SystemExit("Relative monitor delta must be -1 or 1.")
+        move_to_relative_monitor(delta)
     elif command == "goto-workspace":
         goto_workspace(parse_workspace(value))
+    elif command == "goto-workspace-or-cycle":
+        goto_workspace_or_cycle(parse_workspace(value))
     elif command == "move-to-workspace":
         move_to_workspace(parse_workspace(value))
+    elif command == "move-to-relative-workspace":
+        delta = int(value)
+        if delta not in (-1, 1):
+            raise SystemExit("Relative workspace delta must be -1 or 1.")
+        move_to_relative_workspace(delta)
+    elif command == "cycle-workspace":
+        delta = int(value)
+        if delta not in (-1, 1):
+            raise SystemExit("Workspace cycle delta must be -1 or 1.")
+        cycle_workspace(delta)
     else:
         raise SystemExit(usage())
 

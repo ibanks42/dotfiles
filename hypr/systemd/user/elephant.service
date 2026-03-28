@@ -5,9 +5,8 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=elephant
+ExecStart=/home/ibanks/.local/bin/elephant-launch
 Restart=on-failure
 
 [Install]
 WantedBy=graphical-session.target
-							
