@@ -2,6 +2,8 @@
 
 This folder contains the current Hyprland desktop setup from `~/.config` and a few supporting files from `~/.local`.
 
+On Arch-based systems, the root `install.sh` can set this up for you through the `Hypr desktop` module.
+
 Included pieces:
 
 - `hypr/` - Hyprland config
@@ -13,7 +15,6 @@ Included pieces:
 - `kdeglobals` - KDE/Qt config
 - `local/bin/` - helper scripts used by Hyprland
 - `local/share/color-schemes/FlexokiDark.colors` - KDE Flexoki color scheme
-- `systemd/user/elephant.service.d/override.conf` - user service override for local Elephant
 - `systemd/user/elephant.service` - user service unit for Elephant
 
 Prerequisites:
@@ -23,7 +24,20 @@ Prerequisites:
 - `ghostty`, `dolphin`, `vivaldi`
 - `wl-clipboard`, `wtype`, `ydotool`, `brightnessctl`, `wpctl`, `grim`, `slurp`
 - `rbw`, `bw`
+- `kwallet`, `kwallet-query`, `qdbus6` if you want `rbw` to auto-unlock from the login keyring
 - KDE bits used by this setup: `ksecretd`, `plasma-apply-colorscheme`, `plasma-apply-lookandfeel`
+
+Current workflow highlights:
+
+- `SUPER+1/2/3` focuses monitor 1/2/3; repeating the key cycles windows on that monitor's current workspace
+- `SUPER+SHIFT+1/2/3` moves the active window to monitor 1/2/3
+- `SUPER+H` / `SUPER+L` cycles workspaces on the focused monitor without blindly creating extra empty workspaces
+- `SUPER+SHIFT+H` / `SUPER+SHIFT+L` moves the active window to the previous/next workspace on the current monitor
+- `SUPER+TAB` jumps to the previous workspace on the focused monitor
+- `SUPER+GRAVE` toggles between the current and last focused window
+- `SUPER+S` toggles the scratchpad and lazily launches `steam` and `spotify-launcher` if they are not already running
+- `SUPER+ALT+S` sends the active window to the scratchpad
+- Waybar uses `hyprland/workspace-taskbar`, so each workspace button shows window icons and clicking an icon focuses that window
 
 Important note about Walker Bitwarden support:
 
@@ -44,19 +58,33 @@ ln -sfn ~/dotfiles/hypr/elephant ~/.config/elephant
 ln -sfn ~/dotfiles/hypr/gtk-3.0 ~/.config/gtk-3.0
 ln -sfn ~/dotfiles/hypr/gtk-4.0 ~/.config/gtk-4.0
 ln -sfn ~/dotfiles/hypr/systemd/user/elephant.service ~/.config/systemd/user/elephant.service
-ln -sfn ~/dotfiles/hypr/systemd/user/elephant.service.d ~/.config/systemd/user/elephant.service.d
 
 ln -sfn ~/dotfiles/hypr/local/bin/hyprctl-current ~/.local/bin/hyprctl-current
 ln -sfn ~/dotfiles/hypr/local/bin/hypr-workspacectl ~/.local/bin/hypr-workspacectl
+ln -sfn ~/dotfiles/hypr/local/bin/elephant-launch ~/.local/bin/elephant-launch
+ln -sfn ~/dotfiles/hypr/local/bin/elephant-rbw-watch ~/.local/bin/elephant-rbw-watch
+ln -sfn ~/dotfiles/hypr/local/bin/rbw-unlock-elephant ~/.local/bin/rbw-unlock-elephant
+ln -sfn ~/dotfiles/hypr/local/bin/rbw-pinentry-keyring ~/.local/bin/rbw-pinentry-keyring
+ln -sfn ~/dotfiles/hypr/local/bin/rbw-store-keyring-password ~/.local/bin/rbw-store-keyring-password
 ln -sfn ~/dotfiles/hypr/local/share/color-schemes/FlexokiDark.colors ~/.local/share/color-schemes/FlexokiDark.colors
 ln -sfn ~/dotfiles/hypr/kdeglobals ~/.config/kdeglobals
 ```
+
+To auto-unlock `rbw` from the login keyring instead of typing the master password after every login:
+
+```bash
+rbw config set pinentry ~/.local/bin/rbw-pinentry-keyring
+~/.local/bin/rbw-store-keyring-password
+```
+
+The helper stores the password in KWallet folder `rbw` under an entry named `rbw:<profile>:<email>`. It discovers the current `rbw` account email from `~/.config/rbw/config.json`, and uses the default profile name `default` unless `RBW_PROFILE` is set.
 
 Then reload the session pieces:
 
 ```bash
 systemctl --user daemon-reload
 systemctl --user restart elephant.service
+systemctl --user restart elephant-rbw-watch.service
 pkill -x walker || true
 walker --gapplication-service &
 pkill mako || true
@@ -93,3 +121,9 @@ plasma-apply-lookandfeel -a org.kde.breezedark.desktop
 ```
 
 Logging out and back in is the cleanest final pass for GTK/KDE theming.
+
+Notes:
+
+- `hypr-workspacectl` is the main glue script for monitor-local workspace movement, scratchpad behavior, and Waybar window focusing
+- `steam` and `spotify-launcher` are sent to `special:scratchpad` via `windowrule`
+- Vivaldi is launched once at startup so it can restore its own previous-session windows naturally

@@ -67,33 +67,7 @@ tmux() {
   fi
 }
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
-export FLYCTL_INSTALL="/home/ibanks/.fly"
-export PATH="$FLYCTL_INSTALL/bin:$PATH"
-
 # bun completions
 [ -s "/home/ibanks/.bun/_bun" ] && source "/home/ibanks/.bun/_bun"
 
 
-# Added by LM Studio CLI tool (lms)
-export PATH="$PATH:/home/server/.lmstudio/bin"
-
-# OpenClaw Completion
-source "/home/server/.openclaw/completions/openclaw.zsh"
-
-# pnpm
-export PNPM_HOME="/home/server/.local/share/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
-# pnpm end
-
-HA_VM_IP=192.168.0.14

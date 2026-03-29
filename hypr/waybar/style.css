@@ -7,7 +7,7 @@
   color: #cecdc3;
 }
 
-window#waybar {
+#waybar {
   background: transparent;
   color: #cecdc3;
 }
@@ -22,6 +22,7 @@ window#waybar {
 #window,
 #windowcount,
 #clock,
+#custom-hdr,
 #pulseaudio,
 #network,
 #battery,
@@ -90,12 +91,26 @@ window#waybar {
 }
 
 #clock,
+#custom-hdr,
 #pulseaudio,
 #network,
 #battery,
 #tray {
   padding: 0 12px;
   margin: 0 4px;
+}
+
+#custom-hdr {
+  min-width: 40px;
+  font-weight: 600;
+}
+
+#custom-hdr.hdr {
+  color: #879a39;
+}
+
+#custom-hdr.sdr {
+  color: #b7b5ac;
 }
 
 #battery.charging,

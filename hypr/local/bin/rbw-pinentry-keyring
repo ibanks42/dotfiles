@@ -1,0 +1,118 @@
+#!/usr/bin/env sh
+
+fallback_pinentry=${RBW_KEYRING_FALLBACK_PINENTRY:-/usr/bin/pinentry-qt}
+python_bin=${RBW_KEYRING_PYTHON:-/usr/bin/python3}
+qdbus_bin=${RBW_KEYRING_QDBUS:-/usr/bin/qdbus6}
+secret_tool_bin=${RBW_KEYRING_SECRET_TOOL:-/usr/bin/secret-tool}
+xdg_config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+
+if [ -n "${RBW_PROFILE:-}" ]; then
+  config_file="$xdg_config_home/rbw-${RBW_PROFILE}/config.json"
+  profile_name="$RBW_PROFILE"
+else
+  config_file="$xdg_config_home/rbw/config.json"
+  profile_name="default"
+fi
+
+wallet_name() {
+  if [ -n "${RBW_KEYRING_KWALLET:-}" ]; then
+    printf '%s\n' "$RBW_KEYRING_KWALLET"
+    return 0
+  fi
+
+  if [ -x "$qdbus_bin" ]; then
+    "$qdbus_bin" org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet.localWallet 2>/dev/null && return 0
+    "$qdbus_bin" org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet.networkWallet 2>/dev/null && return 0
+  fi
+
+  printf 'kdewallet\n'
+}
+
+read_email() {
+  "$python_bin" - "$config_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    config = json.load(fh)
+
+email = config.get("email")
+if isinstance(email, str):
+    print(email, end="")
+PY
+}
+
+entry_name() {
+  printf 'rbw:%s:%s\n' "$profile_name" "$1"
+}
+
+lookup_secret_service() {
+  "$secret_tool_bin" lookup app rbw email "$1" profile "$profile_name" 2>/dev/null
+}
+
+lookup_kwallet() {
+  if [ ! -x "$qdbus_bin" ]; then
+    return 1
+  fi
+
+  wallet=$(wallet_name) || return 1
+  handle=$("$qdbus_bin" org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet.open "$wallet" 0 rbw-pinentry-keyring 2>/dev/null) || return 1
+  case "$handle" in
+    ''|-[0-9]*) return 1 ;;
+  esac
+
+  folder_exists=$("$qdbus_bin" org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet.hasFolder "$handle" rbw rbw-pinentry-keyring 2>/dev/null) || return 1
+  [ "$folder_exists" = "true" ] || return 1
+
+  "$qdbus_bin" org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet.readPassword "$handle" rbw "$(entry_name "$1")" rbw-pinentry-keyring 2>/dev/null
+}
+
+lookup_secret() {
+  if [ ! -r "$config_file" ]; then
+    return 1
+  fi
+
+  email=$(read_email) || return 1
+
+  if [ -z "$email" ]; then
+    return 1
+  fi
+
+  secret=$(lookup_kwallet "$email") && [ -n "$secret" ] && {
+    printf '%s' "$secret"
+    return 0
+  }
+
+  if [ -x "$secret_tool_bin" ]; then
+    secret=$(lookup_secret_service "$email") && [ -n "$secret" ] && {
+      printf '%s' "$secret"
+      return 0
+    }
+  fi
+
+  return 1
+}
+
+percent_encode() {
+  "$python_bin" -c 'import sys; from urllib.parse import quote_from_bytes; sys.stdout.write(quote_from_bytes(sys.stdin.buffer.read(), safe=""))'
+}
+
+secret=$(lookup_secret) || exec "$fallback_pinentry" "$@"
+encoded_secret=$(printf '%s' "$secret" | percent_encode)
+
+while IFS= read -r line; do
+  command=${line%% *}
+
+  case "$command" in
+    GETPIN)
+      printf 'D %s\nOK\n' "$encoded_secret"
+      ;;
+    BYE)
+      printf 'OK\n'
+      exit 0
+      ;;
+    *)
+      printf 'OK\n'
+      ;;
+  esac
+done

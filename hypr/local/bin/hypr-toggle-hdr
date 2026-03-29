@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+
+import json
+import subprocess
+import sys
+
+HYPRCTL = "/home/ibanks/.local/bin/hyprctl-current"
+DEFAULT_OUTPUT = "DP-2"
+WAYBAR_SIGNAL = "8"
+MONITOR_RULES = {
+    "DP-2": {
+        "hdr": "DP-2,2560x1440@240.00,2560x0,1,bitdepth,10,cm,hdr,sdrbrightness,1.65,sdrsaturation,0.98",
+        "sdr": "DP-2,2560x1440@240.00,2560x0,1,bitdepth,8,cm,auto",
+    },
+}
+
+
+def run_hyprctl(*args: str) -> str:
+    result = subprocess.run(
+        [HYPRCTL, *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
+
+
+def monitors_json() -> list[dict]:
+    return json.loads(run_hyprctl("-j", "monitors"))
+
+
+def current_monitor(output: str) -> dict:
+    for monitor in monitors_json():
+        if monitor.get("name") == output:
+            return monitor
+    raise SystemExit(f"Monitor '{output}' not found.")
+
+
+def hdr_enabled(output: str) -> bool:
+    monitor = current_monitor(output)
+    preset = str(monitor.get("colorManagementPreset", "")).lower()
+    if preset:
+        return preset == "hdr"
+
+    current_format = str(monitor.get("currentFormat", "")).upper()
+    return current_format in {"XRGB2101010", "ARGB2101010"}
+
+
+def mode_label(output: str) -> str:
+    return "HDR" if hdr_enabled(output) else "SDR"
+
+
+def refresh_waybar() -> None:
+    subprocess.run(["pkill", f"-RTMIN+{WAYBAR_SIGNAL}", "waybar"], check=False)
+
+
+def print_waybar(output: str) -> None:
+    hdr = hdr_enabled(output)
+    payload = {
+        "text": "HDR" if hdr else "SDR",
+        "alt": "hdr" if hdr else "sdr",
+        "tooltip": f"{output}: {'HDR' if hdr else 'SDR'}\nLeft click to toggle",
+        "class": "hdr" if hdr else "sdr",
+    }
+    print(json.dumps(payload))
+
+
+def set_mode(output: str, mode: str) -> None:
+    try:
+        rule = MONITOR_RULES[output][mode]
+    except KeyError as exc:
+        raise SystemExit(f"No {mode.upper()} rule configured for '{output}'.") from exc
+
+    run_hyprctl("keyword", "monitor", rule)
+    refresh_waybar()
+    print(f"{output}: {mode.upper()}")
+
+
+def desired_mode(action: str, output: str) -> str:
+    if action == "waybar":
+        print_waybar(output)
+        raise SystemExit(0)
+    if action == "toggle":
+        return "sdr" if hdr_enabled(output) else "hdr"
+    if action in {"hdr", "on"}:
+        return "hdr"
+    if action in {"sdr", "off"}:
+        return "sdr"
+    if action == "status":
+        print(f"{output}: {mode_label(output)}")
+        raise SystemExit(0)
+    raise SystemExit("Usage: hypr-toggle-hdr [toggle|on|off|status|waybar] [output]")
+
+
+def main() -> None:
+    action = sys.argv[1].lower() if len(sys.argv) > 1 else "toggle"
+    output = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_OUTPUT
+    mode = desired_mode(action, output)
+    set_mode(output, mode)
+
+
+if __name__ == "__main__":
+    main()

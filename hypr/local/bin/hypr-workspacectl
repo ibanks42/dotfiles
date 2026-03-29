@@ -2,11 +2,13 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 
 WORKSPACES_PER_MONITOR = 9
 HISTORY_FILE = "/tmp/hypr-workspacectl-history.json"
+MONITORS_CONF = "/home/ibanks/dotfiles/hypr/hypr/monitors.conf"
 SCRATCHPAD_APPS = (
     {"command": "steam", "classes": {"steam", "Steam"}},
     {"command": "spotify-launcher", "classes": {"spotify", "Spotify"}},
@@ -66,12 +68,60 @@ def monitor_name(slot: int) -> str:
         raise SystemExit(f"Monitor slot must be 1-{len(monitors)}.") from exc
 
 
+def configured_workspace_lanes() -> dict[str, int]:
+    lanes: dict[str, int] = {}
+    try:
+        with open(MONITORS_CONF, "r") as handle:
+            for line in handle:
+                match = re.match(r"\s*workspace\s*=\s*(\d+)\s*,\s*monitor:([^,\s]+)", line)
+                if match is None:
+                    continue
+
+                workspace = int(match.group(1))
+                monitor = match.group(2)
+                current = lanes.get(monitor)
+                if current is None or workspace < current:
+                    lanes[monitor] = workspace
+    except OSError:
+        pass
+
+    return lanes
+
+
+def workspace_lane_from_id(workspace_id: int) -> int | None:
+    if workspace_id <= 0:
+        return None
+    return (workspace_id - 1) % monitor_count() + 1
+
+
+def monitor_workspace_lane(slot: int) -> int:
+    name = monitor_name(slot)
+    configured = configured_workspace_lanes().get(name)
+    count = monitor_count()
+    if configured is not None and 1 <= configured <= count:
+        return configured
+
+    active_id = monitor_workspace_id(slot)
+    active_lane = workspace_lane_from_id(active_id)
+    if active_lane is not None:
+        return active_lane
+
+    return slot
+
+
+def monitor_slot_for_workspace(workspace_id: int) -> int | None:
+    for index in range(1, monitor_count() + 1):
+        if logical_workspace_from_id(workspace_id, index) is not None:
+            return index
+    return None
+
+
 def workspace_id(slot: int, logical_index: int) -> int:
-    return slot + monitor_count() * (logical_index - 1)
+    return monitor_workspace_lane(slot) + monitor_count() * (logical_index - 1)
 
 
 def logical_workspace_from_id(current_id: int, slot: int) -> int | None:
-    offset = current_id - slot
+    offset = current_id - monitor_workspace_lane(slot)
     if offset < 0 or offset % monitor_count() != 0:
         return None
 
@@ -85,8 +135,8 @@ def active_monitor_slot() -> int:
     window = active_window()
     current_id = window.get("workspace", {}).get("id")
     if isinstance(current_id, int) and current_id > 0:
-        slot = (current_id - 1) % monitor_count() + 1
-        if logical_workspace_from_id(current_id, slot) is not None:
+        slot = monitor_slot_for_workspace(current_id)
+        if slot is not None:
             return slot
 
     monitor_id = window.get("monitor")
@@ -206,6 +256,20 @@ def get_previous_workspace(slot: int) -> int | None:
 
 def focus_monitor(slot: int) -> None:
     dispatch("focusmonitor", monitor_name(slot))
+    move_cursor_to_monitor_center(slot)
+
+
+def move_cursor_to_monitor_center(slot: int) -> None:
+    monitor = ordered_monitors()[slot - 1]
+    x = int(monitor.get("x", 0))
+    y = int(monitor.get("y", 0))
+    width = int(monitor.get("width", 0))
+    height = int(monitor.get("height", 0))
+    scale = float(monitor.get("scale", 1.0) or 1.0)
+
+    center_x = x + int(width / (2 * scale))
+    center_y = y + int(height / (2 * scale))
+    dispatch("movecursor", str(center_x), str(center_y))
 
 
 def activate_workspace(slot: int, target_workspace: int) -> None:
@@ -221,7 +285,7 @@ def focus_monitor_or_cycle(slot: int) -> None:
         cycle_workspace_windows(monitor_workspace_id(slot))
         return
 
-    dispatch("focusmonitor", monitor_name(slot))
+    focus_monitor(slot)
 
 
 def cycle_monitor(delta: int) -> None:
@@ -362,8 +426,9 @@ def focus_window(address: str) -> None:
     if client is not None:
         target_workspace = client.get("workspace", {}).get("id")
         if isinstance(target_workspace, int) and target_workspace > 0:
-            slot = (target_workspace - 1) % monitor_count() + 1
-            update_workspace_history(slot, target_workspace)
+            slot = monitor_slot_for_workspace(target_workspace)
+            if slot is not None:
+                update_workspace_history(slot, target_workspace)
 
     dispatch("focuswindow", f"address:{address}")
 

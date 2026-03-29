@@ -12,11 +12,20 @@
     "clock"
   ],
   "modules-right": [
+    "custom/hdr",
     "pulseaudio",
     "network",
     "battery",
     "tray"
   ],
+  "custom/hdr": {
+    "exec": "/home/ibanks/.local/bin/hypr-toggle-hdr waybar",
+    "return-type": "json",
+    "interval": 0,
+    "signal": 8,
+    "on-click": "/home/ibanks/.local/bin/hypr-toggle-hdr",
+    "format": "{text}"
+  },
   "hyprland/workspaces": {
     "disable-scroll": false,
     "all-outputs": false,
