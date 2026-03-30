@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+TS_SEARCH_PATHS=(~/dev/personal ~/dev/work ~/)
+
 SEARCH_CONFIG_FILE_NAME="tmux-sessionizer.conf"
 SEARCH_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-sessionizer"
 SEARCH_CONFIG_FILE="$SEARCH_CONFIG_DIR/$SEARCH_CONFIG_FILE_NAME"
@@ -19,8 +21,6 @@ fi
 list_only="false"
 delete_target=""
 user_selected=""
-list_search_paths_override="false"
-list_search_paths=()
 
 COLOR_GREEN=$'\033[32m'
 COLOR_CYAN=$'\033[36m'
@@ -54,7 +54,6 @@ while [[ "$#" -gt 0 ]]; do
       exit 1
     fi
 
-    list_search_paths_override="true"
     list_search_paths+=("$2")
     shift
     ;;
@@ -68,16 +67,6 @@ while [[ "$#" -gt 0 ]]; do
   esac
   shift
 done
-
-if [[ -z "${TS_SEARCH_PATHS+x}" ]]; then
-  TS_SEARCH_PATHS=(~/dev/work ~/dev/personal ~/ ~/.config)
-fi
-
-if [[ "$list_search_paths_override" == "true" ]]; then
-  TS_SEARCH_PATHS=("${list_search_paths[@]}")
-elif [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
-  TS_SEARCH_PATHS+=("${TS_EXTRA_SEARCH_PATHS[@]}")
-fi
 
 switch_to() {
   if [[ -z $TMUX ]]; then
