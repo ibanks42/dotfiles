@@ -9,7 +9,7 @@ DEFAULT_OUTPUT = "DP-2"
 WAYBAR_SIGNAL = "8"
 MONITOR_RULES = {
     "DP-2": {
-        "hdr": "DP-2,2560x1440@240.00,2560x0,1,bitdepth,10,cm,hdr,sdrbrightness,1.65,sdrsaturation,0.98",
+        "hdr": "DP-2,2560x1440@240.00,2560x0,1,bitdepth,10,cm,hdr,sdrbrightness,1.35,sdrsaturation,1.35",
         "sdr": "DP-2,2560x1440@240.00,2560x0,1,bitdepth,8,cm,auto",
     },
 }
