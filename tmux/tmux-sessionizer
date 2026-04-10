@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-TS_SEARCH_PATHS=(~/dev/personal ~/dev/work ~/)
+TS_SEARCH_PATHS=(~/dev/personal ~/dev/work ~/.config ~/)
 
 SEARCH_CONFIG_FILE_NAME="tmux-sessionizer.conf"
 SEARCH_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-sessionizer"
@@ -21,6 +21,7 @@ fi
 list_only="false"
 delete_target=""
 user_selected=""
+list_search_paths=()
 
 COLOR_GREEN=$'\033[32m'
 COLOR_CYAN=$'\033[36m'
@@ -34,6 +35,9 @@ declare -A SESSION_IDS_BY_PATH
 declare -A REPRESENTATIVE_ID_BY_PATH
 SESSION_PATH_ORDER=()
 SESSION_WINDOW_COMMANDS=()
+ACTIVE_SEARCH_PATHS=()
+SEARCH_PATH_BASES=()
+SEARCH_PATH_DEPTHS=()
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -68,6 +72,12 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
+if [[ ${#list_search_paths[@]} -gt 0 ]]; then
+  ACTIVE_SEARCH_PATHS=("${list_search_paths[@]}")
+else
+  ACTIVE_SEARCH_PATHS=("${TS_SEARCH_PATHS[@]}")
+fi
+
 switch_to() {
   if [[ -z $TMUX ]]; then
     tmux attach-session -t "$1"
@@ -86,22 +96,19 @@ get_current_session_id() {
 }
 
 find_dirs() {
-  local entry
+  local index
   local depth
   local path
 
-  for entry in "${TS_SEARCH_PATHS[@]}"; do
-    depth=""
-    path=""
+  ensure_search_path_metadata
 
-    if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
-      path="${BASH_REMATCH[1]}"
-      depth="${BASH_REMATCH[2]}"
-    else
-      path="$entry"
-    fi
+  for index in "${!SEARCH_PATH_BASES[@]}"; do
+    path="${SEARCH_PATH_BASES[$index]}"
+    depth="${SEARCH_PATH_DEPTHS[$index]}"
+    [[ -d "$path" ]] || continue
 
-    [[ -d "$path" ]] && find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" -path '*/.git' -prune -o -type d -print
+    printf '%s\n' "$path"
+    fd --type d --hidden --no-ignore --min-depth 1 --max-depth "$depth" --exclude .git . "$path"
   done
 }
 
@@ -118,6 +125,113 @@ canonical_path() {
   else
     printf '%s' "$path"
   fi
+}
+
+parse_search_path_entry() {
+  local entry="$1"
+  local path=""
+  local depth="${TS_MAX_DEPTH:-1}"
+
+  if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
+    path="${BASH_REMATCH[1]}"
+    depth="${BASH_REMATCH[2]}"
+  else
+    path="$entry"
+  fi
+
+  path=$(canonical_path "$path")
+  printf -v REPLY '%s\t%s' "$path" "$depth"
+}
+
+ensure_search_path_metadata() {
+  local entry
+  local path
+  local depth
+
+  [[ ${#SEARCH_PATH_BASES[@]} -gt 0 ]] && return
+
+  for entry in "${ACTIVE_SEARCH_PATHS[@]}"; do
+    parse_search_path_entry "$entry"
+    IFS=$'\t' read -r path depth <<<"$REPLY"
+    SEARCH_PATH_BASES+=("$path")
+    SEARCH_PATH_DEPTHS+=("$depth")
+  done
+}
+
+path_depth_relative_to_base() {
+  local path="$1"
+  local base_path="$2"
+  local relative_path
+  local depth=1
+
+  if [[ "$path" == "$base_path" ]]; then
+    REPLY='0'
+    return 0
+  fi
+
+  if [[ "$path" != "$base_path/"* ]]; then
+    return 1
+  fi
+
+  relative_path="${path#"$base_path"/}"
+
+  while [[ "$relative_path" == */* ]]; do
+    relative_path="${relative_path#*/}"
+    ((depth++))
+  done
+
+  REPLY="$depth"
+}
+
+search_path_sort_rank() {
+  local path="$1"
+  local index
+  local search_path
+  local depth
+  local relative_depth
+
+  if [[ "$path" == session-name:* ]]; then
+    REPLY='999'
+    return
+  fi
+
+  ensure_search_path_metadata
+
+  for index in "${!SEARCH_PATH_BASES[@]}"; do
+    search_path="${SEARCH_PATH_BASES[$index]}"
+    depth="${SEARCH_PATH_DEPTHS[$index]}"
+    path_depth_relative_to_base "$path" "$search_path" || {
+      continue
+    }
+    relative_depth="$REPLY"
+
+    if ((relative_depth <= depth)); then
+      printf -v REPLY '%03d' "$index"
+      return
+    fi
+  done
+
+  REPLY='999'
+}
+
+search_path_root_label() {
+  local path="$1"
+  local search_path
+
+  ensure_search_path_metadata
+
+  for search_path in "${SEARCH_PATH_BASES[@]}"; do
+    [[ "$path" == "$search_path" ]] || continue
+
+    if [[ "$path" == "$HOME" ]]; then
+      REPLY='~'
+    else
+      REPLY="${path##*/}"
+    fi
+    return 0
+  done
+
+  return 1
 }
 
 display_path() {
@@ -141,7 +255,7 @@ session_name_for_path() {
   if [[ "$path" == "$HOME" ]]; then
     name="home"
   else
-    name=$(basename "$path")
+    name="${path##*/}"
   fi
 
   name=$(printf '%s' "$name" | tr '.:' '_' | tr -cd '[:alnum:]_-')
@@ -319,10 +433,13 @@ session_status_suffix() {
 
   case "$status" in
   active)
-    printf ' %s[ACTIVE]%s' "$COLOR_GREEN" "$COLOR_RESET"
+    printf -v REPLY ' %s[ACTIVE]%s' "$COLOR_GREEN" "$COLOR_RESET"
     ;;
   detached)
-    printf ' %s[DETACHED]%s' "$COLOR_CYAN" "$COLOR_RESET"
+    printf -v REPLY ' %s[DETACHED]%s' "$COLOR_CYAN" "$COLOR_RESET"
+    ;;
+  *)
+    REPLY=''
     ;;
   esac
 }
@@ -330,27 +447,32 @@ session_status_suffix() {
 session_sort_fields() {
   local path="$1"
   local representative_id="$2"
+  local search_path_rank
   local project_name
   local parent_path
   local scope
 
+  search_path_sort_rank "$path"
+  search_path_rank="$REPLY"
+
   if [[ "$path" == session-name:* ]]; then
     project_name="${SESSION_NAME_BY_ID[$representative_id]}"
     [[ -z "$project_name" ]] && project_name="${path#session-name:}"
-    printf '~~~\t%s\t%s' "$project_name" "$project_name"
+    printf -v REPLY '%s\t~~~\t%s\t%s' "$search_path_rank" "$project_name" "$project_name"
     return
   fi
 
-  project_name=$(basename "$path")
-  parent_path=$(dirname "$path")
+  project_name="${path##*/}"
+  parent_path="${path%/*}"
+  [[ -z "$parent_path" ]] && parent_path='/'
 
   if [[ "$path" == "$HOME" || "$parent_path" == "$HOME" ]]; then
     scope='~'
   else
-    scope=$(basename "$parent_path")
+    scope="${parent_path##*/}"
   fi
 
-  printf '%s\t%s\t%s' "$scope" "$project_name" "$path"
+  printf -v REPLY '%s\t%s\t%s\t%s' "$search_path_rank" "$scope" "$project_name" "$path"
 }
 
 best_session_id_for_path_excluding() {
@@ -380,7 +502,7 @@ best_session_id_for_path_excluding() {
     fi
   done <<<"$session_ids"
 
-  printf '%s' "$best_session_id"
+  REPLY="$best_session_id"
 }
 
 display_label_for_path() {
@@ -390,19 +512,30 @@ display_label_for_path() {
   if [[ "$path" == session-name:* ]]; then
     local fallback_name
     fallback_name="${SESSION_NAME_BY_ID[$representative_id]}"
-    printf '%s' "${fallback_name:-${path#session-name:}}"
+    REPLY="${fallback_name:-${path#session-name:}}"
   else
     local project_name
     local parent_path
     local scope
 
-    project_name=$(basename "$path")
-    parent_path=$(dirname "$path")
+    if [[ "$path" == "$HOME" ]]; then
+      REPLY='~'
+      return
+    fi
 
-    if [[ "$parent_path" == "$HOME" ]]; then
+    if search_path_root_label "$path"; then
+      printf -v REPLY '%s[%s]%s' "$COLOR_YELLOW" "$REPLY" "$COLOR_RESET"
+      return
+    fi
+
+    project_name="${path##*/}"
+    parent_path="${path%/*}"
+    [[ -z "$parent_path" ]] && parent_path='/'
+
+    if [[ "$path" == "$HOME" || "$parent_path" == "$HOME" ]]; then
       scope='~'
     else
-      scope=$(basename "$parent_path")
+      scope="${parent_path##*/}"
     fi
 
     if [[ -z "$scope" || "$scope" == "/" || "$scope" == "." ]]; then
@@ -410,7 +543,7 @@ display_label_for_path() {
       return
     fi
 
-    printf '%s[%s]%s %s' \
+    printf -v REPLY '%s[%s]%s %s' \
       "$COLOR_YELLOW" \
       "$scope" \
       "$COLOR_RESET" \
@@ -427,10 +560,14 @@ print_selection_row() {
     key="tmux-id:$representative_id"
   fi
 
+  display_label_for_path "$path" "$representative_id"
+  local label="$REPLY"
+
   if [[ -n "$representative_id" ]]; then
-    printf '%s\t%s%s\n' "$key" "$(display_label_for_path "$path" "$representative_id")" "$(session_status_suffix "$representative_id")"
+    session_status_suffix "$representative_id"
+    printf -v REPLY '%s\t%s%s' "$key" "$label" "$REPLY"
   else
-    printf '%s\t%s\n' "$key" "$(display_label_for_path "$path" "")"
+    printf -v REPLY '%s\t%s' "$key" "$label"
   fi
 }
 
@@ -443,8 +580,9 @@ print_sorted_selection_rows() {
     row="${row#*$'\t'}"
     row="${row#*$'\t'}"
     row="${row#*$'\t'}"
+    row="${row#*$'\t'}"
     printf '%s\n' "$row"
-  done < <(printf '%s\n' "$@" | sort -t $'\t' -f -k1,1 -k2,2 -k3,3)
+  done < <(printf '%s\n' "$@" | sort -t $'\t' -f -k1,1 -k2,2 -k3,3 -k4,4)
 }
 
 render_selection_list() {
@@ -464,23 +602,30 @@ render_selection_list() {
   current_session_path="${SESSION_PATH_BY_ID[$current_session_id]}"
 
   for session_path in "${SESSION_PATH_ORDER[@]}"; do
-    representative_id=$(best_session_id_for_path_excluding "$session_path" "$current_session_id")
+    best_session_id_for_path_excluding "$session_path" "$current_session_id"
+    representative_id="$REPLY"
     [[ -z "$representative_id" ]] && continue
 
     seen_paths["$session_path"]=1
-    session_rows+=("$(session_sort_fields "$session_path" "$representative_id")"$'\t'"$(print_selection_row "$session_path" "$representative_id")")
+    session_sort_fields "$session_path" "$representative_id"
+    local session_sort_key="$REPLY"
+    print_selection_row "$session_path" "$representative_id"
+    session_rows+=("$session_sort_key"$'\t'"$REPLY")
   done
 
   while IFS= read -r entry; do
     [[ -z "$entry" ]] && continue
 
-    canonical_entry=$(canonical_path "$entry")
+    canonical_entry="${entry%/}"
     [[ -z "$canonical_entry" ]] && continue
     [[ -n "$current_session_path" && "$canonical_entry" == "$current_session_path" ]] && continue
     [[ -n "${seen_paths[$canonical_entry]}" ]] && continue
 
     seen_paths["$canonical_entry"]=1
-    directory_rows+=("$(session_sort_fields "$canonical_entry" "")"$'\t'"$(print_selection_row "$canonical_entry" "")")
+    session_sort_fields "$canonical_entry" ""
+    local directory_sort_key="$REPLY"
+    print_selection_row "$canonical_entry" ""
+    directory_rows+=("$directory_sort_key"$'\t'"$REPLY")
   done < <(find_dirs)
 
   print_sorted_selection_rows "${session_rows[@]}"
@@ -614,7 +759,7 @@ else
   list_command=("$0" --list)
   search_path=""
 
-  for search_path in "${TS_SEARCH_PATHS[@]}"; do
+  for search_path in "${ACTIVE_SEARCH_PATHS[@]}"; do
     list_command+=(--search-path "$search_path")
   done
 
