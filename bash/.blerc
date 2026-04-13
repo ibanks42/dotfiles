@@ -1,0 +1,21 @@
+function blerc/emacs-load-hook {
+  ble-bind -f 'C-m' accept-line
+  ble-bind -f 'RET' accept-line
+ 
+  # Shift+Enter -> insert newline
+  ble-bind -f 'S-RET' newline
+}
+blehook/eval-after-load keymap_emacs blerc/emacs-load-hook
+
+# blerc
+
+# Note: If you want to combine fzf-completion with bash_completion, you need to
+# load bash_completion earlier than fzf-completion.  This is required
+# regardless of whether to use ble.sh or not.
+source /etc/profile.d/bash_completion.sh
+
+ble-import -d integration/fzf-completion
+ble-import -d integration/fzf-key-bindings
+
+# a more subtle color for auto-completion
+ble-face auto_complete='fg=240,underline,italic'

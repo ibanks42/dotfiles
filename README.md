@@ -55,7 +55,7 @@ The new flow is interactive all the way through:
 - `Ghostty` - install Ghostty and link `ghostty/`
 - `Hypr desktop` - install and link the Hyprland setup in `hypr/`
 - `Daily apps` - Vivaldi, Steam, Spotify, and Dolphin
-- `Zsh` - install zsh, clone oh-my-zsh, and link `zsh/custom.zsh`
+- `Bash` - install bash, ble.sh, starship, and link `bash/` configs
 - `IdeaVim` - link `idea/.ideavimrc`
 - `Mise runtimes` - install mise and walk through runtime choices
 

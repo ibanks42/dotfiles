@@ -48,7 +48,7 @@ app cli-tools   cli      'CLI tools'    'fzf, eza, fd, bat, lazygit, zoxide, rip
 app neovim      editor   'Neovim'       'Text editor'                                      1  neovim
 app tmux        terminal 'tmux'         'Terminal multiplexer'                              1  tmux
 app ghostty     terminal 'Ghostty'      'GPU-accelerated terminal'                         1  ghostty
-app zsh         shell    'Zsh'          'Z shell + oh-my-zsh'                              1  zsh
+app bash        shell    'Bash'         'Bash + ble.sh + starship'                         1  bash
 app hyprland    desktop  'Hyprland'     'Compositor + desktop environment'                  0  hyprland hyprlock hyprpaper xdg-desktop-portal-hyprland pipewire wireplumber brightnessctl grim slurp wl-clipboard ydotool wtype pavucontrol network-manager-applet
 app waybar      desktop  'Waybar'       'Status bar for Wayland'                            0  waybar
 app mako        desktop  'Mako'         'Notification daemon'                               0  mako
@@ -89,7 +89,7 @@ config fonts     'Fonts'            'Copy bundled fonts to ~/.local/share/fonts'
 config neovim    'Neovim config'    'Link nvim config + back up data/cache'          1
 config tmux      'tmux config'      'Link tmux config + sessionizer'                1
 config ghostty   'Ghostty config'   'Link Ghostty config'                           1
-config zsh       'Zsh config'       'oh-my-zsh + custom.zsh'                        1
+config bash      'Bash config'      'ble.sh + starship + custom rc files'           1
 config hyprland  'Hyprland config'  'Hypr, Waybar, Mako, Walker, Elephant, GTK'     0
 config ideavim   'IdeaVim config'   '.ideavimrc symlink for JetBrains IDEs'         0
 config mise      'Mise runtimes'    'Pick languages to install globally'             1
@@ -121,19 +121,47 @@ install_config_ghostty() {
   link_path "$DOTFILES_PATH/ghostty" "$HOME/.config/ghostty"
 }
 
-install_config_zsh() {
-  if [[ ! -d $HOME/.oh-my-zsh ]]; then
-    log_info 'Cloning oh-my-zsh...'
-    git clone https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
+install_config_bash() {
+  # Install ble.sh if not present
+  if [[ ! -f $HOME/.local/share/blesh/ble.sh ]]; then
+    log_info 'Installing ble.sh (bash line editor)...'
+    git clone --recursive --depth 1 --shallow-submodules https://github.com/akinomyoga/ble.sh.git "$HOME/.local/share/blesh-repo"
+    bash "$HOME/.local/share/blesh-repo/make" install PREFIX="$HOME/.local"
+    rm -rf "$HOME/.local/share/blesh-repo"
   else
-    log_success 'oh-my-zsh already exists'
+    log_success 'ble.sh already installed'
   fi
 
-  ensure_dir "$HOME/.oh-my-zsh/custom"
-  link_path "$DOTFILES_PATH/zsh/custom.zsh" "$HOME/.oh-my-zsh/custom/custom.zsh"
+  # Link ble.sh config
+  link_path "$DOTFILES_PATH/bash/.blerc" "$HOME/.blerc"
 
-  if [[ $SHELL != *zsh ]] && prompt_yes_no 'Change your default shell to zsh?' n; then
-    chsh -s "$(command -v zsh)"
+  # Link custom bash rc
+  link_path "$DOTFILES_PATH/bash/.customrc" "$HOME/.customrc"
+
+  # Add source lines to .bashrc if not present
+  local source_blesh='[[ -f $HOME/.local/share/blesh/ble.sh ]] && source "$HOME/.local/share/blesh/ble.sh"'
+  local source_custom='[[ -f $HOME/.customrc ]] && source "$HOME/.customrc"'
+
+  if [[ -f $HOME/.bashrc ]]; then
+    if ! grep -q 'ble.sh' "$HOME/.bashrc" 2>/dev/null; then
+      log_info 'Adding ble.sh source to .bashrc...'
+      echo "" >> "$HOME/.bashrc"
+      echo "$source_blesh" >> "$HOME/.bashrc"
+    fi
+    if ! grep -q '.customrc' "$HOME/.bashrc" 2>/dev/null; then
+      log_info 'Adding .customrc source to .bashrc...'
+      echo "" >> "$HOME/.bashrc"
+      echo "$source_custom" >> "$HOME/.bashrc"
+    fi
+  else
+    log_info 'Creating .bashrc with ble.sh and .customrc sources...'
+    echo "$source_blesh" > "$HOME/.bashrc"
+    echo "" >> "$HOME/.bashrc"
+    echo "$source_custom" >> "$HOME/.bashrc"
+  fi
+
+  if [[ $SHELL != *bash ]] && prompt_yes_no 'Change your default shell to bash?' n; then
+    chsh -s "$(command -v bash)"
     add_note 'Log out and back in for your shell change to take effect.'
   fi
 }
@@ -268,12 +296,12 @@ apply_preset() {
       ;;
     terminal)
       _enable_app_groups core cli editor terminal shell dev
-      _enable_configs shell fonts neovim tmux ghostty zsh mise
+      _enable_configs shell fonts neovim tmux ghostty bash mise
       ;;
     hypr)
       _enable_app_groups core cli desktop apps security
-      _enable_apps ghostty zsh mise
-      _enable_configs shell fonts ghostty hyprland zsh mise
+      _enable_apps ghostty bash mise
+      _enable_configs shell fonts ghostty hyprland bash mise
       ;;
     minimal)
       _enable_apps core-tools neovim tmux

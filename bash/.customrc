@@ -1,14 +1,4 @@
-_dotfiles_set_prompt() {
-  PROMPT="%(?:%{$fg_bold[green]%}%1{➜%} :%{$fg_bold[red]%}%1{➜%} ) %{$fg[cyan]%}%~%{$reset_color%}"
-  PROMPT+=' $(git_prompt_info)'
-  RPROMPT=''
-}
-
-if (( ${precmd_functions[(Ie)_dotfiles_set_prompt]} == 0 )); then
-  precmd_functions+=(_dotfiles_set_prompt)
-fi
-
-_dotfiles_set_prompt
+. "$HOME/.cargo/env"
 
 if [[ -n $SSH_CONNECTION ]]; then
   export EDITOR='vim'
@@ -18,10 +8,10 @@ fi
 
 export PATH="$PATH:$HOME/.local/bin"
 
-eval "$(zoxide init zsh)"
-eval "$($HOME/.local/bin/mise activate zsh)"
+eval "$(zoxide init bash)"
+eval "$($HOME/.local/bin/mise activate bash)"
 
-alias cd="z"
+#alias cd="z"
 alias lta="lt -a"
 alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
 alias fd="fdfind"
@@ -29,6 +19,14 @@ alias lsa="ls -a"
 alias lt="eza --tree --level=2 --long --icons --git"
 alias ls="eza -lh --group-directories-first --icons"
 alias la="ls -a"
+
+alias ".."="cd .."
+alias "..."="cd ../.."
+alias "...."="cd ../../.."
+
+pdev() {
+  "$HOME/.local/bin/pdev" "$@"
+}
 
 tmux() {
   local sessionizer="$HOME/.config/tmux/tmux-sessionizer"
@@ -70,4 +68,12 @@ tmux() {
 # bun completions
 [ -s "/home/ibanks/.bun/_bun" ] && source "/home/ibanks/.bun/_bun"
 
+# Added by LM Studio CLI tool (lms)
+export PATH="$PATH:/home/server/.lmstudio/bin"
+source -- ~/.local/share/blesh/ble.sh
 
+# eval "$(oh-my-posh init bash)"
+eval "$(starship init bash)"
+
+# opencode
+export PATH=/home/server/.opencode/bin:$PATH
