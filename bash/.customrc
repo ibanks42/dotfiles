@@ -24,10 +24,6 @@ alias ".."="cd .."
 alias "..."="cd ../.."
 alias "...."="cd ../../.."
 
-pdev() {
-  "$HOME/.local/bin/pdev" "$@"
-}
-
 tmux() {
   local sessionizer="$HOME/.config/tmux/tmux-sessionizer"
   local restore_script="$HOME/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh"
@@ -70,9 +66,7 @@ tmux() {
 
 # Added by LM Studio CLI tool (lms)
 export PATH="$PATH:/home/server/.lmstudio/bin"
-source -- ~/.local/share/blesh/ble.sh
 
-# eval "$(oh-my-posh init bash)"
 eval "$(starship init bash)"
 
 # opencode

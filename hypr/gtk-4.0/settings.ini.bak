@@ -11,3 +11,4 @@ gtk-icon-theme-name=breeze-dark
 gtk-primary-button-warps-slider=true
 gtk-sound-theme-name=ocean
 gtk-theme-name=Breeze-Dark
+gtk-xft-dpi=196608

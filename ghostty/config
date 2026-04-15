@@ -1,6 +1,6 @@
 font-family = Liga SFMono Nerd Font
 
-command = bash
+shell-integration = none
 
 keybind = f11=toggle_fullscreen
 keybind = f12=toggle_window_decorations

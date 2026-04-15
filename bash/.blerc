@@ -12,7 +12,9 @@ blehook/eval-after-load keymap_emacs blerc/emacs-load-hook
 # Note: If you want to combine fzf-completion with bash_completion, you need to
 # load bash_completion earlier than fzf-completion.  This is required
 # regardless of whether to use ble.sh or not.
-source /etc/profile.d/bash_completion.sh
+
+# [[ -r /usr/share/bash-completion/bash_completion ]] && . /usr/share/bash-completion/bash_completion
+
 
 ble-import -d integration/fzf-completion
 ble-import -d integration/fzf-key-bindings
