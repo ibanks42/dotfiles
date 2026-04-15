@@ -124,15 +124,6 @@ return {
           source = "native", -- "native" (default), "cmp", or "blink"
         },
 
-        --- WARNING: if you change cwd then this is likely broken
-        --- ill likely fix this in a later change
-        ---
-        --- md_files is a list of files to look for and auto add based on the location
-        --- of the originating request.  That means if you are at /foo/bar/baz.lua
-        --- the system will automagically look for:
-        --- /foo/bar/AGENT.md
-        --- /foo/AGENT.md
-        --- assuming that /foo is project root (based on cwd)
         md_files = {
           "AGENT.md",
         },
@@ -198,7 +189,7 @@ return {
       -- likely ill add a mode check and assert on required visual mode
       -- so just prepare for it now
       vim.keymap.set("v", "<leader>9v", function()
-        _99.visual()
+        _99.visual({})
       end, { desc = "Send visual selection to 99" })
 
       --- if you have a request you dont want to make any changes, just cancel it
@@ -207,7 +198,7 @@ return {
       end, { desc = "Stop all 99 requests" })
 
       vim.keymap.set("n", "<leader>9s", function()
-        _99.search()
+        _99.search({})
       end, { desc = "Search codebase with 99" })
 
       vim.keymap.set("n", "<leader>9m", function()

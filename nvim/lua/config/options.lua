@@ -1,48 +1,48 @@
--- Options are automatically loaded before lazy.nvim startup
--- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
--- Add any additional options here
-
-local clipboard_cache = {
-  ["+"] = { {}, "v" },
-  ["*"] = { {}, "v" },
-}
-
-local function osc52_sequence(clipboard, contents)
-  return string.format("\027]52;%s;%s\a", clipboard, contents)
-end
-
-local function send_osc52(clipboard, lines)
-  local payload = table.concat(lines, "\n")
-  local sequence = osc52_sequence(clipboard, vim.base64.encode(payload))
-
-  if vim.env.TMUX then
-    sequence = "\027Ptmux;" .. sequence:gsub("\027", "\027\027") .. "\027\\"
-  end
-
-  vim.api.nvim_ui_send(sequence)
-end
-
-vim.g.clipboard = {
-  name = "OSC 52 copy",
-  copy = {
-    ["+"] = function(lines, regtype)
-      clipboard_cache["+"] = { vim.deepcopy(lines), regtype }
-      send_osc52("c", lines)
-    end,
-    ["*"] = function(lines, regtype)
-      clipboard_cache["*"] = { vim.deepcopy(lines), regtype }
-      send_osc52("p", lines)
-    end,
-  },
-  paste = {
-    ["+"] = function()
-      return vim.deepcopy(clipboard_cache["+"])
-    end,
-    ["*"] = function()
-      return vim.deepcopy(clipboard_cache["*"])
-    end,
-  },
-  cache_enabled = 1,
-}
-
-vim.opt.clipboard = "unnamedplus"
+-- -- Options are automatically loaded before lazy.nvim startup
+-- -- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
+-- -- Add any additional options here
+--
+-- local clipboard_cache = {
+--   ["+"] = { {}, "v" },
+--   ["*"] = { {}, "v" },
+-- }
+--
+-- local function osc52_sequence(clipboard, contents)
+--   return string.format("\027]52;%s;%s\a", clipboard, contents)
+-- end
+--
+-- local function send_osc52(clipboard, lines)
+--   local payload = table.concat(lines, "\n")
+--   local sequence = osc52_sequence(clipboard, vim.base64.encode(payload))
+--
+--   if vim.env.TMUX then
+--     sequence = "\027Ptmux;" .. sequence:gsub("\027", "\027\027") .. "\027\\"
+--   end
+--
+--   vim.api.nvim_ui_send(sequence)
+-- end
+--
+-- vim.g.clipboard = {
+--   name = "OSC 52 copy",
+--   copy = {
+--     ["+"] = function(lines, regtype)
+--       clipboard_cache["+"] = { vim.deepcopy(lines), regtype }
+--       send_osc52("c", lines)
+--     end,
+--     ["*"] = function(lines, regtype)
+--       clipboard_cache["*"] = { vim.deepcopy(lines), regtype }
+--       send_osc52("p", lines)
+--     end,
+--   },
+--   paste = {
+--     ["+"] = function()
+--       return vim.deepcopy(clipboard_cache["+"])
+--     end,
+--     ["*"] = function()
+--       return vim.deepcopy(clipboard_cache["*"])
+--     end,
+--   },
+--   cache_enabled = 1,
+-- }
+--
+-- vim.opt.clipboard = "unnamedplus"

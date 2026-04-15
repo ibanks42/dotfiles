@@ -7,6 +7,10 @@ return {
     opts = function(_, opts)
       local theme_util = require("util.theme")
 
+      opts.indent = vim.tbl_deep_extend("force", opts.indent or {}, {
+        enabled = false,
+      })
+
       opts.picker = vim.tbl_deep_extend("force", opts.picker or {}, {
         enabled = false,
       })

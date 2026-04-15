@@ -35,37 +35,12 @@ end
 
 return {
   {
-    "ibhagwan/fzf-lua",
-    keys = {
-      { "<leader><space>", false },
-      { "<leader>/", false },
-      { "<leader>fc", false },
-      { "<leader>ff", false },
-      { "<leader>fF", false },
-      { "<leader>sg", false },
-      { "<leader>sG", false },
-      { "<leader>sw", false, mode = { "n", "x" } },
-      { "<leader>sW", false, mode = { "n", "x" } },
-    },
-  },
-  {
     "dmtrKovalenko/fff.nvim",
     build = function()
-      -- this will download prebuild binary or try to use existing rustup toolchain to build from source
-      -- (if you are using lazy you can use gb for rebuilding a plugin if needed)
       require("fff.download").download_or_build_binary()
     end,
-    -- if you are using nixos
-    -- build = "nix run .#release",
-    opts = { -- (optional)
-      debug = {
-        enabled = true, -- we expect your collaboration at least during the beta
-        show_scores = true, -- to help us optimize the scoring system, feel free to share your scores!
-      },
-    },
-    -- No need to lazy-load with lazy.nvim.
-    -- This plugin initializes itself lazily.
-    lazy = false,
+    opts = {},
+    lazy = true,
     keys = {
       {
         "<leader><space>",
