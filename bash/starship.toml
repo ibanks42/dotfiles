@@ -10,7 +10,7 @@
 # - blaze
 palette = "fervor"
 
-format = "\\[$directory$git_branch$git_status$git_state${custom.git_paren}\\]$character"
+format = "$directory $git_branch$git_status$git_state${custom.git_paren} $character"
 add_newline = false
 
 [directory]
