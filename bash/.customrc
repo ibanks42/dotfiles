@@ -71,3 +71,5 @@ eval "$(starship init bash)"
 
 # opencode
 export PATH=/home/server/.opencode/bin:$PATH
+
+source -- ~/.local/share/blesh/ble.sh
