@@ -11,10 +11,6 @@ return {
         enabled = false,
       })
 
-      opts.picker = vim.tbl_deep_extend("force", opts.picker or {}, {
-        enabled = false,
-      })
-
       opts.scroll = { enabled = true }
       opts.picker.ignored = true
       opts.picker.sources = opts.picker.sources or {}
