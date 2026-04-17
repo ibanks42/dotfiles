@@ -1,31 +1,18 @@
 {
   "layer": "top",
-  "position": "bottom",
-  "height": 34,
-  "spacing": 6,
+  "position": "top",
   "modules-left": [
-    "hyprland/workspaces",
-    "hyprland/window",
-    "hyprland/windowcount"
+    "hyprland/workspaces"
   ],
   "modules-center": [
     "clock"
   ],
   "modules-right": [
-    "custom/hdr",
     "pulseaudio",
     "network",
     "battery",
     "tray"
   ],
-  "custom/hdr": {
-    "exec": "/home/ibanks/.local/bin/hypr-toggle-hdr waybar",
-    "return-type": "json",
-    "interval": 0,
-    "signal": 8,
-    "on-click": "/home/ibanks/.local/bin/hypr-toggle-hdr",
-    "format": "{text}"
-  },
   "hyprland/workspaces": {
     "disable-scroll": false,
     "all-outputs": false,
@@ -42,15 +29,6 @@
       "icon-size": 16,
       "on-click-window": "/home/ibanks/.local/bin/hypr-workspacectl focus-window {address}"
     }
-  },
-  "hyprland/window": {
-    "max-length": 80,
-    "separate-outputs": true
-  },
-  "hyprland/windowcount": {
-    "format": "[{}]",
-    "format-empty": "",
-    "separate-outputs": true
   },
   "clock": {
     "format": "{:%a %b %d  %I:%M %p}"
@@ -77,6 +55,6 @@
     "format-charging": " {capacity}%"
   },
   "tray": {
-    "spacing": 4
+    "spacing": 1
   }
 }
