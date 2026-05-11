@@ -1,6 +1,7 @@
 return {
   {
     "ThePrimeagen/99",
+    lazy = false,
     config = function()
       local _99 = require("99")
 
@@ -156,7 +157,7 @@ return {
 
       local wk = require("which-key")
       wk.add({
-        { "<leader>9", group = "99" },
+        { "<leader>9", group = "99", mode = { "n", "v" } },
       })
 
       -- Wrap set_model/set_provider so we persist state on every selection,
