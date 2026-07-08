@@ -1,0 +1,159 @@
+// Zed keymap
+//
+// For information on binding keys, see the Zed
+// documentation: https://zed.dev/docs/key-bindings
+//
+// To see the default key bindings run `zed: open default keymap`
+// from the command palette.
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      // "shift shift": "file_finder::Toggle"
+      "alt-1": "workspace::FocusCenterPane",
+      "alt-2": "agent::ToggleFocus",
+      "alt-3": "terminal_panel::ToggleFocus",
+      "alt-4": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-4"],
+      "alt-5": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-5"],
+      "alt-6": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-6"],
+      "alt-7": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-7"],
+      "alt-8": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-8"],
+      "alt-9": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-9"],
+      "alt-n": ["action::Sequence", ["workspace::NewTerminal", "terminal_panel::ToggleFocus"]],
+      "ctrl-alt-shift-3": "terminal_panel::ToggleFocus",
+    },
+  },
+  {
+    "context": "Pane && !Terminal",
+    "bindings": {
+      "alt-1": "workspace::FocusCenterPane",
+      "alt-2": "agent::ToggleFocus",
+      "alt-3": "terminal_panel::ToggleFocus",
+      "alt-4": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-4"],
+      "alt-5": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-5"],
+      "alt-6": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-6"],
+      "alt-7": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-7"],
+      "alt-8": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-8"],
+      "alt-9": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-9"],
+      "alt-n": ["action::Sequence", ["workspace::NewTerminal", "terminal_panel::ToggleFocus"]],
+    },
+  },
+  {
+    "context": "Editor",
+    "bindings": {
+      "alt-1": "workspace::FocusCenterPane",
+      "alt-2": "agent::ToggleFocus",
+      "alt-3": "terminal_panel::ToggleFocus",
+      "alt-4": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-4"],
+      "alt-5": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-5"],
+      "alt-6": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-6"],
+      "alt-7": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-7"],
+      "alt-8": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-8"],
+      "alt-9": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-9"],
+      "alt-n": ["action::Sequence", ["workspace::NewTerminal", "terminal_panel::ToggleFocus"]],
+    },
+  },
+  {
+    "context": "Terminal",
+    "bindings": {
+      "alt-1": "workspace::FocusCenterPane",
+      "alt-2": "agent::ToggleFocus",
+      "alt-3": ["pane::ActivateItem", 0],
+      "alt-4": ["pane::ActivateItem", 1],
+      "alt-5": ["pane::ActivateItem", 2],
+      "alt-6": ["pane::ActivateItem", 3],
+      "alt-7": ["pane::ActivateItem", 4],
+      "alt-8": ["pane::ActivateItem", 5],
+      "alt-9": ["pane::ActivateItem", 6],
+      "alt-n": "workspace::NewTerminal",
+      "ctrl-alt-shift-4": ["pane::ActivateItem", 1],
+      "ctrl-alt-shift-5": ["pane::ActivateItem", 2],
+      "ctrl-alt-shift-6": ["pane::ActivateItem", 3],
+      "ctrl-alt-shift-7": ["pane::ActivateItem", 4],
+      "ctrl-alt-shift-8": ["pane::ActivateItem", 5],
+      "ctrl-alt-shift-9": ["pane::ActivateItem", 6],
+    },
+  },
+  {
+    "context": "AgentPanel",
+    "bindings": {
+      "alt-2": "agent::Toggle",
+      "alt-3": "terminal_panel::ToggleFocus",
+      "alt-4": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-4"],
+      "alt-5": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-5"],
+      "alt-6": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-6"],
+      "alt-7": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-7"],
+      "alt-8": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-8"],
+      "alt-9": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-9"],
+      "alt-n": ["action::Sequence", ["workspace::NewTerminal", "terminal_panel::ToggleFocus"]],
+    },
+  },
+  {
+    "context": "AgentPanel > Terminal",
+    "bindings": {
+      "alt-2": "agent::Toggle",
+      "alt-3": ["pane::ActivateItem", 0],
+      "alt-4": ["pane::ActivateItem", 1],
+      "alt-5": ["pane::ActivateItem", 2],
+      "alt-6": ["pane::ActivateItem", 3],
+      "alt-7": ["pane::ActivateItem", 4],
+      "alt-8": ["pane::ActivateItem", 5],
+      "alt-9": ["pane::ActivateItem", 6],
+      "alt-n": "workspace::NewTerminal",
+    },
+  },
+  {
+    "context": "AcpThread",
+    "bindings": {
+      "alt-2": "agent::Toggle",
+    },
+  },
+  {
+    "context": "AcpThread > Editor",
+    "bindings": {
+      "alt-2": "agent::Toggle",
+    },
+  },
+  {
+    "context": "AgentPanel > Editor",
+    "bindings": {
+      "alt-2": "agent::Toggle",
+    },
+  },
+  {
+    "context": "AgentTerminalThread",
+    "bindings": {
+      "alt-2": "agent::Toggle",
+    },
+  },
+  {
+    "context": "ProjectPanel && not_editing",
+    "bindings": {
+      "alt-1": "workspace::FocusCenterPane",
+      "alt-2": "agent::ToggleFocus",
+      "alt-3": "terminal_panel::ToggleFocus",
+      "alt-4": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-4"],
+      "alt-5": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-5"],
+      "alt-6": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-6"],
+      "alt-7": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-7"],
+      "alt-8": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-8"],
+      "alt-9": ["workspace::SendKeystrokes", "ctrl-alt-shift-3 ctrl-alt-shift-9"],
+      "alt-n": ["action::Sequence", ["workspace::NewTerminal", "terminal_panel::ToggleFocus"]],
+      "space": "project_panel::OpenPermanent",
+      "space enter": "project_panel::OpenPermanent",
+      "space e": "project_panel::Toggle",
+    },
+  },
+  {
+    "context": "Editor && vim_mode == insert",
+    "bindings": {
+      // "j k": "vim::NormalBefore"
+    },
+  },
+  {
+    "context": "Editor && (vim_mode == normal || vim_mode == visual)",
+    "bindings": {
+      "space e": "project_panel::Toggle",
+    },
+  },
+]
