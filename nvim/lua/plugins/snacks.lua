@@ -12,6 +12,11 @@ return {
       })
 
       opts.scroll = { enabled = true }
+
+      if not opts.picker then
+        return
+      end
+
       opts.picker.ignored = true
       opts.picker.sources = opts.picker.sources or {}
       opts.picker.sources.colorschemes = vim.tbl_deep_extend("force", opts.picker.sources.colorschemes or {}, {

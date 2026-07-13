@@ -71,3 +71,5 @@ Once the `tmux` module is installed, it lives at:
 Notes:
 - The default window commands live in `tmux/tmux_sessionizer.conf`.
 - Project-specific overrides can live in `.tmux_sessionizer.conf` inside a project directory.
+- Press `Ctrl-f` to open the picker, then `Ctrl-n` to create a folder and switch to its new session.
+- The create flow can use an existing `TS_SEARCH_PATHS` root or a custom root. Custom roots are appended to `tmux/tmux_sessionizer.conf`, intentionally marking the dotfiles checkout as modified.

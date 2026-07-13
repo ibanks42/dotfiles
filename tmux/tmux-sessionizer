@@ -10,6 +10,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
 WINDOW_CONFIG_FILE_NAME=".tmux_sessionizer.conf"
 GLOBAL_WINDOW_CONFIG_FILE="$SCRIPT_DIR/tmux_sessionizer.conf"
 
+# The managed config also owns the persistent search roots created from the UI.
+if [[ -f "$GLOBAL_WINDOW_CONFIG_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$GLOBAL_WINDOW_CONFIG_FILE"
+fi
+
 if [[ -f "$SEARCH_CONFIG_FILE" ]]; then
   source "$SEARCH_CONFIG_FILE"
 fi
@@ -20,6 +26,7 @@ fi
 
 list_only="false"
 delete_target=""
+create_new="false"
 user_selected=""
 list_search_paths=()
 
@@ -51,6 +58,9 @@ while [[ "$#" -gt 0 ]]; do
       exit 1
     fi
     shift
+    ;;
+  --new)
+    create_new="true"
     ;;
   --search-path)
     if [[ -z "$2" ]]; then
@@ -669,6 +679,110 @@ create_unique_session_name() {
   printf '%s' "$candidate"
 }
 
+persist_search_path() {
+  local path="$1"
+  local search_path
+
+  path=$(canonical_path "$path")
+  [[ -z "$path" ]] && return 1
+
+  ensure_search_path_metadata
+  for search_path in "${SEARCH_PATH_BASES[@]}"; do
+    [[ "$search_path" == "$path" ]] && return 0
+  done
+
+  printf '\n# Added by tmux-sessionizer\nTS_SEARCH_PATHS+=(%q)\n' "$path" >>"$GLOBAL_WINDOW_CONFIG_FILE"
+  ACTIVE_SEARCH_PATHS+=("$path")
+  SEARCH_PATH_BASES+=("$path")
+  SEARCH_PATH_DEPTHS+=("${TS_MAX_DEPTH:-1}")
+}
+
+choose_new_session_path() {
+  local root
+  local root_label
+  local selected_root
+  local folder_name
+  local target_path
+  local custom_root="false"
+
+  ensure_search_path_metadata
+  selected_root=$(for root in "${SEARCH_PATH_BASES[@]}"; do
+    root_label=$(display_path "$root")
+    printf '%s\t%s\n' "$root" "$root_label"
+  done
+  printf '%s\t%s\n' '__tmux_sessionizer_custom_root__' 'Add custom root...'
+  )
+
+  selected_root=$(printf '%s\n' "$selected_root" | fzf \
+    --delimiter=$'\t' \
+    --with-nth=2.. \
+    --height=100% \
+    --layout=reverse \
+    --border \
+    --border-label=' tmux-sessionizer ' \
+    --prompt='Create in: ' \
+    --header='Enter: Select root | Esc: Cancel' \
+    --bind='esc:abort') || return 1
+  selected_root="${selected_root%%$'\t'*}"
+
+  if [[ "$selected_root" == '__tmux_sessionizer_custom_root__' ]]; then
+    read -r -e -p 'Custom root directory: ' root || return 1
+    root=$(canonical_path "${root/#\~/$HOME}")
+    [[ -d "$root" ]] || {
+      printf 'Root directory does not exist: %s\n' "$root" >&2
+      return 1
+    }
+    custom_root="true"
+  else
+    root="$selected_root"
+  fi
+
+  root_label=$(display_path "$root")
+  read -r -e -p "New folder in $root_label: " folder_name || return 1
+  [[ -n "$folder_name" && "$folder_name" != /* && "$folder_name" != *'/../'* && "$folder_name" != '..' && "$folder_name" != ../* ]] || {
+    printf 'Enter a non-empty relative folder path.\n' >&2
+    return 1
+  }
+
+  target_path="$root/$folder_name"
+  [[ ! -e "$target_path" ]] || {
+    printf 'Path already exists: %s\n' "$target_path" >&2
+    return 1
+  }
+
+  mkdir -p "$target_path" || return 1
+  [[ "$custom_root" == "true" ]] && persist_search_path "$root"
+  printf '%s' "$target_path"
+}
+
+start_session_for_path() {
+  local selected="$1"
+  local existing_session_id
+  local selected_name
+
+  selected=$(canonical_path "$selected")
+  [[ -z "$selected" ]] && return 1
+
+  load_session_status
+  existing_session_id="${REPRESENTATIVE_ID_BY_PATH[$selected]}"
+
+  if [[ -n "$existing_session_id" ]]; then
+    rename_session_to_path_basename "$existing_session_id" "$selected"
+    switch_to "$existing_session_id"
+    return
+  fi
+
+  if [[ ! -d "$selected" ]]; then
+    printf 'Directory does not exist: %s\n' "$selected" >&2
+    return 1
+  fi
+
+  selected_name=$(resolve_unique_session_name "$(session_name_for_path "$selected")" "$selected")
+  tmux new-session -ds "$selected_name" -c "$selected"
+  setup_session_windows "$selected_name" "$selected"
+  switch_to "$selected_name"
+}
+
 ensure_home_session() {
   if ! tmux has-session -t home 2>/dev/null; then
     tmux new-session -ds home -c "$HOME"
@@ -753,6 +867,12 @@ if [[ "$list_only" == "true" ]]; then
   exit 0
 fi
 
+if [[ "$create_new" == "true" ]]; then
+  selected=$(choose_new_session_path) || exit 0
+  start_session_for_path "$selected"
+  exit $?
+fi
+
 if [[ -n "$user_selected" ]]; then
   selected="$user_selected"
 else
@@ -775,9 +895,10 @@ else
       --border \
       --border-label=' tmux-sessionizer ' \
       --prompt='Switch to project: ' \
-      --header='Enter: Switch | Ctrl-d: Delete session' \
+      --header='Enter: Switch | Ctrl-d: Delete session | Ctrl-n: New folder' \
       --bind='esc:abort' \
-      --bind="ctrl-d:execute-silent($0 --delete {1})+reload($list_reload_command)"
+      --bind="ctrl-d:execute-silent($0 --delete {1})+reload($list_reload_command)" \
+      --bind="ctrl-n:execute($0 --new)+abort"
   )
 
   selected="${selected%%$'\t'*}"
@@ -796,26 +917,4 @@ if [[ "$selected" == path:* ]]; then
   selected="${selected#path:}"
 fi
 
-selected=$(canonical_path "$selected")
-[[ -z "$selected" ]] && exit 0
-
-load_session_status
-existing_session_id="${REPRESENTATIVE_ID_BY_PATH[$selected]}"
-
-if [[ -n "$existing_session_id" ]]; then
-  rename_session_to_path_basename "$existing_session_id" "$selected"
-  switch_to "$existing_session_id"
-  exit 0
-fi
-
-if [[ ! -d "$selected" ]]; then
-  echo "Directory does not exist: $selected"
-  exit 1
-fi
-
-selected_name=$(resolve_unique_session_name "$(session_name_for_path "$selected")" "$selected")
-
-tmux new-session -ds "$selected_name" -c "$selected"
-setup_session_windows "$selected_name" "$selected"
-
-switch_to "$selected_name"
+start_session_for_path "$selected"
