@@ -11,7 +11,7 @@ export PATH="$PATH:$HOME/.local/bin"
 eval "$(zoxide init bash)"
 eval "$($HOME/.local/bin/mise activate bash)"
 
-#alias cd="z"
+alias cd="z"
 alias lta="lt -a"
 alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
 alias fd="fdfind"
@@ -61,8 +61,28 @@ tmux() {
   fi
 }
 
+# nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
 # bun completions
 [ -s "/home/ibanks/.bun/_bun" ] && source "/home/ibanks/.bun/_bun"
+
+# flyctl
+export FLYCTL_INSTALL="/home/ibanks/.fly"
+export PATH="$FLYCTL_INSTALL/bin:$PATH"
+
+# pnpm
+export PNPM_HOME="/home/server/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
 
 # Added by LM Studio CLI tool (lms)
 export PATH="$PATH:/home/server/.lmstudio/bin"

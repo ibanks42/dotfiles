@@ -153,7 +153,7 @@ main() {
   )
   local preset_descs=(
     'Everything — desktop, terminal, editor, and apps'
-    'Core dev tools, Neovim, tmux, Ghostty, Zsh'
+    'Core dev tools, Neovim, tmux, Ghostty, Bash'
     'Hyprland stack plus daily desktop apps'
     'Just the bare essentials — base, Neovim, tmux'
     'Start from defaults and pick your own'
