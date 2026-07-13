@@ -1,0 +1,137 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+	"auto_indent": "syntax_aware",
+ "search": {
+		"button": true,
+	},
+	"terminal": {
+		"button": false,
+	},
+	"status_bar": {
+		"show_active_file": true,
+		"cursor_position_button": true,
+		"line_endings_button": false,
+	},
+	"agent_buffer_font_size": 14.0,
+	"unnecessary_code_fade": 0.9,
+	"selection_highlight": true,
+	"rounded_selection": true,
+	"minimum_contrast_for_highlights": 45.0,
+	"text_rendering_mode": "platform_default",
+	"proxy": "",
+	"colorize_brackets": true,
+	"code_lens": "off",
+	"inlay_hints": {
+		"show_background": true,
+		"enabled": true,
+	},
+	"completions": {
+		"words_min_length": 0,
+	},
+	"show_whitespaces": "trailing",
+	"indent_guides": {
+		"active_line_width": 1,
+  "line_width": 1,
+  "coloring": "fixed",
+		"background_coloring": "disabled",
+	},
+	"soft_wrap": "bounded",
+	"hard_tabs": true,
+	"tab_size": 4,
+	"vim": {
+		"toggle_relative_line_numbers": true,
+	},
+	"minimap": {
+		"max_width_columns": 80,
+		"thumb": "always",
+		"display_in": "active_editor",
+		"show": "auto",
+	},
+	"relative_line_numbers": "enabled",
+	"hover_popover_hiding_delay": 0,
+	"hover_popover_delay": 100,
+	"show_signature_help_after_edits": true,
+	"auto_signature_help": true,
+	"sticky_scroll": {
+		"enabled": true,
+	},
+	"scroll_beyond_last_line": "one_page",
+	"diff_view_style": "unified",
+	"double_click_in_multibuffer": "open",
+	"which_key": {
+		"delay_ms": 300,
+		"enabled": true,
+	},
+	"preview_tabs": {
+		"enable_preview_from_file_finder": false,
+	},
+	"tab_bar": {
+		"show_pinned_tabs_in_separate_row": true,
+	},
+	"tabs": {
+		"file_icons": true,
+		"git_status": true,
+	},
+	"title_bar": {
+		"show_branch_status_icon": false,
+		"show_menus": true,
+	},
+	"ui_font_family": ".ZedSans",
+	"buffer_line_height": {
+		"custom": 1.600000023841858,
+	},
+	"buffer_font_family": "Liga SFMono Nerd Font",
+	"project_panel": {
+		"dock": "right",
+	},
+	"outline_panel": {
+		"dock": "right",
+	},
+	"collaboration_panel": {
+		"dock": "right",
+	},
+	"agent": {
+		"dock": "left",
+		"favorite_models": [],
+		"model_parameters": [],
+	},
+	"git_panel": {
+		"dock": "right",
+	},
+	"telemetry": {
+		"diagnostics": false,
+		"metrics": false,
+		"anthropic_retention": false,
+	},
+	"session": {
+		"trust_all_worktrees": true,
+	},
+	"vim_mode": true,
+	"agent_servers": {
+		"opencode": {
+			"type": "registry",
+		},
+		"codex-acp": {
+			"default_config_options": {
+				"mode": "agent-full-access",
+				"fast-mode": "on",
+				"reasoning_effort": "xhigh",
+			},
+			"type": "registry",
+		},
+	},
+	"ui_font_size": 16.5,
+	"buffer_font_size": 14.0,
+	"theme": {
+  "mode": "system",
+  "light": "One Dark",
+  "dark": "One Dark"
+ },
+}
