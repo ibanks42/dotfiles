@@ -1,6 +1,14 @@
 font-family = Liga SFMono Nerd Font
+font-size = 9.25
+font-style = Semibold
+adjust-cell-height = 5%
+# font-variation = wght=600
 
-command = bash
+freetype-load-flags = hinting,no-force-autohint,no-light
+
+# Temporary workaround for Ghostty/ble.sh duplicate prompt lines (Ghostty #11644).
+shell-integration = none
+shell-integration-features = sudo
 
 keybind = f11=toggle_fullscreen
 
@@ -15,7 +23,7 @@ keybind = ctrl+digit_8=goto_tab:8
 keybind = ctrl+digit_9=goto_tab:9
 keybind = ctrl+digit_0=goto_tab:10
 
-# stop Ghostty from stealing Alt+number for tab switching (1.2+)
+# stop Ghostty from stebox_drawing_scale 0.001, 1, 1.5, 2aling Alt+number for tab switching (1.2+)
 keybind = alt+1=unbind
 keybind = alt+2=unbind
 keybind = alt+3=unbind
