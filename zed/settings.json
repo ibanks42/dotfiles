@@ -26,7 +26,7 @@
 	"minimum_contrast_for_highlights": 45.0,
 	"text_rendering_mode": "platform_default",
 	"proxy": "",
-	"colorize_brackets": true,
+	"colorize_brackets": false,
 	"code_lens": "off",
 	"inlay_hints": {
 		"show_background": true,
@@ -131,7 +131,7 @@
 	"buffer_font_size": 14.0,
 	"theme": {
   "mode": "system",
-  "light": "One Dark",
-  "dark": "One Dark"
+  "light": "Modest Dark",
+  "dark": "Modest Dark"
  },
 }

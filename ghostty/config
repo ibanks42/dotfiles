@@ -43,9 +43,12 @@ keybind = alt+digit_0=unbind
 
 keybind = global:super+grave_accent=toggle_quick_terminal
 
-theme = Flexoki Dark
+theme = Modest Dark
 
 mouse-scroll-multiplier = discrete:0.75
 
 window-height = 40
 window-width = 120
+
+app-notifications = no-clipboard-copy
+clipboard-read = allow

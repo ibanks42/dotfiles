@@ -1,0 +1,19 @@
+{
+  "name": "modest-dark",
+  "displayName": "Modest Dark",
+  "description": "A modest theme based on One Dark but with brighter colours on a darker background. Ported from timcole/modest-dark (Zed).",
+  "version": "0.1.0",
+  "publisher": "ibanks",
+  "license": "MIT",
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [
+      {
+        "label": "Modest Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/modest-dark-color-theme.json"
+      }
+    ]
+  }
+}
