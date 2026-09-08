@@ -19,6 +19,7 @@ alias lsa="ls -a"
 alias lt="eza --tree --level=2 --long --icons --git"
 alias ls="eza -lh --group-directories-first --icons"
 alias la="ls -a"
+alias bat="batcat"
 
 alias ".."="cd .."
 alias "..."="cd ../.."
@@ -87,9 +88,13 @@ esac
 # Added by LM Studio CLI tool (lms)
 export PATH="$PATH:/home/server/.lmstudio/bin"
 
-eval "$(starship init bash)"
+if [[ $- == *i* ]]; then
+  eval "$(starship init bash)"
+fi
 
 # opencode
 export PATH=/home/server/.opencode/bin:$PATH
 
 source -- ~/.local/share/blesh/ble.sh
+
+export PATH="$PATH:/opt/zig"

@@ -28,6 +28,8 @@ list_only="false"
 delete_target=""
 create_new="false"
 user_selected=""
+open_path=""
+typed_query=""
 list_search_paths=()
 
 COLOR_GREEN=$'\033[32m'
@@ -61,6 +63,18 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   --new)
     create_new="true"
+    ;;
+  --open-path)
+    if [[ -z "$2" ]]; then
+      echo "Error: --open-path requires a value"
+      exit 1
+    fi
+    open_path="$2"
+    shift
+    ;;
+  --typed-query)
+    typed_query="$2"
+    shift
     ;;
   --search-path)
     if [[ -z "$2" ]]; then
@@ -120,6 +134,30 @@ find_dirs() {
     printf '%s\n' "$path"
     fd --type d --hidden --no-ignore --min-depth 1 --max-depth "$depth" --exclude .git . "$path"
   done
+}
+
+find_typed_dirs() {
+  local query="$1"
+  local expanded_query
+  local parent
+
+  [[ "$query" == /* || "$query" == "~"/* || "$query" == ./* ]] || return
+  expanded_query="${query/#\~/$HOME}"
+
+  # dirname strips the trailing slash and then the last component, so a
+  # query ending in '/' (e.g. ~/.local/share/) must list the typed folder
+  # itself instead of its parent.
+  if [[ "$expanded_query" == */ ]]; then
+    parent="${expanded_query%/}"
+    while [[ "$parent" == */ && "$parent" != "/" ]]; do
+      parent="${parent%/}"
+    done
+  else
+    parent=$(dirname -- "$expanded_query")
+  fi
+  [[ -d "$parent" ]] || return
+
+  fd --type d --hidden --no-ignore --max-depth 1 --exclude .git . "$parent"
 }
 
 canonical_path() {
@@ -250,7 +288,7 @@ display_path() {
   if [[ "$path" == "$HOME" ]]; then
     printf '~'
   elif [[ "$path" == "$HOME/"* ]]; then
-    printf "$HOME/%s" "${path#"$HOME/"}"
+    printf '~/%s' "${path#"$HOME/"}"
   else
     printf '%s' "$path"
   fi
@@ -596,7 +634,7 @@ print_sorted_selection_rows() {
 }
 
 render_selection_list() {
-  load_session_status
+  local streamer_mode="false"
 
   declare -A seen_paths
   local -a session_rows=()
@@ -608,38 +646,58 @@ render_selection_list() {
   local current_session_id
   local current_session_path
 
-  current_session_id=$(get_current_session_id)
-  current_session_path="${SESSION_PATH_BY_ID[$current_session_id]}"
+  if [[ -n "${TS_STREAMER_FLAG:-}" && -e "$TS_STREAMER_FLAG" ]]; then
+    streamer_mode="true"
+  fi
 
-  for session_path in "${SESSION_PATH_ORDER[@]}"; do
-    best_session_id_for_path_excluding "$session_path" "$current_session_id"
-    representative_id="$REPLY"
-    [[ -z "$representative_id" ]] && continue
+  if [[ "$streamer_mode" != "true" ]]; then
+    load_session_status
 
-    seen_paths["$session_path"]=1
-    session_sort_fields "$session_path" "$representative_id"
-    local session_sort_key="$REPLY"
-    print_selection_row "$session_path" "$representative_id"
-    session_rows+=("$session_sort_key"$'\t'"$REPLY")
-  done
+    current_session_id=$(get_current_session_id)
+    current_session_path="${SESSION_PATH_BY_ID[$current_session_id]}"
 
-  while IFS= read -r entry; do
-    [[ -z "$entry" ]] && continue
+    for session_path in "${SESSION_PATH_ORDER[@]}"; do
+      best_session_id_for_path_excluding "$session_path" "$current_session_id"
+      representative_id="$REPLY"
+      [[ -z "$representative_id" ]] && continue
 
-    canonical_entry="${entry%/}"
-    [[ -z "$canonical_entry" ]] && continue
-    [[ -n "$current_session_path" && "$canonical_entry" == "$current_session_path" ]] && continue
-    [[ -n "${seen_paths[$canonical_entry]}" ]] && continue
+      seen_paths["$session_path"]=1
+      session_sort_fields "$session_path" "$representative_id"
+      local session_sort_key="$REPLY"
+      print_selection_row "$session_path" "$representative_id"
+      session_rows+=("$session_sort_key"$'\t'"$REPLY")
+    done
 
-    seen_paths["$canonical_entry"]=1
-    session_sort_fields "$canonical_entry" ""
-    local directory_sort_key="$REPLY"
-    print_selection_row "$canonical_entry" ""
-    directory_rows+=("$directory_sort_key"$'\t'"$REPLY")
-  done < <(find_dirs)
+    while IFS= read -r entry; do
+      [[ -z "$entry" ]] && continue
 
-  print_sorted_selection_rows "${session_rows[@]}"
-  print_sorted_selection_rows "${directory_rows[@]}"
+      canonical_entry="${entry%/}"
+      [[ -z "$canonical_entry" ]] && continue
+      [[ -n "$current_session_path" && "$canonical_entry" == "$current_session_path" ]] && continue
+      [[ -n "${seen_paths[$canonical_entry]}" ]] && continue
+
+      seen_paths["$canonical_entry"]=1
+      session_sort_fields "$canonical_entry" ""
+      local directory_sort_key="$REPLY"
+      print_selection_row "$canonical_entry" ""
+      directory_rows+=("$directory_sort_key"$'\t'"$REPLY")
+    done < <(find_dirs)
+
+    print_sorted_selection_rows "${session_rows[@]}"
+    print_sorted_selection_rows "${directory_rows[@]}"
+  fi
+
+  if [[ -n "$typed_query" ]]; then
+    while IFS= read -r entry; do
+      [[ -d "$entry" ]] || continue
+      canonical_entry=$(canonical_path "$entry")
+      [[ -n "${seen_paths[$canonical_entry]}" ]] && continue
+      seen_paths["$canonical_entry"]=1
+      local typed_label
+      typed_label=$(display_path "$canonical_entry")
+      printf 'path:%s\t%s\n' "$canonical_entry" "$typed_label"
+    done < <(find_typed_dirs "$typed_query")
+  fi
 }
 
 find_most_recent_session_id_excluding() {
@@ -783,6 +841,27 @@ start_session_for_path() {
   switch_to "$selected_name"
 }
 
+open_typed_path() {
+  local typed_path="$1"
+  local expanded_path
+  local answer
+
+  [[ -n "$typed_path" ]] || return 1
+  expanded_path="${typed_path/#\~/$HOME}"
+  expanded_path=$(canonical_path "$expanded_path")
+
+  read -r -p "Open '$expanded_path' as a tmux project? [y/N] " answer || return 1
+  [[ "$answer" =~ ^[Yy]$ ]] || return 0
+
+  if [[ ! -d "$expanded_path" ]]; then
+    read -r -p "Directory does not exist. Create it? [y/N] " answer || return 1
+    [[ "$answer" =~ ^[Yy]$ ]] || return 0
+    mkdir -p "$expanded_path" || return 1
+  fi
+
+  start_session_for_path "$expanded_path"
+}
+
 ensure_home_session() {
   if ! tmux has-session -t home 2>/dev/null; then
     tmux new-session -ds home -c "$HOME"
@@ -873,9 +952,29 @@ if [[ "$create_new" == "true" ]]; then
   exit $?
 fi
 
+if [[ -n "$open_path" ]]; then
+  open_typed_path "$open_path"
+  exit $?
+fi
+
 if [[ -n "$user_selected" ]]; then
   selected="$user_selected"
 else
+  # The tmux popup inherits the tmux server's PATH, which can go stale when
+  # mise upgrades move tools into new version-specific directories. Ask
+  # mise itself for the location before failing loudly.
+  if ! command -v fzf >/dev/null 2>&1; then
+    mise_fzf_bin=$(mise which fzf 2>/dev/null)
+    if [[ -x "$mise_fzf_bin" ]]; then
+      export PATH="${mise_fzf_bin%/*}:$PATH"
+    fi
+  fi
+
+  if ! command -v fzf >/dev/null 2>&1; then
+    printf 'tmux-sessionizer: fzf not found on PATH\n' >&2
+    exit 1
+  fi
+
   list_command=("$0" --list)
   search_path=""
 
@@ -884,6 +983,62 @@ else
   done
 
   list_reload_command=$(printf '%q ' "${list_command[@]}")
+
+  # The picker emulates vim: it opens in normal mode where letters drive
+  # motions and do not filter the list. `i` enters insert mode for typing,
+  # and Esc returns to normal mode (or quits from normal mode). Every
+  # typable key is routed through a tiny shell check so insert mode types
+  # into the query while normal mode swallows the input.
+  picker_state_dir=$(mktemp -d "${TMPDIR:-/tmp}/tmux-sessionizer.XXXXXXXX")
+  vim_insert_flag="$picker_state_dir/insert-mode"
+  streamer_mode_flag="$picker_state_dir/streamer-mode"
+  export TS_VIM_INSERT_FLAG="$vim_insert_flag"
+  export TS_STREAMER_FLAG="$streamer_mode_flag"
+  trap 'rm -rf "$picker_state_dir"' EXIT
+
+  vim_prompt_normal=': '
+  vim_prompt_insert='Switch to project: '
+  streamer_prompt_normal='STREAMER normal: '
+  streamer_prompt_insert='STREAMER type path: '
+  normal_ghost='press i to type'
+
+  picker_binds=()
+
+  # Esc: insert -> normal mode, normal mode -> quit.
+  picker_binds+=(--bind "esc:transform:if [ -e $vim_insert_flag ]; then rm $vim_insert_flag; if [ -e $streamer_mode_flag ]; then printf 'change-prompt($streamer_prompt_normal)+change-ghost($normal_ghost)'; else printf 'change-prompt($vim_prompt_normal)+change-ghost($normal_ghost)'; fi; else printf abort; fi")
+
+  # i: normal -> insert mode; inserts the letter in insert mode.
+  picker_binds+=(--bind "i:transform:if [ -e $vim_insert_flag ]; then printf 'put(i)'; else touch $vim_insert_flag; printf 'change-prompt($vim_prompt_insert)+change-ghost()'; fi")
+
+  # j/k/G/g drive the cursor in normal mode.
+  picker_binds+=(--bind "j:transform:if [ -e $vim_insert_flag ]; then printf 'put(j)'; else printf down; fi")
+  picker_binds+=(--bind "k:transform:if [ -e $vim_insert_flag ]; then printf 'put(k)'; else printf up; fi")
+  picker_binds+=(--bind "G:transform:if [ -e $vim_insert_flag ]; then printf 'put(G)'; else printf last; fi")
+  picker_binds+=(--bind "g:transform:if [ -e $vim_insert_flag ]; then printf 'put(g)'; else printf first; fi")
+
+  # Page motions follow vim in normal mode; readline edits in insert mode.
+  picker_binds+=(--bind "ctrl-d:transform:if [ -e $vim_insert_flag ]; then printf delete-char; else printf half-page-down; fi")
+  picker_binds+=(--bind "ctrl-u:transform:if [ -e $vim_insert_flag ]; then printf unix-line-discard; else printf half-page-up; fi")
+
+  # F2 toggles Streamer Mode: the list hides itself and you type a path.
+  picker_binds+=(--bind "f2:transform:if [ -e $streamer_mode_flag ]; then rm $streamer_mode_flag; if [ -e $vim_insert_flag ]; then printf 'change-border-label( tmux-sessionizer )+change-prompt($vim_prompt_insert)'; else printf 'change-border-label( tmux-sessionizer )+change-prompt($vim_prompt_normal)+change-ghost($normal_ghost)'; fi; else touch $streamer_mode_flag; printf 'change-border-label( STREAMER MODE )+change-query()+change-prompt($streamer_prompt_insert)'; fi")
+
+  # Remaining typable keys: insert mode types them, normal mode swallows them.
+  typable_chars=(a b c d e f h l m n o p q r s t u v w x y z A B C D E F H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9 '-' '_' '.' '/' '~' '!' '@' '#' '$' '%' '^' '&' '*' '+' '=' '?' '<' '>' '[' ']' '{' '}' '|' ';' "'" '"' '`')
+  typable_char=""
+  typable_safe=""
+  for typable_char in "${typable_chars[@]}"; do
+    typable_safe=$(printf '%s' "$typable_char" | sed "s/'/'\\\\''/g")
+    picker_binds+=(--bind "$typable_char:transform:[ -e $vim_insert_flag ] && printf 'put($typable_safe)'")
+  done
+  picker_binds+=(--bind "space:transform:[ -e $vim_insert_flag ] && printf 'put( )'")
+
+  picker_binds+=(
+    --bind="ctrl-e:execute($0 --new)+abort"
+    --bind="ctrl-o:execute($0 --open-path {q})+abort"
+    --bind="alt-d:execute-silent($0 --delete {1})+reload($list_reload_command)"
+    --bind="change:reload($list_reload_command --typed-query {q})"
+  )
 
   selected=$(
     "${list_command[@]}" | fzf \
@@ -894,11 +1049,10 @@ else
       --layout=reverse \
       --border \
       --border-label=' tmux-sessionizer ' \
-      --prompt='Switch to project: ' \
-      --header='Enter: Switch | Ctrl-d: Delete session | Ctrl-n: New folder' \
-      --bind='esc:abort' \
-      --bind="ctrl-d:execute-silent($0 --delete {1})+reload($list_reload_command)" \
-      --bind="ctrl-n:execute($0 --new)+abort"
+      --prompt="$vim_prompt_normal" \
+      --ghost="$normal_ghost" \
+      --header=$'i: type   j/k: move   Esc: normal/quit   Enter: switch\nCtrl-e: new folder   Ctrl-o: typed path   Alt-d: delete   F2: streamer mode' \
+      "${picker_binds[@]}"
   )
 
   selected="${selected%%$'\t'*}"
