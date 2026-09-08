@@ -1,16 +1,11 @@
+font-size = 10
+
 font-family = Liga SFMono Nerd Font
-font-size = 9.25
 font-style = Semibold
-adjust-cell-height = 5%
-# font-variation = wght=600
+# adjust-cell-height = 5%
 
-freetype-load-flags = hinting,no-force-autohint,no-light
 
-# Temporary workaround for Ghostty/ble.sh duplicate prompt lines (Ghostty #11644).
-shell-integration = none
-shell-integration-features = sudo
-
-keybind = f11=toggle_fullscreen
+keybind = f11=toggle_maximize
 
 keybind = ctrl+digit_1=goto_tab:1
 keybind = ctrl+digit_2=goto_tab:2
@@ -52,5 +47,5 @@ theme = Flexoki Dark
 
 mouse-scroll-multiplier = discrete:0.75
 
-window-height = 28
-window-width = 80
+window-height = 40
+window-width = 120
