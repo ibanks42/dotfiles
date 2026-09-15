@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# herdr-space-jumper — three-way workspace toggle for alt+shift+N.
+#
+#   1st press: switch to workspace N (plain jump)
+#   2nd press: focus that workspace's agent pane, remembering where you were
+#   3rd press: jump back to the remembered pane
+#
+# Bound as nine [[keys.command]] entries (alt+shift+1..9, one per digit, since
+# commands cannot use indexed ranges). Built-in switch_workspace keeps
+# prefix+shift+1..9 as the plain-jump fallback.
+#
+# "The agent pane" is the pane hosting a detected agent in workspace N; if a
+# workspace has several, the one on its active tab wins. The return uses the
+# socket API to focus the exact pane, including panes in split tabs.
+#
+# Designed for detached `type = "shell"` command keybindings, which receive
+# HERDR_ACTIVE_WORKSPACE_ID / HERDR_ACTIVE_PANE_ID at dispatch time. Resolves
+# the herdr binary explicitly: systemd/daemon contexts have a minimal PATH.
+#
+# Requires: jq, nc (Unix socket support)
+
+set -euo pipefail
+
+N="${1:?usage: herdr-space-jumper <1-9>}"
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/herdr-space-jumper"
+mkdir -p "$STATE_DIR"
+
+HERDR_BIN="${HERDR_BIN_PATH:-}"
+if [[ -z $HERDR_BIN ]]; then
+  HERDR_BIN="$(command -v herdr 2>/dev/null || true)"
+fi
+if [[ -z $HERDR_BIN ]]; then
+  HERDR_BIN="$HOME/.local/bin/herdr"
+fi
+
+ws_json=$("$HERDR_BIN" workspace list 2>/dev/null | jq -c --argjson n "$N" '
+  .result.workspaces[] | select(.number == $n)')
+[[ -n $ws_json ]] || exit 0
+
+ws_id=$(jq -r '.workspace_id' <<<"$ws_json")
+active_tab=$(jq -r '.active_tab_id' <<<"$ws_json")
+
+cur_ws="${HERDR_ACTIVE_WORKSPACE_ID:-}"
+if [[ -z $cur_ws ]] && [[ $(jq -r '.focused' <<<"$ws_json") == true ]]; then
+  cur_ws=$ws_id
+fi
+
+# The workspace's agent pane: prefer one on the active tab, else the first.
+agent_pane=$("$HERDR_BIN" agent list 2>/dev/null | jq -r --arg ws "$ws_id" --arg tab "$active_tab" '
+  [.result.agents[] | select(.workspace_id == $ws)]
+  | (first(.[] | select(.tab_id == $tab)) // .[0])
+  | .pane_id // empty')
+
+# Another workspace is showing: plain jump.
+if [[ $cur_ws != "$ws_id" ]]; then
+  exec "$HERDR_BIN" workspace focus "$ws_id"
+fi
+
+[[ -n $agent_pane ]] || exit 0
+cur_pane="${HERDR_ACTIVE_PANE_ID:-}"
+
+# Not on the agent pane: remember where we are, jump to the agent.
+if [[ $cur_pane != "$agent_pane" ]]; then
+  printf '%s\n' "$cur_pane" >"$STATE_DIR/$ws_id.pane"
+  target_pane=$agent_pane
+else
+  # On the agent pane: jump back to the remembered pane.
+  target_pane=""
+  [[ -f $STATE_DIR/$ws_id.pane ]] && target_pane=$(<"$STATE_DIR/$ws_id.pane")
+  [[ -n $target_pane ]] || exit 0
+fi
+
+# The CLI exposes directional focus only; pane.focus accepts an exact ID.
+# Unlike agent.focus in 0.9.0, it also updates the client's selected tab.
+socket_dir="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
+if [[ ${HERDR_SESSION:-default} != default ]]; then
+  socket_dir+="/sessions/$HERDR_SESSION"
+fi
+socket_path="${HERDR_SOCKET_PATH:-$socket_dir/herdr.sock}"
+
+jq -nc --arg pane "$target_pane" \
+  '{id: "space-jumper:focus", method: "pane.focus", params: {pane_id: $pane}}' |
+  nc -U -N -w 5 "$socket_path" |
+  jq -e 'if .error then error(.error.message) else .result end'

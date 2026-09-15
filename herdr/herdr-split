@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Herdr splits right/down; swap the new pane with its source for left/up.
+set -euo pipefail
+
+case "${1:-}" in
+  left) direction=right ;;
+  up) direction=down ;;
+  *) echo "usage: herdr-split <left|up>" >&2; exit 2 ;;
+esac
+
+HERDR_BIN="${HERDR_BIN_PATH:-$(command -v herdr || true)}"
+HERDR_BIN="${HERDR_BIN:-$HOME/.local/bin/herdr}"
+source_pane="${HERDR_ACTIVE_PANE_ID:?must run from a Herdr command binding}"
+result=$("$HERDR_BIN" pane split "$source_pane" --direction "$direction" --focus)
+new_pane=$(jq -er '.result.pane.pane_id' <<<"$result")
+exec "$HERDR_BIN" pane swap --source-pane "$new_pane" --target-pane "$source_pane"
