@@ -4,5 +4,9 @@ require("config.remote_clipboard").setup()
 vim.opt.clipboard = "unnamedplus"
 
 vim.opt.listchars = { tab = "┊ ", trail = "·", nbsp = "␣" }
-vim.opt.relativenumber = false
-vim.g.autoformat = false
+vim.opt.relativenumber = true
+vim.g.autoformat = true
+vim.g.snacks_animate = false
+vim.g.lazyvim_picker = "fzf"
+vim.g.ai_cmp = true
+local opt = vim.opt

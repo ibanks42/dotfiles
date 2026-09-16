@@ -3,3 +3,4 @@ nvim/lazy-lock.json
 tmp/*
 __pycache__/
 *.pyc
+yazi/plugins/*
