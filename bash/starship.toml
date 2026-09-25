@@ -10,11 +10,12 @@
 # - blaze
 palette = "fervor"
 
-format = "$directory $git_branch$git_status$git_state${custom.git_paren}$character"
-add_newline = false
+# $character is drawn by zsh instead (_vi_mode_char in ~/.zshrc) so it can show
+# the zsh-vi-mode mode letter, including visual-line mode.
+format = "$directory $git_branch$git_status$git_state${custom.git_paren}"
+add_newline = true
 
 [directory]
-truncation_symbol = " "
 truncation_length = 2
 truncate_to_repo = true
 style = "fg:frost"
@@ -47,12 +48,13 @@ format = '[$output](fg:spark)'
 
 [character]
 disabled = false
-success_symbol = "[\\$](fg:lime)"
-error_symbol = "[\\$](fg:ember)"
-vimcmd_symbol = "[\\$](fg:lime)"
-vimcmd_replace_one_symbol = "[\\$](fg:iris)"
-vimcmd_replace_symbol = "[\\$](fg:iris)"
-vimcmd_visual_symbol = "[\\$](fg:spark)"
+success_symbol = """
+[❯](bold fg:lime)"""
+error_symbol = "[❯](bold fg:ember)"
+vimcmd_symbol = "[❯](bold fg:frost)"
+vimcmd_replace_one_symbol = "[❯](bold fg:iris)"
+vimcmd_replace_symbol = "[❯](bold fg:iris)"
+vimcmd_visual_symbol = "[❯](bold fg:spark)"
 
 [palettes.mellow]
 # Accent Colors

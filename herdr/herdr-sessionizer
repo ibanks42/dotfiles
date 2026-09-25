@@ -30,13 +30,18 @@ for _cfg in \
 done
 unset _cfg
 
-# Snapshot the global window commands once: the per-path loader re-reads
+# Snapshot the global window commands/labels once: the per-path loader re-reads
 # from this base every call, so unsetting/re-sourcing stays repeatable.
 _GLOBAL_WINDOW_COMMANDS=()
 if declare -p TS_WINDOW_COMMANDS >/dev/null 2>&1; then
   _GLOBAL_WINDOW_COMMANDS=("${TS_WINDOW_COMMANDS[@]}")
 fi
 unset TS_WINDOW_COMMANDS
+_GLOBAL_WINDOW_LABELS=()
+if declare -p TS_WINDOW_LABELS >/dev/null 2>&1; then
+  _GLOBAL_WINDOW_LABELS=("${TS_WINDOW_LABELS[@]}")
+fi
+unset TS_WINDOW_LABELS
 
 list_only="false"
 delete_target=""
@@ -156,41 +161,88 @@ display_path() {
   fi
 }
 
-# --- Window commands (tmux TS_WINDOW_COMMANDS parity) ---
+# --- Window commands + labels (tmux TS_WINDOW_COMMANDS parity) ---
 # Each entry becomes a tab in a new workspace: a non-empty entry runs in
 # that tab's shell, an empty entry leaves a blank shell. Sourced from the
-# global tmux_sessionizer.conf / herdr-sessionizer.conf (TS_WINDOW_COMMANDS)
-# with per-project .tmux_sessionizer.conf overriding per directory.
+# global tmux_sessionizer.conf / herdr-sessionizer.conf (TS_WINDOW_COMMANDS
+# + TS_WINDOW_LABELS) with per-project .tmux_sessionizer.conf overriding
+# per directory. Labels name the tabs (opencode, nvim, shell, shell).
 
 WINDOW_CONFIG_FILE_NAME=".tmux_sessionizer.conf"
 GLOBAL_WINDOW_CONFIG_FILE="$SCRIPT_DIR/tmux_sessionizer.conf"
 WORKSPACE_WINDOW_COMMANDS=()
+WORKSPACE_WINDOW_LABELS=()
+
+# Derive a tab label from a window command: empty -> shell, opencode* ->
+# opencode, otherwise the command's first word (basename).
+label_for_command() {
+  local command="$1" first
+  if [[ -z "${command//[[:space:]]/}" ]]; then
+    printf 'shell'
+    return
+  fi
+  first="${command%%[[:space:]]*}"
+  first="${first##*/}"
+  if [[ "$first" == opencode* ]]; then
+    printf 'opencode'
+    return
+  fi
+  printf '%s' "$first"
+}
 
 load_window_commands_for_path() {
   local project_path="$1"
   local local_window_config="$project_path/$WINDOW_CONFIG_FILE_NAME"
   local config_file
   local -a commands=()
-  local -a defaults=("nvim" "opencode2" "" "")
+  local -a labels=()
+  local -a defaults=("opencode2" "nvim" "" "")
 
   if [[ ${#_GLOBAL_WINDOW_COMMANDS[@]} -gt 0 ]]; then
     commands=("${_GLOBAL_WINDOW_COMMANDS[@]}")
   else
     commands=("${defaults[@]}")
   fi
+  if [[ ${#_GLOBAL_WINDOW_LABELS[@]} -gt 0 ]]; then
+    labels=("${_GLOBAL_WINDOW_LABELS[@]}")
+  fi
 
   for config_file in "$GLOBAL_WINDOW_CONFIG_FILE" "$local_window_config"; do
     [[ -f "$config_file" ]] || continue
     TS_WINDOW_COMMANDS=("${commands[@]}")
+    unset TS_WINDOW_LABELS 2>/dev/null || true
     # shellcheck disable=SC1090
     source "$config_file"
     if declare -p TS_WINDOW_COMMANDS >/dev/null 2>&1; then
-      commands=("${TS_WINDOW_COMMANDS[@]}")
+      if [[ "${TS_WINDOW_COMMANDS[*]}" != "${commands[*]}" ]]; then
+        commands=("${TS_WINDOW_COMMANDS[@]}")
+        # Commands overridden without labels: drop stale labels so they get
+        # re-derived from the new commands below.
+        if ! declare -p TS_WINDOW_LABELS >/dev/null 2>&1; then
+          labels=()
+        fi
+      fi
+    fi
+    if declare -p TS_WINDOW_LABELS >/dev/null 2>&1; then
+      labels=("${TS_WINDOW_LABELS[@]}")
     fi
   done
   unset TS_WINDOW_COMMANDS
+  unset TS_WINDOW_LABELS 2>/dev/null || true
 
   WORKSPACE_WINDOW_COMMANDS=("${commands[@]}")
+  # Fill missing labels by deriving them from the commands, so tabs are
+  # always named (opencode, nvim, shell, shell) even when only commands
+  # are configured.
+  WORKSPACE_WINDOW_LABELS=()
+  local i
+  for ((i = 0; i < ${#commands[@]}; i++)); do
+    if [[ $i -lt ${#labels[@]} && -n "${labels[$i]}" ]]; then
+      WORKSPACE_WINDOW_LABELS+=("${labels[$i]}")
+    else
+      WORKSPACE_WINDOW_LABELS+=("$(label_for_command "${commands[$i]}")")
+    fi
+  done
 }
 
 # --- Herdr state (one snapshot per call, parsed with jq) ---
@@ -291,18 +343,31 @@ setup_workspace_layout() {
   local first_tab_id="$2"
   local root_pane_id="$3"
   local session_path="$4"
-  local index command tab_json tab_id pane_id
+  local index command label tab_json tab_id pane_id
 
   load_window_commands_for_path "$session_path"
   [[ ${#WORKSPACE_WINDOW_COMMANDS[@]} -gt 0 ]] ||
-    WORKSPACE_WINDOW_COMMANDS=("nvim" "opencode2" "" "")
+    WORKSPACE_WINDOW_COMMANDS=("opencode2" "nvim" "" "")
+  [[ ${#WORKSPACE_WINDOW_LABELS[@]} -gt 0 ]] || {
+    WORKSPACE_WINDOW_LABELS=()
+    for command in "${WORKSPACE_WINDOW_COMMANDS[@]}"; do
+      WORKSPACE_WINDOW_LABELS+=("$(label_for_command "$command")")
+    done
+  }
 
+  label="${WORKSPACE_WINDOW_LABELS[0]}"
+  [[ -n "$label" ]] && "$HERDR_BIN" tab rename "$first_tab_id" "$label" >/dev/null 2>&1 || true
   command="${WORKSPACE_WINDOW_COMMANDS[0]}"
   [[ -n "$command" ]] && "$HERDR_BIN" pane run "$root_pane_id" "$command" >/dev/null
 
   for ((index = 1; index < ${#WORKSPACE_WINDOW_COMMANDS[@]}; index++)); do
     command="${WORKSPACE_WINDOW_COMMANDS[$index]}"
-    tab_json=$("$HERDR_BIN" tab create --workspace "$workspace_id" --cwd "$session_path" --no-focus) || continue
+    label="${WORKSPACE_WINDOW_LABELS[$index]}"
+    if [[ -n "$label" ]]; then
+      tab_json=$("$HERDR_BIN" tab create --workspace "$workspace_id" --cwd "$session_path" --label "$label" --no-focus) || continue
+    else
+      tab_json=$("$HERDR_BIN" tab create --workspace "$workspace_id" --cwd "$session_path" --no-focus) || continue
+    fi
     tab_id=$(printf '%s' "$tab_json" | jq -r '.result.tab.tab_id // empty')
     pane_id=$(printf '%s' "$tab_json" | jq -r '.result.root_pane.pane_id // empty')
     [[ -z "$tab_id" || -z "$pane_id" ]] && continue

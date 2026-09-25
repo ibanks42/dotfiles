@@ -9,4 +9,6 @@ vim.g.autoformat = true
 vim.g.snacks_animate = false
 vim.g.lazyvim_picker = "fzf"
 vim.g.ai_cmp = true
+-- no wait after Esc (Ghostty sends Esc as CSI 27u; herdr forwards keys whole)
+vim.opt.ttimeoutlen = 0
 local opt = vim.opt

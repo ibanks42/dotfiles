@@ -28,10 +28,12 @@ close_tab = ["prefix+shift+x", "prefix+d", "alt+w"]
 previous_tab = ["prefix+p", "ctrl+alt+["]
 next_tab = ["prefix+n", "ctrl+alt+]"]
 
-focus_pane_left = ["prefix+h", "alt+h"]
-focus_pane_down = ["prefix+j", "alt+j"]
-focus_pane_up = ["prefix+k", "alt+k"]
-focus_pane_right = ["prefix+l", "alt+l"]
+# No alt+hjkl: with mouse capture on, herdr holds Esc for 150 ms, so a fast
+# "Esc j" in nvim arrives as alt+j and would switch panes instead.
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
 
 # Ctrl+x, then Ctrl+h/j/k/l creates a pane in that direction.
 split_horizontal = "prefix+ctrl+j"
@@ -71,7 +73,18 @@ description = "Open Bitwarden picker"
 # title. No built-in number token exists (herdr 0.9.0), so herdr-space-numbers
 # mirrors the position into the custom $num metadata token.
 [ui.sidebar.spaces]
-rows = [["state_icon", { token = "$num", dim = true }, "workspace", "$ports"], ["branch", "git_status"]]
+rows = [
+  [
+    "state_icon",
+    { token = "$num", dim = true },
+    "workspace",
+    "$ports",
+  ],
+  [
+    "branch",
+    "git_status",
+  ],
+]
 
 # Open the popup with prefix+a
 [[keys.command]]
@@ -136,10 +149,8 @@ command = "$HOME/.local/bin/herdr-space-jumper 9"
 description = "space 9: jump / toggle agent pane"
 
 [ui]
-status_indicators = "symbols"
-
-[ui.toast]
-delivery = "off"
+status_indicators = "dots"
+prompt_new_tab_name = false
 
 [[keys.command]]
 key = "prefix+e"
@@ -162,3 +173,13 @@ command = "herdr-lazygit.open"
 key = "prefix+shift+g"
 type = "plugin_action"
 command = "herdr-lazygit.open-tab"
+
+[theme]
+name = "dracula"
+auto_switch = false
+
+[ui.sound]
+enabled = false
+
+[ui.toast]
+delivery = "herdr"
