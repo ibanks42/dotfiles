@@ -30,7 +30,7 @@
 	"code_lens": "off",
 	"inlay_hints": {
 		"show_background": true,
-		"enabled": true,
+		"enabled": false,
 	},
 	"completions": {
 		"words_min_length": 0,
