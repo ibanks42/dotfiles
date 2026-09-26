@@ -76,19 +76,14 @@ export FLYCTL_INSTALL="/home/ibanks/.fly"
 export PATH="$FLYCTL_INSTALL/bin:$PATH"
 
 # pnpm
-export PNPM_HOME="/home/server/.local/share/pnpm"
+export PNPM_HOME="/home/ibanks/.local/share/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 
-# Added by LM Studio CLI tool (lms)
-export PATH="$PATH:/home/server/.lmstudio/bin"
-
 # opencode
-export PATH=/home/server/.opencode/bin:$PATH
-
-export PATH="$PATH:/opt/zig"
+export PATH=/home/ibanks/.opencode/bin:$PATH
 
 if [[ $- == *i* ]]; then
   eval "$(starship init zsh)"

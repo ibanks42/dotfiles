@@ -10,6 +10,7 @@ if ! [[ "$PATH" =~ "$HOME/.local/bin:$HOME/bin:" ]]; then
 fi
 export PATH
 export EDITOR=nvim
+export SUDOEDITOR=vim
 
 # Aliases, starship, zoxide, mise (shared with bash)
 [[ -f $HOME/.customrc ]] && source "$HOME/.customrc"

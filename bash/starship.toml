@@ -13,7 +13,7 @@ palette = "fervor"
 # $character is drawn by zsh instead (_vi_mode_char in ~/.zshrc) so it can show
 # the zsh-vi-mode mode letter, including visual-line mode.
 format = "$directory $git_branch$git_status$git_state${custom.git_paren}"
-add_newline = true
+add_newline = false
 
 [directory]
 truncation_length = 2
