@@ -44,7 +44,8 @@ end
 function M.setup()
   local in_tmux = vim.env.TMUX ~= nil
   local in_ssh = vim.env.SSH_TTY ~= nil or vim.env.SSH_CONNECTION ~= nil
-  local in_herdr = vim.env.HERDR_PANE_ID ~= nil or ancestor_process_named("herdr")
+  local in_herdr = vim.env.HERDR_PANE_ID ~= nil
+    or ancestor_process_named("herdr")
 
   if not (in_tmux or in_ssh or in_herdr) then
     return
