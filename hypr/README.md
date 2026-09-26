@@ -2,7 +2,7 @@
 
 This folder contains the current Hyprland desktop setup from `~/.config` and a few supporting files from `~/.local`.
 
-On Arch-based systems, the root `install.sh` can set this up for you through the `Hypr desktop` module.
+To set it up, have an agent follow the "Hyprland desktop" section of the root `INSTALL.md`.
 
 Included pieces:
 

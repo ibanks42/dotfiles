@@ -1,0 +1,185 @@
+onboarding = false
+
+[keys]
+prefix = "ctrl+x"
+
+# Tab jumps: tmux parity — Alt+1..9 switches tabs directly, no prefix.
+# (Herdr numbers tabs per workspace from 1; there is no tab 10, so M-0 has
+# no equivalent. Prefix jumps keep working as fallback.)
+switch_tab = ["prefix+1..9", "alt+1..9"]
+
+# Workspace jumps mirror the tab jumps one modifier up. Alt+Shift+1..9 is a
+# three-way toggle (herdr-space-jumper): jump to the workspace, then its agent
+# pane, then back to the pane you left. Built-in switch_workspace keeps
+# prefix+Shift+1..9 as the plain-jump fallback; commands can't use 1..9
+# ranges, so each chord gets its own [[keys.command]] below.
+# Herdr numbers workspaces from 1, so there is no slot 10.
+switch_workspace = ["prefix+shift+1..9"]
+
+# tmux `n` (new-window) was prefix+n, but in Herdr prefix+n is next-tab by
+# default, so exact parity would clash. New tab stays on Herdr's prefix+c
+# with Alt+t as the direct chord.
+new_tab = ["prefix+c", "alt+t"]
+
+# tmux `d` (kill-window): no clash in Herdr (close-workspace is
+# prefix+shift+d), so prefix+d maps straight across.
+close_tab = ["prefix+shift+x", "prefix+d", "alt+w"]
+
+previous_tab = ["prefix+p", "ctrl+alt+["]
+next_tab = ["prefix+n", "ctrl+alt+]"]
+
+# No alt+hjkl: with mouse capture on, herdr holds Esc for 150 ms, so a fast
+# "Esc j" in nvim arrives as alt+j and would switch panes instead.
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+
+# Ctrl+x, then Ctrl+h/j/k/l creates a pane in that direction.
+split_horizontal = "prefix+ctrl+j"
+split_vertical = "prefix+ctrl+l"
+
+[experimental]
+pane_history = true
+
+[[keys.command]]
+key = "prefix+ctrl+h"
+type = "shell"
+command = "$HOME/.local/bin/herdr-split left"
+description = "create pane left"
+
+[[keys.command]]
+key = "prefix+ctrl+k"
+type = "shell"
+command = "$HOME/.local/bin/herdr-split up"
+description = "create pane above"
+
+# tmux-sessionizer parity: fuzzy workspace switcher in a popup.
+[[keys.command]]
+key = "ctrl+f"
+type = "popup"
+command = "$HOME/.local/bin/herdr-sessionizer"
+description = "workspace switcher"
+width = "80%"
+height = "80%"
+
+[[keys.command]]
+key = "prefix+ctrl+b"
+type = "plugin_action"
+command = "bitwarden.open-picker"
+description = "Open Bitwarden picker"
+
+# Show the workspace number (the digit alt+shift+N jumps to) next to the Space
+# title. No built-in number token exists (herdr 0.9.0), so herdr-space-numbers
+# mirrors the position into the custom $num metadata token.
+[ui.sidebar.spaces]
+rows = [
+  [
+    "state_icon",
+    { token = "$num", dim = true },
+    "workspace",
+    "$ports",
+  ],
+  [
+    "branch",
+    "git_status",
+  ],
+]
+
+# Open the popup with prefix+a
+[[keys.command]]
+key = "prefix+a"
+type = "plugin_action"
+command = "numbered.ports.open"
+
+# Alt+Shift+N: workspace jump + agent-pane toggle (see switch_workspace note).
+# Legacy terminals send Alt+symbol; custom commands need explicit aliases.
+[[keys.command]]
+key = ["alt+shift+1", "alt+!"]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 1"
+description = "space 1: jump / toggle agent pane"
+
+[[keys.command]]
+key = ["alt+shift+2", "alt+@"]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 2"
+description = "space 2: jump / toggle agent pane"
+
+[[keys.command]]
+key = ["alt+shift+3", "alt+#"]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 3"
+description = "space 3: jump / toggle agent pane"
+
+[[keys.command]]
+key = ["alt+shift+4", "alt+$"]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 4"
+description = "space 4: jump / toggle agent pane"
+
+[[keys.command]]
+key = ["alt+shift+5", "alt+%"]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 5"
+description = "space 5: jump / toggle agent pane"
+
+[[keys.command]]
+key = ["alt+shift+6", "alt+^"]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 6"
+description = "space 6: jump / toggle agent pane"
+
+[[keys.command]]
+key = ["alt+shift+7", "alt+&"]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 7"
+description = "space 7: jump / toggle agent pane"
+
+[[keys.command]]
+key = ["alt+shift+8", "alt+*"]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 8"
+description = "space 8: jump / toggle agent pane"
+
+[[keys.command]]
+key = ["alt+shift+9", "alt+("]
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper 9"
+description = "space 9: jump / toggle agent pane"
+
+[ui]
+status_indicators = "dots"
+prompt_new_tab_name = false
+
+[[keys.command]]
+key = "prefix+e"
+type = "plugin_action"
+command = "chmarax.herdr-nvim.toggle"
+description = "nvim sidebar"
+
+[[keys.command]]
+key = "prefix+o"
+type = "plugin_action"
+command = "chmarax.herdr-nvim.pick-file"
+description = "open file from agent output"
+
+[[keys.command]]
+key = "prefix+g"
+type = "plugin_action"
+command = "herdr-lazygit.open"
+
+[[keys.command]]
+key = "prefix+shift+g"
+type = "plugin_action"
+command = "herdr-lazygit.open-tab"
+
+[theme]
+name = "dracula"
+auto_switch = false
+
+[ui.sound]
+enabled = false
+
+[ui.toast]
+delivery = "herdr"

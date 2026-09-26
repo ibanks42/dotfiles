@@ -7,6 +7,11 @@ font-style = Semibold
 
 keybind = f11=toggle_maximize
 
+# Send Esc as the kitty-protocol sequence CSI 27u instead of a lone 0x1b byte.
+# A lone 0x1b is ambiguous (it may start Alt+key or a mouse report), so herdr
+# holds it for 150 ms. CSI 27u is a complete key, so herdr forwards it at once.
+keybind = escape=csi:27u
+
 keybind = ctrl+digit_1=goto_tab:1
 keybind = ctrl+digit_2=goto_tab:2
 keybind = ctrl+digit_3=goto_tab:3

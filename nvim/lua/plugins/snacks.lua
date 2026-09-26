@@ -11,8 +11,6 @@ return {
         enabled = false,
       })
 
-      opts.scroll = { enabled = true }
-
       if not opts.picker then
         return
       end

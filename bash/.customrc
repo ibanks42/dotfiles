@@ -8,16 +8,13 @@ fi
 
 export PATH="$PATH:$HOME/.local/bin"
 
-eval "$(zoxide init bash)"
-eval "$($HOME/.local/bin/mise activate bash)"
-
 alias cd="z"
 alias lta="lt -a"
 alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
 alias fd="fdfind"
 alias lsa="ls -a"
 alias lt="eza --tree --level=2 --long --icons --git"
-alias ls="eza -lh --group-directories-first --icons"
+alias ls="eza -lh --group-directories-first --icons always"
 alias la="ls -a"
 alias bat="batcat"
 
@@ -47,7 +44,7 @@ tmux() {
   if ! command tmux has-session 2>/dev/null; then
     if [[ -f "$restore_script" && ! -f "$no_auto_restore_file" ]]; then
       command tmux start-server
-      bash "$restore_script" >/dev/null 2>&1 || true
+      zsh "$restore_script" >/dev/null 2>&1 || true
     fi
   fi
 
@@ -65,7 +62,7 @@ tmux() {
 # nvm
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+[ -s "$NVM_DIR/zsh_completion" ] && \. "$NVM_DIR/zsh_completion"
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
@@ -88,13 +85,15 @@ esac
 # Added by LM Studio CLI tool (lms)
 export PATH="$PATH:/home/server/.lmstudio/bin"
 
-if [[ $- == *i* ]]; then
-  eval "$(starship init bash)"
-fi
-
 # opencode
 export PATH=/home/server/.opencode/bin:$PATH
 
-source -- ~/.local/share/blesh/ble.sh
-
 export PATH="$PATH:/opt/zig"
+
+if [[ $- == *i* ]]; then
+  eval "$(starship init zsh)"
+fi
+
+eval "$(zoxide init zsh)"
+eval "$($HOME/.local/bin/mise activate zsh)"
+

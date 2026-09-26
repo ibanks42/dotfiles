@@ -2,8 +2,9 @@
 -- every copy is emitted as OSC 52 (inside tmux this becomes a tmux buffer,
 -- rebroadcast to every attached client, local or SSH). Paste prefers the
 -- local Wayland clipboard when one is available, so content copied in other
--- apps remains pasteable; without a display, paste is an OSC 52 query that
--- tmux (or the terminal) answers.
+-- apps remains pasteable; without a display, paste reads the tmux buffer
+-- or the last text copied in this Neovim instance. Never query OSC 52:
+-- terminals and multiplexers may leave clipboard reads unanswered.
 local M = {}
 
 local function proc_lines(pid, file)
@@ -43,7 +44,8 @@ end
 function M.setup()
   local in_tmux = vim.env.TMUX ~= nil
   local in_ssh = vim.env.SSH_TTY ~= nil or vim.env.SSH_CONNECTION ~= nil
-  local in_herdr = vim.env.HERDR_PANE_ID ~= nil or ancestor_process_named("herdr")
+  local in_herdr = vim.env.HERDR_PANE_ID ~= nil
+    or ancestor_process_named("herdr")
 
   if not (in_tmux or in_ssh or in_herdr) then
     return
@@ -54,19 +56,21 @@ function M.setup()
     and vim.fn.executable("wl-copy") == 1
     and vim.fn.executable("wl-paste") == 1
 
-  -- ~/.config/tmux/osc52.sh is the proven copy channel: inside tmux it
-  -- writes the OSC 52 wrapped in tmux passthrough (tmux's own re-emission
-  -- is dropped by mosh), outside tmux it writes it directly to the tty.
-  -- It also mirrors copies into the tmux paste-buffer. nvim's builtin
-  -- nvim_ui_send path is only a fallback (it doesn't reach the terminal
-  -- reliably when running inside tmux).
+  -- The helper targets tmux's client tty and mirrors its paste-buffer.
+  -- Outside tmux, use Neovim's UI output: vim.fn.system() children have
+  -- no controlling terminal, so the helper cannot open /dev/tty.
   local osc52_sh = vim.fn.expand("~/.config/tmux/osc52.sh")
   local has_osc52_sh = vim.uv.fs_stat(osc52_sh) ~= nil
+  local copied = {
+    ["+"] = { {}, "v" },
+    ["*"] = { {}, "v" },
+  }
 
   local function copy(register)
     local emit = osc52.copy(register)
 
-    return function(lines)
+    return function(lines, regtype)
+      copied[register] = { vim.deepcopy(lines), regtype or "v" }
       if has_wayland then
         local cmd = { "wl-copy", "--sensitive", "--type", "text/plain" }
         if register == "*" then
@@ -75,9 +79,9 @@ function M.setup()
         vim.fn.system(cmd, lines)
       end
 
-      if has_osc52_sh then
+      if in_tmux and has_osc52_sh then
         vim.fn.system(osc52_sh, lines)
-      elseif vim.g.omarchy_remote_clipboard_osc52 ~= false then
+      elseif vim.g.remote_clipboard_osc52 ~= false then
         emit(lines)
       end
     end
@@ -106,11 +110,13 @@ function M.setup()
       end
     end
 
-    return osc52.paste(register)
+    return function()
+      return vim.deepcopy(copied[register])
+    end
   end
 
   vim.g.clipboard = {
-    name = "OmarchyRemoteClipboard",
+    name = "RemoteClipboard",
     copy = { ["+"] = copy("+"), ["*"] = copy("*") },
     paste = { ["+"] = paste("+"), ["*"] = paste("*") },
     cache_enabled = 0,

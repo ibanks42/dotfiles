@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# herdr-space-numbers — mirror workspace positions into the $num sidebar token.
+#
+# Herdr numbers workspaces positionally (the digit switch_workspace jumps to),
+# but the sidebar has no built-in token for that number (herdr 0.9.0). This
+# loop keeps a custom $num workspace metadata token in sync so
+# [ui.sidebar.spaces] rows can display it.
+#
+# Numbers shift whenever workspaces are created, closed, moved, or regrouped,
+# and reported tokens can be wiped by a server restart or config reload, so
+# every pass re-reports the full mapping. Reports are cheap local socket calls.
+#
+# Designed to run under a systemd user service where PATH is minimal: resolve
+# the binary explicitly instead of trusting `herdr` on PATH.
+#
+# Requires: jq
+
+set -euo pipefail
+
+INTERVAL="${HERDR_SPACE_NUMBERS_INTERVAL:-2}"
+SOURCE="sidebar-num"
+TOKEN="num"
+
+HERDR_BIN="${HERDR_BIN_PATH:-}"
+if [[ -z $HERDR_BIN ]]; then
+  HERDR_BIN="$(command -v herdr 2>/dev/null || true)"
+fi
+if [[ -z $HERDR_BIN ]]; then
+  HERDR_BIN="$HOME/.local/bin/herdr"
+fi
+
+while true; do
+  if state=$("$HERDR_BIN" workspace list 2>/dev/null | jq -r '
+      .result.workspaces[]
+      | [.workspace_id, (.number | tostring)]
+      | @tsv'); then
+    while IFS=$'\t' read -r id num; do
+      [[ -n $id ]] || continue
+      "$HERDR_BIN" workspace report-metadata "$id" \
+        --source "$SOURCE" --token "$TOKEN=$num" >/dev/null 2>&1 ||
+        echo "herdr-space-numbers: report failed for workspace $id" >&2
+    done <<<"$state"
+  fi
+  sleep "$INTERVAL"
+done

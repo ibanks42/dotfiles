@@ -1,17 +1,8 @@
 local M = {}
 
+M.default_theme = "modest-dark"
+
 local state_file = vim.fn.stdpath("data") .. "/theme_state.lua"
-M.default_theme = "bearded-arc"
-
-M._startup_complete = false
-
-function M.is_bearded_theme(theme_name)
-  return type(theme_name) == "string" and theme_name:match("^bearded") ~= nil
-end
-
-function M.is_bearded_variant(theme_name)
-  return type(theme_name) == "string" and theme_name:match("^bearded%-") ~= nil
-end
 
 function M.get_saved_theme()
   local f = io.open(state_file, "r")
@@ -43,27 +34,7 @@ function M.normalize_theme(theme_name)
     return nil
   end
 
-  if theme_name == "bearded" then
-    local existing = M.get_saved_theme()
-    if M.is_bearded_variant(existing) then
-      return existing
-    end
-    return M.default_theme
-  end
-
   return theme_name
-end
-
-function M.resolve_bearded_theme(theme_name)
-  local normalized = M.normalize_theme(theme_name)
-  if M.is_bearded_variant(normalized) then
-    return normalized
-  end
-  return M.default_theme
-end
-
-function M.get_bearded_flavor(theme_name)
-  return M.resolve_bearded_theme(theme_name):gsub("^bearded%-", "")
 end
 
 function M.apply_theme(theme_name)

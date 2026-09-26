@@ -1,0 +1,552 @@
+#!/usr/bin/env bash
+# herdr-sessionizer — fuzzy workspace switcher/creator for Herdr.
+# Mirrors the interface of tmux/tmux-sessionizer (--list, --delete, --new,
+# --open-path, --typed-query, --search-path) but targets Herdr workspaces
+# (the equivalent of tmux sessions) instead of tmux sessions.
+#
+# Requires: herdr, fzf, fd, jq
+
+set -u
+
+HERDR_BIN="${HERDR_BIN_PATH:-herdr}"
+
+TS_SEARCH_PATHS=(~/dev/personal ~/dev/work ~/.config ~/)
+
+SEARCH_CONFIG_FILE_NAME="herdr-sessionizer.conf"
+SEARCH_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
+SEARCH_CONFIG_FILE="$SEARCH_CONFIG_DIR/$SEARCH_CONFIG_FILE_NAME"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
+
+# Carry over tmux search roots during migration, then let herdr-specific
+# config override. Local ./herdr-sessionizer.conf wins last.
+for _cfg in \
+  "$SCRIPT_DIR/tmux_sessionizer.conf" \
+  "$HOME/.config/tmux/tmux_sessionizer.conf" \
+  "$SEARCH_CONFIG_FILE" \
+  "$SEARCH_CONFIG_FILE_NAME"; do
+  # shellcheck disable=SC1090
+  [[ -f "$_cfg" ]] && source "$_cfg"
+done
+unset _cfg
+
+# Snapshot the global window commands/labels once: the per-path loader re-reads
+# from this base every call, so unsetting/re-sourcing stays repeatable.
+_GLOBAL_WINDOW_COMMANDS=()
+if declare -p TS_WINDOW_COMMANDS >/dev/null 2>&1; then
+  _GLOBAL_WINDOW_COMMANDS=("${TS_WINDOW_COMMANDS[@]}")
+fi
+unset TS_WINDOW_COMMANDS
+_GLOBAL_WINDOW_LABELS=()
+if declare -p TS_WINDOW_LABELS >/dev/null 2>&1; then
+  _GLOBAL_WINDOW_LABELS=("${TS_WINDOW_LABELS[@]}")
+fi
+unset TS_WINDOW_LABELS
+
+list_only="false"
+delete_target=""
+create_new="false"
+user_selected=""
+open_path=""
+typed_query=""
+list_search_paths=()
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+  --list)
+    list_only="true"
+    ;;
+  --delete)
+    delete_target="$2"
+    if [[ -z "$delete_target" ]]; then
+      echo "Error: --delete requires an entry" >&2
+      exit 1
+    fi
+    shift
+    ;;
+  --new)
+    create_new="true"
+    ;;
+  --open-path)
+    if [[ -z "${2:-}" ]]; then
+      echo "Error: --open-path requires a value" >&2
+      exit 1
+    fi
+    open_path="$2"
+    shift
+    ;;
+  --typed-query)
+    typed_query="${2:-}"
+    shift
+    ;;
+  --search-path)
+    if [[ -z "${2:-}" ]]; then
+      echo "Error: --search-path requires a value" >&2
+      exit 1
+    fi
+    list_search_paths+=("$2")
+    shift
+    ;;
+  -*)
+    echo "Error: unsupported option '$1'" >&2
+    exit 1
+    ;;
+  *)
+    user_selected="$1"
+    ;;
+  esac
+  shift
+done
+
+if [[ ${#list_search_paths[@]} -gt 0 ]]; then
+  ACTIVE_SEARCH_PATHS=("${list_search_paths[@]}")
+else
+  ACTIVE_SEARCH_PATHS=("${TS_SEARCH_PATHS[@]}")
+fi
+
+SEARCH_PATH_BASES=()
+SEARCH_PATH_DEPTHS=()
+
+canonical_path() {
+  local path="$1"
+  [[ -z "$path" ]] && {
+    printf ''
+    return
+  }
+  if [[ -d "$path" ]]; then
+    (cd "$path" 2>/dev/null && pwd -P) || printf '%s' "$path"
+  else
+    printf '%s' "$path"
+  fi
+}
+
+ensure_search_path_metadata() {
+  local entry path depth
+  [[ ${#SEARCH_PATH_BASES[@]} -gt 0 ]] && return
+  for entry in "${ACTIVE_SEARCH_PATHS[@]}"; do
+    path="$entry"
+    depth="${TS_MAX_DEPTH:-1}"
+    if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
+      path="${BASH_REMATCH[1]}"
+      depth="${BASH_REMATCH[2]}"
+    fi
+    # Expand ~ without eval.
+    [[ "$path" == "~" || "$path" == "~/"* ]] && path="${path/#\~/$HOME}"
+    path=$(canonical_path "$path")
+    SEARCH_PATH_BASES+=("$path")
+    SEARCH_PATH_DEPTHS+=("$depth")
+  done
+}
+
+find_dirs() {
+  local index path depth
+  ensure_search_path_metadata
+  for index in "${!SEARCH_PATH_BASES[@]}"; do
+    path="${SEARCH_PATH_BASES[$index]}"
+    depth="${SEARCH_PATH_DEPTHS[$index]}"
+    [[ -d "$path" ]] || continue
+    printf '%s\n' "$path"
+    fd --type d --hidden --no-ignore --min-depth 1 --max-depth "$depth" --exclude .git . "$path" 2>/dev/null
+  done
+}
+
+display_path() {
+  local path="$1"
+  if [[ "$path" == "$HOME" ]]; then
+    printf '~'
+  elif [[ "$path" == "$HOME/"* ]]; then
+    printf '~/%s' "${path#"$HOME/"}"
+  else
+    printf '%s' "$path"
+  fi
+}
+
+# --- Window commands + labels (tmux TS_WINDOW_COMMANDS parity) ---
+# Each entry becomes a tab in a new workspace: a non-empty entry runs in
+# that tab's shell, an empty entry leaves a blank shell. Sourced from the
+# global tmux_sessionizer.conf / herdr-sessionizer.conf (TS_WINDOW_COMMANDS
+# + TS_WINDOW_LABELS) with per-project .tmux_sessionizer.conf overriding
+# per directory. Labels name the tabs (opencode, nvim, shell, shell).
+
+WINDOW_CONFIG_FILE_NAME=".tmux_sessionizer.conf"
+GLOBAL_WINDOW_CONFIG_FILE="$SCRIPT_DIR/tmux_sessionizer.conf"
+WORKSPACE_WINDOW_COMMANDS=()
+WORKSPACE_WINDOW_LABELS=()
+
+# Derive a tab label from a window command: empty -> shell, opencode* ->
+# opencode, otherwise the command's first word (basename).
+label_for_command() {
+  local command="$1" first
+  if [[ -z "${command//[[:space:]]/}" ]]; then
+    printf 'shell'
+    return
+  fi
+  first="${command%%[[:space:]]*}"
+  first="${first##*/}"
+  if [[ "$first" == opencode* ]]; then
+    printf 'opencode'
+    return
+  fi
+  printf '%s' "$first"
+}
+
+load_window_commands_for_path() {
+  local project_path="$1"
+  local local_window_config="$project_path/$WINDOW_CONFIG_FILE_NAME"
+  local config_file
+  local -a commands=()
+  local -a labels=()
+  local -a defaults=("opencode2" "nvim" "" "")
+
+  if [[ ${#_GLOBAL_WINDOW_COMMANDS[@]} -gt 0 ]]; then
+    commands=("${_GLOBAL_WINDOW_COMMANDS[@]}")
+  else
+    commands=("${defaults[@]}")
+  fi
+  if [[ ${#_GLOBAL_WINDOW_LABELS[@]} -gt 0 ]]; then
+    labels=("${_GLOBAL_WINDOW_LABELS[@]}")
+  fi
+
+  for config_file in "$GLOBAL_WINDOW_CONFIG_FILE" "$local_window_config"; do
+    [[ -f "$config_file" ]] || continue
+    TS_WINDOW_COMMANDS=("${commands[@]}")
+    unset TS_WINDOW_LABELS 2>/dev/null || true
+    # shellcheck disable=SC1090
+    source "$config_file"
+    if declare -p TS_WINDOW_COMMANDS >/dev/null 2>&1; then
+      if [[ "${TS_WINDOW_COMMANDS[*]}" != "${commands[*]}" ]]; then
+        commands=("${TS_WINDOW_COMMANDS[@]}")
+        # Commands overridden without labels: drop stale labels so they get
+        # re-derived from the new commands below.
+        if ! declare -p TS_WINDOW_LABELS >/dev/null 2>&1; then
+          labels=()
+        fi
+      fi
+    fi
+    if declare -p TS_WINDOW_LABELS >/dev/null 2>&1; then
+      labels=("${TS_WINDOW_LABELS[@]}")
+    fi
+  done
+  unset TS_WINDOW_COMMANDS
+  unset TS_WINDOW_LABELS 2>/dev/null || true
+
+  WORKSPACE_WINDOW_COMMANDS=("${commands[@]}")
+  # Fill missing labels by deriving them from the commands, so tabs are
+  # always named (opencode, nvim, shell, shell) even when only commands
+  # are configured.
+  WORKSPACE_WINDOW_LABELS=()
+  local i
+  for ((i = 0; i < ${#commands[@]}; i++)); do
+    if [[ $i -lt ${#labels[@]} && -n "${labels[$i]}" ]]; then
+      WORKSPACE_WINDOW_LABELS+=("${labels[$i]}")
+    else
+      WORKSPACE_WINDOW_LABELS+=("$(label_for_command "${commands[$i]}")")
+    fi
+  done
+}
+
+# --- Herdr state (one snapshot per call, parsed with jq) ---
+
+_snapshot=""
+snapshot_json() {
+  if [[ -z "$_snapshot" ]]; then
+    _snapshot=$("$HERDR_BIN" api snapshot 2>/dev/null) || {
+      echo "herdr-sessionizer: cannot reach Herdr server (is herdr running?)" >&2
+      exit 1
+    }
+  fi
+  printf '%s' "$_snapshot"
+}
+
+list_workspaces() {
+  # One row per workspace: id, representative cwd, label, focused-flag.
+  # Representative cwd = focused pane of the workspace's active tab, falling
+  # back to the workspace's first pane (a workspace can have several panes
+  # with different cwds, so last-wins merging would pick the wrong one).
+  snapshot_json | jq -r '
+    (.result.snapshot) as $s
+    | ($s.focused_workspace_id // "") as $focused
+    | ($s.layouts // []) as $layouts
+    | ($s.panes // []) as $panes
+    | ((($s.workspaces // []) | map(.workspace_id)) | unique[]) as $ws
+    | (($s.workspaces | map(select(.workspace_id == $ws)) | .[0])) as $w
+    | ((($layouts | map(select(.tab_id == $w.active_tab_id)) | .[0]) | .focused_pane_id) // null) as $fp
+    | ((($panes | map(select(.pane_id == $fp)) | .[0]) | (.cwd // .foreground_cwd // "")) // "") as $c0
+    | (if $c0 != "" then $c0
+       else ((($panes | map(select(.workspace_id == $ws)) | .[0]) | (.cwd // .foreground_cwd // "")) // "") end) as $cwd
+    | "\($ws)\t\($cwd)\t\($w.label // $ws)\t\($ws == $focused)"'
+}
+
+render_selection_list() {
+  local ws cwd label focused mark
+  declare -A seen=()
+
+  while IFS=$'\t' read -r ws cwd label focused; do
+    [[ -z "$ws" ]] && continue
+    cwd=$(canonical_path "$cwd")
+    [[ -n "$cwd" ]] && seen["$cwd"]=1
+    if [[ "$focused" == "true" ]]; then
+      mark=" [current]"
+    else
+      mark=""
+    fi
+    printf 'ws:%s\t%s  (%s)%s\n' "$ws" "$label" "$(display_path "$cwd")" "$mark"
+  done < <(list_workspaces)
+
+  local entry canon
+  while IFS= read -r entry; do
+    [[ -z "$entry" ]] && continue
+    canon="${entry%/}"
+    [[ -z "$canon" ]] && continue
+    [[ -n "${seen[$canon]:-}" ]] && continue
+    seen["$canon"]=1
+    printf 'path:%s\t%s\n' "$canon" "$(display_path "$canon")"
+  done < <(find_dirs)
+
+  if [[ -n "$typed_query" ]]; then
+    local expanded parent
+    if [[ "$typed_query" == /* || "$typed_query" == "~"* || "$typed_query" == ./* ]]; then
+      expanded="${typed_query/#\~/$HOME}"
+      if [[ "$expanded" == */ ]]; then
+        parent="${expanded%/}"
+      else
+        parent=$(dirname -- "$expanded")
+      fi
+      if [[ -d "$parent" ]]; then
+        while IFS= read -r entry; do
+          [[ -d "$entry" ]] || continue
+          canon=$(canonical_path "$entry")
+          [[ -n "${seen[$canon]:-}" ]] && continue
+          seen["$canon"]=1
+          printf 'path:%s\t%s\n' "$canon" "$(display_path "$canon")"
+        done < <(fd --type d --hidden --no-ignore --max-depth 1 --exclude .git . "$parent" 2>/dev/null)
+      fi
+    fi
+  fi
+}
+
+focus_workspace_for_path() {
+  local target="$1" ws cwd
+  target=$(canonical_path "$target")
+  while IFS=$'\t' read -r ws cwd _label _focused; do
+    [[ -z "$ws" ]] && continue
+    [[ "$(canonical_path "$cwd")" == "$target" ]] && {
+      "$HERDR_BIN" workspace focus "$ws"
+      return
+    }
+  done < <(list_workspaces)
+  return 1
+}
+
+setup_workspace_layout() {
+  local workspace_id="$1"
+  local first_tab_id="$2"
+  local root_pane_id="$3"
+  local session_path="$4"
+  local index command label tab_json tab_id pane_id
+
+  load_window_commands_for_path "$session_path"
+  [[ ${#WORKSPACE_WINDOW_COMMANDS[@]} -gt 0 ]] ||
+    WORKSPACE_WINDOW_COMMANDS=("opencode2" "nvim" "" "")
+  [[ ${#WORKSPACE_WINDOW_LABELS[@]} -gt 0 ]] || {
+    WORKSPACE_WINDOW_LABELS=()
+    for command in "${WORKSPACE_WINDOW_COMMANDS[@]}"; do
+      WORKSPACE_WINDOW_LABELS+=("$(label_for_command "$command")")
+    done
+  }
+
+  label="${WORKSPACE_WINDOW_LABELS[0]}"
+  [[ -n "$label" ]] && "$HERDR_BIN" tab rename "$first_tab_id" "$label" >/dev/null 2>&1 || true
+  command="${WORKSPACE_WINDOW_COMMANDS[0]}"
+  [[ -n "$command" ]] && "$HERDR_BIN" pane run "$root_pane_id" "$command" >/dev/null
+
+  for ((index = 1; index < ${#WORKSPACE_WINDOW_COMMANDS[@]}; index++)); do
+    command="${WORKSPACE_WINDOW_COMMANDS[$index]}"
+    label="${WORKSPACE_WINDOW_LABELS[$index]}"
+    if [[ -n "$label" ]]; then
+      tab_json=$("$HERDR_BIN" tab create --workspace "$workspace_id" --cwd "$session_path" --label "$label" --no-focus) || continue
+    else
+      tab_json=$("$HERDR_BIN" tab create --workspace "$workspace_id" --cwd "$session_path" --no-focus) || continue
+    fi
+    tab_id=$(printf '%s' "$tab_json" | jq -r '.result.tab.tab_id // empty')
+    pane_id=$(printf '%s' "$tab_json" | jq -r '.result.root_pane.pane_id // empty')
+    [[ -z "$tab_id" || -z "$pane_id" ]] && continue
+    [[ -n "$command" ]] && "$HERDR_BIN" pane run "$pane_id" "$command" >/dev/null
+  done
+
+  "$HERDR_BIN" tab focus "$first_tab_id" >/dev/null 2>&1 || true
+}
+
+start_workspace_for_path() {
+  local selected="$1"
+  local create_json workspace_id first_tab_id root_pane_id
+  selected=$(canonical_path "$selected")
+  [[ -z "$selected" ]] && return 1
+
+  if focus_workspace_for_path "$selected"; then
+    return 0
+  fi
+
+  if [[ ! -d "$selected" ]]; then
+    printf 'Directory does not exist: %s\n' "$selected" >&2
+    return 1
+  fi
+
+  create_json=$("$HERDR_BIN" workspace create --cwd "$selected" --focus) || return 1
+  workspace_id=$(printf '%s' "$create_json" | jq -r '.result.workspace.workspace_id // empty')
+  first_tab_id=$(printf '%s' "$create_json" | jq -r '.result.tab.tab_id // empty')
+  root_pane_id=$(printf '%s' "$create_json" | jq -r '.result.root_pane.pane_id // empty')
+  [[ -z "$workspace_id" || -z "$first_tab_id" || -z "$root_pane_id" ]] && return 1
+
+  setup_workspace_layout "$workspace_id" "$first_tab_id" "$root_pane_id" "$selected"
+}
+
+choose_new_session_path() {
+  local root root_label selected_root folder_name target_path
+  ensure_search_path_metadata
+
+  selected_root=$(
+    for root in "${SEARCH_PATH_BASES[@]}"; do
+      printf '%s\t%s\n' "$root" "$(display_path "$root")"
+    done | fzf \
+      --delimiter=$'\t' \
+      --with-nth=2.. \
+      --height=100% \
+      --layout=reverse \
+      --border \
+      --border-label=' herdr-sessionizer ' \
+      --prompt='Create in: ' \
+      --header='Enter: Select root | Esc: Cancel' \
+      --bind='esc:abort'
+  ) || return 1
+  root="${selected_root%%$'\t'*}"
+
+  root_label=$(display_path "$root")
+  read -r -e -p "New folder in $root_label: " folder_name || return 1
+  [[ -n "$folder_name" && "$folder_name" != /* && "$folder_name" != *'/../'* && "$folder_name" != '..' && "$folder_name" != ../* ]] || {
+    printf 'Enter a non-empty relative folder path.\n' >&2
+    return 1
+  }
+
+  target_path="$root/$folder_name"
+  [[ ! -e "$target_path" ]] || {
+    printf 'Path already exists: %s\n' "$target_path" >&2
+    return 1
+  }
+
+  mkdir -p "$target_path" || return 1
+  printf '%s' "$target_path"
+}
+
+open_typed_path() {
+  local typed_path="$1" expanded answer
+  [[ -n "$typed_path" ]] || return 1
+  expanded="${typed_path/#\~/$HOME}"
+  expanded=$(canonical_path "$expanded")
+
+  read -r -p "Open '$expanded' as a Herdr workspace? [y/N] " answer || return 1
+  [[ "$answer" =~ ^[Yy]$ ]] || return 0
+
+  if [[ ! -d "$expanded" ]]; then
+    read -r -p "Directory does not exist. Create it? [y/N] " answer || return 1
+    [[ "$answer" =~ ^[Yy]$ ]] || return 0
+    mkdir -p "$expanded" || return 1
+  fi
+
+  start_workspace_for_path "$expanded"
+}
+
+delete_entry() {
+  local entry="$1" ws
+  if [[ "$entry" == ws:* ]]; then
+    ws="${entry#ws:}"
+  elif [[ "$entry" == path:* ]]; then
+    ws=""
+    local target canon w c
+    target=$(canonical_path "${entry#path:}")
+    while IFS=$'\t' read -r w c _l _f; do
+      [[ "$(canonical_path "$c")" == "$target" ]] && {
+        ws="$w"
+        break
+      }
+    done < <(list_workspaces)
+    [[ -z "$ws" ]] && return 0
+  else
+    echo "herdr-sessionizer: cannot delete '$entry'" >&2
+    return 1
+  fi
+  "$HERDR_BIN" workspace close "$ws"
+}
+
+# --- main ---
+
+if [[ -n "$delete_target" ]]; then
+  delete_entry "$delete_target"
+  exit 0
+fi
+
+if [[ "$list_only" == "true" ]]; then
+  render_selection_list
+  exit 0
+fi
+
+if [[ "$create_new" == "true" ]]; then
+  selected=$(choose_new_session_path) || exit 0
+  start_workspace_for_path "$selected"
+  exit $?
+fi
+
+if [[ -n "$open_path" ]]; then
+  open_typed_path "$open_path"
+  exit $?
+fi
+
+if [[ -n "$user_selected" ]]; then
+  selected="$user_selected"
+else
+  if ! command -v fzf >/dev/null 2>&1; then
+    printf 'herdr-sessionizer: fzf not found on PATH\n' >&2
+    exit 1
+  fi
+  for _cmd in fd jq; do
+    command -v "$_cmd" >/dev/null 2>&1 || {
+      printf 'herdr-sessionizer: %s not found on PATH\n' "$_cmd" >&2
+      exit 1
+    }
+  done
+  unset _cmd
+
+  list_command=("$0" --list)
+  for _sp in "${ACTIVE_SEARCH_PATHS[@]}"; do
+    list_command+=(--search-path "$_sp")
+  done
+  list_reload_command=$(printf '%q ' "${list_command[@]}")
+
+  selected=$(
+    "${list_command[@]}" | fzf \
+      --ansi \
+      --delimiter=$'\t' \
+      --with-nth=2.. \
+      --height=100% \
+      --layout=reverse \
+      --border \
+      --border-label=' herdr-sessionizer ' \
+      --prompt='Switch to workspace: ' \
+      --header=$'Enter: switch/create   Ctrl-e: new folder   Ctrl-o: typed path   Alt-d: close workspace' \
+      --bind="ctrl-e:execute($0 --new)+abort" \
+      --bind="ctrl-o:execute($0 --open-path {q})+abort" \
+      --bind="alt-d:execute-silent($0 --delete {1})+reload($list_reload_command)" \
+      --bind="change:reload($list_reload_command --typed-query {q})"
+  )
+  selected="${selected%%$'\t'*}"
+fi
+
+[[ -z "${selected:-}" ]] && exit 0
+
+if [[ "$selected" == ws:* ]]; then
+  "$HERDR_BIN" workspace focus "${selected#ws:}"
+  exit 0
+fi
+[[ "$selected" == path:* ]] && selected="${selected#path:}"
+
+start_workspace_for_path "$selected"

@@ -1,32 +1,22 @@
-local theme_util = require("util.theme")
-
-theme_util.setup_autosave()
-
 return {
+  {
+    -- LazyVim v16 applies its default colorscheme (tokyonight) via
+    -- require("tokyonight").load() *after* config/options.lua has run, which
+    -- silently overrides whatever was applied earlier. Route its colorscheme
+    -- hook through our persisted theme instead.
+    "LazyVim/LazyVim",
+    opts = {
+      colorscheme = function()
+        local theme_util = require("util.theme")
+        theme_util.apply_theme(
+          theme_util.get_saved_theme() or theme_util.default_theme
+        )
+      end,
+    },
+  },
+  -- not used; the LazyVim override above replaces the default tokyonight loader
   {
     "kepano/flexoki-neovim",
     opts = {},
-  },
-  {
-    "Ferouk/bearded-nvim",
-    lazy = false,
-    priority = 1000,
-    opts = {
-      flavor = theme_util.get_bearded_flavor(theme_util.get_saved_theme()),
-    },
-    config = function(_, opts)
-      require("bearded").setup(opts)
-
-      local target_theme = theme_util.normalize_theme(theme_util.get_saved_theme()) or theme_util.default_theme
-      local ok, resolved_theme = theme_util.apply_theme(target_theme)
-
-      if not ok then
-        resolved_theme = theme_util.default_theme
-        theme_util.apply_theme(resolved_theme)
-      end
-
-      theme_util.save_theme(resolved_theme)
-      theme_util._startup_complete = true
-    end,
   },
 }
