@@ -46,12 +46,12 @@ command -v rbw >/dev/null && eval "$(rbw gen-completions zsh)"
 
 # ── Prompt ──────────────────────────────────────────────────────────────
 # Green on success, orange when the last command failed.
-_prompt_char() {
-  local c
-  (( ${STARSHIP_CMD_STATUS:-0} )) && c='#d99a5e' || c='#a5e075'
-  print -n "%F{$c}%B❯%b%f"
-}
-PROMPT+=$'\n''$(_prompt_char) '
+# _prompt_char() {
+#   local c
+#   (( ${STARSHIP_CMD_STATUS:-0} )) && c='#d99a5e' || c='#a5e075'
+#   print -n "%F{$c}%B❯%b%f"
+# }
+# PROMPT+=$'\n''$(_prompt_char) '
 
 # Show the cursor again before each prompt, in case a program (pi, nvim, a TUI
 # that crashed) exited with the cursor still hidden.
