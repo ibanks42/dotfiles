@@ -9,15 +9,18 @@ truncation_length = 4
 truncate_to_repo = true
 fish_style_pwd_dir_length = 3
 
+# Strip the leading "$HOME/" (and the common XDG dirs) so paths read
+# "dotfiles/nvim", not "~/dotfiles/nvim".
+# The trailing "/" is required on every key: substitutions replace *every*
+# match, so a bare "/" entry would delete all separators, not just the first.
 [directory.substitutions]
-"Documents" = ""
-"Music" = ""
-"Movies" = ""
-"Pictures" = ""
-"Sources" = ""
-"Downloads" = ""
-"~" = ""
-"/" = ""
+"Documents/" = ""
+"Music/" = ""
+"Movies/" = ""
+"Pictures/" = ""
+"Sources/" = ""
+"Downloads/" = ""
+"~/" = ""
 
 [line_break]
 disabled = true # leave as TRUE  
