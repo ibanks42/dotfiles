@@ -1,0 +1,43 @@
+{
+  "router": {
+    "model": "openai-codex/gpt-*-luna",
+    "thinking": "low",
+    "timeoutMs": 45000
+  },
+  "tiers": {
+    "menial": {
+      "candidates": [
+        "zai/glm-*-flash",
+        "opencode-zen-free/muse-spark-*"
+      ],
+      "thinking": "minimal"
+    },
+    "low": {
+      "candidates": [
+        "openai-codex/gpt-*-luna",
+        "pi-claude-code-provider/sonnet"
+      ],
+      "thinking": "low"
+    },
+    "mid": {
+      "candidates": [
+        "pi-claude-code-provider/opus",
+        "openai-codex/gpt-*-sol"
+      ],
+      "thinking": "medium"
+    },
+    "high": {
+      "candidates": [
+        "pi-claude-code-provider/fable",
+        "openai-codex/gpt-*-astra"
+      ],
+      "thinking": "high"
+    }
+  },
+  "quota": {
+    "maxUsedPercent": 95,
+    "claudeCacheMs": 300000,
+    "rateLimitCooldownMs": 1800000
+  },
+  "maxOutputChars": 400000
+}

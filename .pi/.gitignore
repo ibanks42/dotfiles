@@ -1,0 +1,68 @@
+# Private by default. Review new files before adding an exception.
+# This excludes credentials, models, sessions, tasks, caches, npm installs,
+# logs, captures, local providers, and future extension state.
+*
+!/.gitignore
+!/README.md
+!/agent/
+
+# Portable preferences and agent definitions.
+!/agent/settings.json
+!/agent/pi-codex-conversion.json
+!/agent/subagents.json
+!/agent/subtask-router.json
+!/agent/zentui.json
+!/agent/agents/
+!/agent/agents/Explore.md
+
+# Reviewed extension source. Runtime files remain ignored.
+!/agent/extensions/
+!/agent/extensions/cache-forensics.ts
+!/agent/extensions/cache-forensics-tests/
+!/agent/extensions/cache-forensics-tests/cache-forensics.test.ts
+!/agent/extensions/cache-prefix-diagnostic.ts
+!/agent/extensions/herdr-agent-state.ts
+!/agent/extensions/subtask-router/
+!/agent/extensions/subtask-router/index.ts
+!/agent/extensions/subtask-router/policy.ts
+!/agent/extensions/subtask-router/rpc.ts
+!/agent/extensions/subtask-router/README.md
+!/agent/extensions/subtask-router/tests/
+!/agent/extensions/subtask-router/tests/router.test.ts
+!/agent/extensions/usage-meters/
+!/agent/extensions/usage-meters/core.js
+!/agent/extensions/usage-meters/index.js
+!/agent/extensions/usage-meters/LICENSE
+!/agent/extensions/usage-meters/README.md
+
+# Diagnostic tools, never their captures, reports, or state.
+!/agent/cache-forensics/
+!/agent/cache-forensics/analyze.py
+!/agent/cache-forensics/test_analyze.py
+!/agent/cache-forensics/README.md
+
+# Repair tools and their required fixtures. Generated backups stay private.
+!/agent/local-patches/
+!/agent/local-patches/claude-tool-schema-filter/
+!/agent/local-patches/claude-tool-schema-filter/README.md
+!/agent/local-patches/claude-tool-schema-filter/regression.test.mjs
+!/agent/local-patches/claude-tool-schema-filter/fix.patch
+!/agent/local-patches/claude-tool-schema-filter/installed-hashes.json
+!/agent/local-patches/claude-tool-schema-filter/manifest.json
+!/agent/local-patches/claude-tool-schema-filter/repair.py
+!/agent/local-patches/claude-tool-schema-filter/test_repair.py
+!/agent/local-patches/pi-web-access-dyn-activation/
+!/agent/local-patches/pi-web-access-dyn-activation/README.md
+!/agent/local-patches/pi-web-access-dyn-activation/ISSUE.md
+!/agent/local-patches/pi-web-access-dyn-activation/index.before.js
+!/agent/local-patches/post-update-cache-repair/
+!/agent/local-patches/post-update-cache-repair/README.md
+!/agent/local-patches/post-update-cache-repair/manifest.json
+!/agent/local-patches/post-update-cache-repair/repair.py
+!/agent/local-patches/post-update-cache-repair/test_repair.py
+!/agent/local-patches/post-update-cache-repair/pi-cache-fix-repair
+!/agent/local-patches/post-update-cache-repair/pi-update-with-cache-fixes
+!/agent/local-patches/post-update-cache-repair/payload/
+!/agent/local-patches/post-update-cache-repair/payload/pi-web-access/
+!/agent/local-patches/post-update-cache-repair/payload/pi-web-access/dist/
+!/agent/local-patches/post-update-cache-repair/payload/pi-web-access/dist/index.js

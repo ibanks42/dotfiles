@@ -1,0 +1,18 @@
+{
+  "maxConcurrent": 4,
+  "maxConcurrentForeground": 4,
+  "backgroundByDefault": true,
+  "scopeModels": true,
+  "fleetView": true,
+  "widgetMode": "background",
+  "showModel": true,
+  "showCost": true,
+  "reportUsage": true,
+  "rememberAgents": true,
+  "outputTranscript": true,
+  "agentMentions": "off",
+  "schedulingEnabled": false,
+  "workflowsEnabled": false,
+  "maxSubagentDepth": 1,
+  "fallbackSubagent": "none"
+}
