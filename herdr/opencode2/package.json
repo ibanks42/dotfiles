@@ -1,5 +1,0 @@
-{
-  "name": "local-herdr-opencode2",
-  "type": "module",
-  "exports": { "./tui": "./tui.ts" }
-}

@@ -45,20 +45,20 @@ pane_history = true
 [[keys.command]]
 key = "prefix+ctrl+h"
 type = "shell"
-command = "$HOME/.local/bin/herdr-split left"
+command = "$HOME/.config/herdr/herdr-split left"
 description = "create pane left"
 
 [[keys.command]]
 key = "prefix+ctrl+k"
 type = "shell"
-command = "$HOME/.local/bin/herdr-split up"
+command = "$HOME/.config/herdr/herdr-split up"
 description = "create pane above"
 
 # tmux-sessionizer parity: fuzzy workspace switcher in a popup.
 [[keys.command]]
 key = "ctrl+f"
 type = "popup"
-command = "$HOME/.local/bin/herdr-sessionizer"
+command = "$HOME/.config/herdr/herdr-sessionizer"
 description = "workspace switcher"
 width = "80%"
 height = "80%"
@@ -97,55 +97,55 @@ command = "numbered.ports.open"
 [[keys.command]]
 key = ["alt+shift+1", "alt+!"]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 1"
+command = "$HOME/.config/herdr/herdr-space-jumper 1"
 description = "space 1: jump / toggle agent pane"
 
 [[keys.command]]
 key = ["alt+shift+2", "alt+@"]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 2"
+command = "$HOME/.config/herdr/herdr-space-jumper 2"
 description = "space 2: jump / toggle agent pane"
 
 [[keys.command]]
 key = ["alt+shift+3", "alt+#"]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 3"
+command = "$HOME/.config/herdr/herdr-space-jumper 3"
 description = "space 3: jump / toggle agent pane"
 
 [[keys.command]]
 key = ["alt+shift+4", "alt+$"]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 4"
+command = "$HOME/.config/herdr/herdr-space-jumper 4"
 description = "space 4: jump / toggle agent pane"
 
 [[keys.command]]
 key = ["alt+shift+5", "alt+%"]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 5"
+command = "$HOME/.config/herdr/herdr-space-jumper 5"
 description = "space 5: jump / toggle agent pane"
 
 [[keys.command]]
 key = ["alt+shift+6", "alt+^"]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 6"
+command = "$HOME/.config/herdr/herdr-space-jumper 6"
 description = "space 6: jump / toggle agent pane"
 
 [[keys.command]]
 key = ["alt+shift+7", "alt+&"]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 7"
+command = "$HOME/.config/herdr/herdr-space-jumper 7"
 description = "space 7: jump / toggle agent pane"
 
 [[keys.command]]
 key = ["alt+shift+8", "alt+*"]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 8"
+command = "$HOME/.config/herdr/herdr-space-jumper 8"
 description = "space 8: jump / toggle agent pane"
 
 [[keys.command]]
 key = ["alt+shift+9", "alt+("]
 type = "shell"
-command = "$HOME/.local/bin/herdr-space-jumper 9"
+command = "$HOME/.config/herdr/herdr-space-jumper 9"
 description = "space 9: jump / toggle agent pane"
 
 [ui]
