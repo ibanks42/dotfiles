@@ -33,7 +33,7 @@ disabled = true # leave as TRUE
 
 [character]
 success_symbol = "[󰁔](fg:#6A8AEA) "
-error_symbol = "[](fg:#d56767)[ ](fg:#d56767) "
+error_symbol = "[󰁔](fg:#d56767) "
 format = "$symbol"
 disabled = false
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~     ...........       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
