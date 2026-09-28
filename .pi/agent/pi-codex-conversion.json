@@ -1,5 +1,5 @@
 {
-  "executionMode": "code",
+  "executionMode": "notebook",
   "voiceFeaturesOnly": false,
   "prompt": {
     "currentTimeReminderMinutes": 0,

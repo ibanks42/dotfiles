@@ -15,4 +15,5 @@ fi
 
 "${pi_bin}" update "$@"
 python3 "${repair}" apply
+"${HOME}/.pi/agent/local-patches/claude-bridge-root-union/apply.sh" apply
 printf '%s\n' 'Pi update completed and reviewed cache fixes are present. Restart Pi processes that were already running.'

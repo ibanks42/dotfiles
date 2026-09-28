@@ -1,0 +1,315 @@
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -26,6 +26,7 @@
+ import { buildActionSummary, type ToolCallState } from "./askclaude-ui.js";
+ import { askClaudeCallTags, askClaudeToolDescription, buildAskClaudeParams, resolveAskClaudeDefaults, resolveAskClaudeMode, type AskClaudeMode } from "./askclaude-schema.js";
+ import { nonSystemMessages, toBridgeContext } from "./transcript.js";
++import { cacheTrace } from "./cache-trace.js";
+ 
+ // --- Debug logging ---
+ // CLAUDE_BRIDGE_DEBUG=1 enables debug logging to ~/.pi/agent/claude-bridge.log
+@@ -296,6 +297,7 @@
+  *  with no session id, so such a rewrite forces the REBUILD side; the discard
+  *  set holds real ids only — see the comment on historyRewrittenBySession. */
+ function markRebuildForSession(piSession: string | null, event: string): void {
++	cacheTrace.rewrite(piSession, event);
+ 	// The rewriting session's own mirror: the rewrite changed the history it was
+ 	// built from, so its next sync must REBUILD rather than REUSE. Every other
+ 	// session's mirror stays untouched — its conversation was never rewritten.
+@@ -777,6 +779,7 @@
+ 		const trailingAssistantOnly =
+ 			missed.length === 1 && (missed[0] as { role?: string }).role === "assistant";
+ 		if (missed.length === 0 || trailingAssistantOnly) {
++		cacheTrace.sync(piSessionId, trailingAssistantOnly ? "reuse_trailing_assistant" : "reuse", sharedSession, history.length, priorMessages.length);
+ 		if (trailingAssistantOnly) {
+ 			setSessionStateFor(piSessionId, { ...sharedSession, cursor: priorMessages.length, cwd });
+ 			debug(`Case 3: advanced cursor past trailing assistant, resuming session ${sharedSession.sessionId.slice(0, 8)}, cursor=${priorMessages.length}`);
+@@ -804,6 +807,7 @@
+ 	// (/compact, session_tree, /new, fork) always set needsRebuild or clear
+ 	// sharedSession before the next syncSharedSession call.
+ 	if (sharedSession && !sharedSession.needsRebuild && priorMessages.length < sharedSession.cursor) {
++		cacheTrace.sync(piSessionId, "clean_shorter", sharedSession, history.length, priorMessages.length);
+ 		debug(`Case 1 synthetic: clean start for shorter context, preserving shared session ${sharedSession.sessionId.slice(0, 8)}, cursor=${sharedSession.cursor}`);
+ 		debug(`syncResult: path=clean-start preserve-shared sessionId=${sharedSession.sessionId} cursor=${sharedSession.cursor}`);
+ 		return { sessionId: null, preserveSharedSession: true };
+@@ -811,6 +815,7 @@
+ 
+ 	// REBUILD path
+ 	if (priorMessages.length === 0) {
++		cacheTrace.sync(piSessionId, "clean_no_priors", sharedSession, history.length, priorMessages.length);
+ 		debug(`Case 1: clean start, ${history.length} total messages`);
+ 		debug(`syncResult: path=clean-start`);
+ 		return { sessionId: null };
+@@ -822,6 +827,7 @@
+ 	// and for any tools that key off them. Skipped when there's a concurrent
+ 	// writer we shouldn't race (forceRotate).
+ 	const preserveId = previousSessionId !== undefined && !sharedSession?.forceRotate;
++	cacheTrace.sync(piSessionId, previousSessionId === undefined ? "rebuild_first" : preserveId ? "rebuild_preserve" : "rebuild_rotate", sharedSession, history.length, priorMessages.length);
+ 	// Before deleteSession — it wipes the file these live in.
+ 	const carried = previousSessionId !== undefined ? readCarriedAttachments(previousSessionId, cwd) : [];
+ 	if (preserveId) {
+@@ -1112,6 +1118,7 @@
+ // --- Usage helpers ---
+ 
+ function updateUsage(output: AssistantMessage, usage: Record<string, number | undefined>, model: Model<any>): void {
++	cacheTrace.usage(output, usage);
+ 	if (usage.input_tokens != null) output.usage.input = usage.input_tokens;
+ 	if (usage.output_tokens != null) output.usage.output = usage.output_tokens;
+ 	if (usage.cache_read_input_tokens != null) output.usage.cacheRead = usage.cache_read_input_tokens;
+@@ -1515,6 +1522,7 @@
+ 			continue;
+ 		}
+ 		if (!queryCtx.currentPiStream || !queryCtx.turnOutput) continue;
++		cacheTrace.output(sdkQuery, queryCtx.turnOutput);
+ 
+ 		switch (message.type) {
+ 			case "stream_event":
+@@ -1576,6 +1584,7 @@
+  *  it, so count-based sync would skip it forever — rebuild instead, which
+  *  re-imports the message from pi's context. */
+ function steerMissedSession(c: QueryContext, text: string): void {
++	cacheTrace.mark(c, "missed_steering");
+ 	c.missedSteer = true;
+ 	const state = sessionStateFor(c.piSessionId);
+ 	if (state) setSessionStateFor(c.piSessionId, { ...state, needsRebuild: true });
+@@ -1684,6 +1693,7 @@
+  *  history — so the turn continues instead of ending here. Nothing is lost by
+  *  killing the subprocess: pi owns the only copy of the conversation that counts. */
+ function discardRewrittenQuery(c: QueryContext): void {
++	cacheTrace.mark(c, "rewritten_parked_query");
+ 	const discarded = c.activeQuery as { interrupt?: () => Promise<unknown>; close?: () => void } | null;
+ 	if (discarded) abandonedQueries.add(discarded);
+ 	c.activeQuery = null;
+@@ -1762,6 +1772,7 @@
+ 	// (everything after the last assistant message) and match against waiting MCP
+ 	// handlers. Results that arrive before their handler get queued in pendingResults.
+ 	if (resultCtx) {
++		cacheTrace.continuation(resultCtx, allResults.length);
+ 		claimCurrentPiStream(stream, "tool-result", resultCtx);
+ 		resultCtx.resetTurnState(model);
+ 		// A rewrite that armed the mark after this query parked gets copied here,
+@@ -1856,6 +1867,7 @@
+ 	// follow-up) and on SessionState. A fresh instance of this module inside a
+ 	// worktree-spawned subagent has its own contexts; each records its own.
+ 	queryCtx.piSessionId = options?.sessionId ?? null;
++	const cacheTraceQuery = cacheTrace.start(queryCtx, queryCtx.piSessionId, model.id, options?.reasoning, systemPromptAppend, mcpTools, context.messages.length);
+ 	// A discarded query's replacement reuses this context; without the reset its
+ 	// first tool result would sit on armed staleness again (the mark is consumed
+ 	// from the set, not from here) and re-discard a healthy query.
+@@ -1937,6 +1949,7 @@
+ 			: VALID_EFFORTS.has(mapped as EffortLevel) ? mapped as EffortLevel : undefined
+ 		: undefined;
+ 
++	cacheTrace.selected(cacheTraceQuery, effort);
+ 	const extraArgs: Record<string, string | null> = { model: cliModel };
+ 	if (strictMcpConfigEnabled) extraArgs["strict-mcp-config"] = null;
+ 	// Opus 4.7 defaults thinking.display to "omitted" (empty thinking text in stream).
+@@ -1995,6 +2008,7 @@
+ 	// 3. Start SDK query and claim it for this context
+ 	let wasAborted = false;
+ 	const sdkQuery = queryImpl({ prompt: promptStream.stream, options: queryOptions });
++	cacheTrace.bind(cacheTraceQuery, sdkQuery);
+ 	queryCtx.activeQuery = sdkQuery;
+ 	activeQueryContexts.add(queryCtx);
+ 
+@@ -2020,6 +2034,7 @@
+ 	// Background consumer — runs until query ends
+ 	consumeQuery(sdkQuery, customToolNameToPi, model, () => wasAborted, queryCtx)
+ 		.then(async ({ capturedSessionId }) => {
++			cacheTrace.finish(sdkQuery, abandonedQueries.has(sdkQuery) ? "abandoned" : wasAborted || options?.signal?.aborted ? "aborted" : queryCtx.turnOutput?.stopReason === "error" ? "error" : "completed", capturedSessionId);
+ 			debug(`provider: consumeQuery completed, stopReason=${queryCtx.turnOutput?.stopReason}, error=${queryCtx.turnOutput?.errorMessage}, aborted=${wasAborted}`);
+ 
+ 			// Discarded out from under: the query continuing the turn owns the context,
+@@ -2078,6 +2093,7 @@
+ 			finalizeCurrentStream(queryCtx, queryCtx.turnOutput?.stopReason);
+ 		})
+ 		.catch((error) => {
++			cacheTrace.finish(sdkQuery, abandonedQueries.has(sdkQuery) ? "abandoned" : wasAborted || options?.signal?.aborted ? "aborted" : "error");
+ 			debug(`provider: query error, model=${cliModel}, aborted=${Boolean(options?.signal?.aborted)}, error=`, error);
+ 			if (abandonedQueries.has(sdkQuery)) {
+ 				debug("provider: discarded query ended in error, leaving session and stream to its replacement");
+--- /dev/null
++++ b/src/cache-trace.ts
+@@ -0,0 +1,182 @@
++// Diagnostic-only. No bridge/session mutations, persisted keys, or content records.
++import { createHmac, randomBytes } from "node:crypto";
++import { closeSync, constants as F, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeSync } from "node:fs";
++import { homedir } from "node:os";
++import { join } from "node:path";
++
++const LIMIT = 256 * 1024;
++const MAX_SESSIONS = 1024;
++const branches = new Set(["reuse", "reuse_trailing_assistant", "clean_shorter", "clean_no_priors", "rebuild_first", "rebuild_preserve", "rebuild_rotate"]);
++const reasons = new Set(["session_compact", "session_tree", "history_rewrite_unknown", "missed_steering", "rewritten_parked_query"]);
++const finishes = new Set(["completed", "aborted", "error", "abandoned"]);
++const efforts = new Set(["minimal", "low", "medium", "high", "xhigh", "max"]);
++const models = new Set(["claude-opus-4-6", "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-opus-5-5", "claude-sonnet-4-6", "claude-sonnet-5", "claude-fable-5", "claude-fable-5-1", "claude-haiku-4-5", "claude-haiku-4-5-20251001"]);
++// Opaque object identity for WeakMap attribution. Never inspect bridge objects.
++type Identity = object;
++type RecordValue = string | number | boolean | null;
++type Row = Record<string, RecordValue>;
++type Token = { session: string; query: string; started: number; epoch: number; done: boolean; observations: number };
++type Session = { completed?: number; model?: string; effort?: string; prompt?: string; tools?: string; pending?: Token };
++type Mirror = { sessionId?: string; cursor?: number; needsRebuild?: boolean; forceRotate?: boolean };
++const number = (v: unknown): number | null => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : null;
++
++// Agent root is a trusted location (Pi commonly symlinks ~/.pi). Pin its resolved
++// directory; below it, never follow control/log symlinks. Linux /proc fd paths
++// keep writes on the opened directory even if a parent is renamed concurrently.
++function privateFile(fd: number): void {
++ const st = fstatSync(fd);
++ if (!st.isFile() || st.nlink !== 1 || st.uid !== process.getuid?.()) throw new Error("unsafe file");
++}
++function agentFd(root: string): number {
++ return openSync(realpathSync(root), F.O_RDONLY | F.O_DIRECTORY | F.O_NOFOLLOW);
++}
++function flag(root: string): { enabled: boolean; fingerprints: boolean } {
++ const dir = agentFd(root);
++ try {
++  const fd = openSync(`/proc/self/fd/${dir}/claude-bridge-cache-trace.json`, F.O_RDONLY | F.O_NOFOLLOW | F.O_NONBLOCK);
++  try {
++   privateFile(fd);
++   if (fstatSync(fd).size > 1024) return { enabled: false, fingerprints: false };
++   const value = JSON.parse(readFileSync(fd, "utf8"));
++   return { enabled: value?.enabled === true, fingerprints: value?.fingerprints === true };
++  } finally { closeSync(fd); }
++ } finally { closeSync(dir); }
++}
++function sink(root: string, row: Row): void {
++ const agent = agentFd(root);
++ let dir: number | undefined;
++ let locked = false;
++ let base = "";
++ try {
++  const path = `/proc/self/fd/${agent}/claude-bridge-cache-trace`;
++  try { mkdirSync(path, { mode: 0o700 }); } catch (e) { if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e; }
++  dir = openSync(path, F.O_RDONLY | F.O_DIRECTORY | F.O_NOFOLLOW);
++  if (fstatSync(dir).uid !== process.getuid?.()) return;
++  fchmodSync(dir, 0o700);
++  base = `/proc/self/fd/${dir}`;
++  // Cross-process rotation lock. A crash can leave a stale lock: fail closed.
++  mkdirSync(`${base}/.lock`, { mode: 0o700 });
++  locked = true;
++  const files = ["trace.jsonl", "trace.1.jsonl", "trace.2.jsonl"].map(n => `${base}/${n}`);
++  for (const file of files) {
++   try {
++    const st = lstatSync(file);
++    if (!st.isFile() || st.nlink !== 1 || st.uid !== process.getuid?.()) return;
++    const fd = openSync(file, F.O_WRONLY | F.O_NOFOLLOW | F.O_NONBLOCK);
++    try { privateFile(fd); fchmodSync(fd, 0o600); } finally { closeSync(fd); }
++   } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
++  }
++  const line = Buffer.from(JSON.stringify(row) + "\n");
++  if (line.length > 4096) return;
++  let fd = openSync(files[0], F.O_WRONLY | F.O_APPEND | F.O_CREAT | F.O_NOFOLLOW | F.O_NONBLOCK, 0o600);
++  try {
++   privateFile(fd);
++   fchmodSync(fd, 0o600);
++   if (fstatSync(fd).size + line.length > LIMIT) {
++    closeSync(fd); fd = -1;
++    try { unlinkSync(files[2]); } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
++    try { renameSync(files[1], files[2]); } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
++    renameSync(files[0], files[1]);
++    fd = openSync(files[0], F.O_WRONLY | F.O_CREAT | F.O_EXCL | F.O_NOFOLLOW, 0o600);
++    privateFile(fd);
++   }
++   writeSync(fd, line);
++  } finally { if (fd >= 0) closeSync(fd); }
++ } finally {
++  if (locked) { try { rmdirSync(`${base}/.lock`); } catch {} }
++  if (dir !== undefined) closeSync(dir);
++  closeSync(agent);
++ }
++}
++
++/** Factory dependencies are for offline tests. The exported singleton uses Pi's agent directory. */
++export function createCacheTrace(deps: { agentDir?: string; now?: () => number } = {}) {
++ let secret: Buffer | undefined;
++ let epoch = 0;
++ let seq = 0;
++ const sessions = new Map<string, Session>();
++ let contexts = new WeakMap<object, Token>();
++ let queries = new WeakMap<object, Token>();
++ let outputs = new WeakMap<object, Token>();
++ const now = deps.now ?? (() => performance.now());
++ const root = () => deps.agentDir ?? process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
++ function clear() { sessions.clear(); contexts = new WeakMap(); queries = new WeakMap(); outputs = new WeakMap(); secret = undefined; epoch++; }
++ function safe<T>(fn: (fp: boolean) => T): T | undefined {
++  try {
++   const config = flag(root());
++   if (!config.enabled) { clear(); return; }
++   secret ??= randomBytes(32);
++   return fn(config.fingerprints);
++  } catch { clear(); return; }
++ }
++ function hash(domain: string, value: unknown): string {
++  return createHmac("sha256", secret!).update(domain).update("\0").update(typeof value === "string" ? value : JSON.stringify(value) ?? "null").digest("hex").slice(0, 24);
++ }
++ function state(session: string): Session {
++  let s = sessions.get(session);
++  if (!s) {
++   if (sessions.size >= MAX_SESSIONS) sessions.delete(sessions.keys().next().value!);
++   s = {}; sessions.set(session, s);
++  }
++  return s;
++ }
++ function emit(event: string, data: Row) {
++  try { sink(root(), { schema: 1, time: Date.now(), process: hash("process", "instance"), event, ...data }); } catch { /* Drop only this observation on sink failure. */ }
++ }
++ function valid(t?: Token): t is Token { return !!t && t.epoch === epoch; }
++ function identity(t: Token): Row { return { session: t.session, query: t.query }; }
++ return {
++  start(c: Identity, piSession: unknown, model: unknown, reasoning: unknown, prompt: unknown, tools: unknown, messages: number): Token | undefined {
++   return safe(fp => {
++    const session = hash("session", piSession ?? "unattributed");
++    const s = state(session);
++    const t: Token = { session, query: hash("query", String(++seq)), started: now(), epoch, done: false, observations: 0 };
++    const modelHash = typeof model === "string" ? hash("model", model) : undefined;
++    const effort = typeof reasoning === "string" && efforts.has(reasoning) ? reasoning : "unspecified";
++    const promptHash = fp ? hash("system_append", prompt) : undefined;
++    const toolsHash = fp ? hash("tool_definitions", tools) : undefined;
++    contexts.set(c, t); s.pending = t;
++    emit("start", { ...identity(t), attributed: typeof piSession === "string", messages: number(messages), tools: Array.isArray(tools) ? tools.length : null,
++     idleMs: s.completed === undefined ? null : Math.max(0, Math.round(t.started - s.completed)),
++     model: typeof model === "string" && models.has(model) ? model : "unknown", provider: "claude-bridge", effort,
++     modelChanged: s.model && modelHash ? s.model !== modelHash : null,
++     effortChanged: s.effort && s.effort !== "unspecified" && effort !== "unspecified" ? s.effort !== effort : null,
++     promptHash: promptHash ?? null, toolsHash: toolsHash ?? null,
++     promptChanged: s.prompt && promptHash ? s.prompt !== promptHash : null,
++     toolsChanged: s.tools && toolsHash ? s.tools !== toolsHash : null });
++    s.model = modelHash; s.effort = effort; s.prompt = promptHash; s.tools = toolsHash;
++    return t;
++   });
++  },
++  bind(t: Token | undefined, q: Identity) { safe(() => { if (valid(t)) queries.set(q, t); }); },
++  output(q: Identity, output: Identity | null) { safe(() => { const t = queries.get(q); if (valid(t) && output) outputs.set(output, t); }); },
++  usage(output: Identity, usage: Record<string, unknown>) { safe(() => {
++   const t = outputs.get(output); if (!valid(t)) return;
++   emit("usage", { ...identity(t), observation: ++t.observations, kind: "snapshot_partial", source: "update_usage", aggregation: "none",
++    input: number(usage.input_tokens), output: number(usage.output_tokens), cacheRead: number(usage.cache_read_input_tokens), cacheWrite: number(usage.cache_creation_input_tokens) });
++  }); },
++  sync(piSession: unknown, branch: string, mirror: Mirror | null, history: number, prior: number) { safe(() => {
++   if (!branches.has(branch)) return;
++   const session = hash("session", piSession ?? "unattributed"); const s = state(session); const t = s.pending; s.pending = undefined;
++   emit("sync", { session, query: valid(t) ? t.query : null, branch, ccSession: mirror?.sessionId ? hash("cc_session", mirror.sessionId) : null,
++    history: number(history), prior: number(prior), cursor: number(mirror?.cursor), missed: mirror ? number(Math.max(0, prior - (mirror.cursor ?? 0))) : null,
++    needsRebuild: mirror?.needsRebuild === true, forceRotate: mirror?.forceRotate === true });
++  }); },
++  rewrite(piSession: unknown, event: string) { safe(() => {
++   const reason = event.startsWith("session_compact:") ? "session_compact" : event === "session_tree" ? "session_tree" : "history_rewrite_unknown";
++   emit("rewrite", { session: hash("session", piSession ?? "unattributed"), reason });
++  }); },
++  mark(c: Identity, reason: string) { safe(() => { const t = contexts.get(c); if (valid(t) && reasons.has(reason)) emit("mark", { ...identity(t), reason }); }); },
++  continuation(c: Identity, count: number) { safe(() => { const t = contexts.get(c); if (valid(t)) emit("continuation", { ...identity(t), results: number(count) }); }); },
++  selected(t: Token | undefined, effort: unknown) { safe(() => { if (valid(t)) emit("selected", { ...identity(t), effort: typeof effort === "string" && efforts.has(effort) ? effort : "unspecified" }); }); },
++  finish(q: Identity, reason: string, ccSession?: unknown) { safe(() => {
++   const t = queries.get(q); if (!valid(t) || t.done || !finishes.has(reason)) return;
++   t.done = true;
++   // This is a query terminal event, never a tool/stream boundary.
++   state(t.session).completed = now();
++   emit("finish", { ...identity(t), reason, durationMs: Math.max(0, Math.round(now() - t.started)), observations: t.observations,
++    ccSession: typeof ccSession === "string" ? hash("cc_session", ccSession) : null });
++  }); },
++ };
++}
++export const cacheTrace = createCacheTrace();

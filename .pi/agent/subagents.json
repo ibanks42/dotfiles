@@ -2,7 +2,7 @@
   "maxConcurrent": 4,
   "maxConcurrentForeground": 4,
   "backgroundByDefault": true,
-  "scopeModels": true,
+  "scopeModels": false,
   "fleetView": true,
   "widgetMode": "background",
   "showModel": true,
@@ -14,5 +14,13 @@
   "schedulingEnabled": false,
   "workflowsEnabled": false,
   "maxSubagentDepth": 1,
-  "fallbackSubagent": "none"
+  "fallbackSubagent": "none",
+  "defaultMaxTurns": 0,
+  "graceTurns": 100,
+  "defaultJoinMode": "smart",
+  "strictAgentFiles": false,
+  "disableDefaultAgents": false,
+  "toolDescriptionMode": "full",
+  "worktreeIsolation": true,
+  "viewerMarkdown": "assistant"
 }

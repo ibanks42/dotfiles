@@ -1,43 +1,98 @@
 {
   "router": {
-    "model": "openai-codex/gpt-*-luna",
+    "model": "zai/glm-5.3-flash",
     "thinking": "low",
     "timeoutMs": 45000
   },
-  "tiers": {
-    "menial": {
-      "candidates": [
-        "zai/glm-*-flash",
-        "opencode-zen-free/muse-spark-*"
+  "scout": {
+    "maxTurns": 3,
+    "timeoutMs": 15000,
+    "levelGap": 2
+  },
+  "fallbackModel": "luna",
+  "models": {
+    "glm-flash": {
+      "routes": [
+        "zai/glm-5.3-flash"
       ],
-      "thinking": "minimal"
+      "family": "zai",
+      "profile": "Strong for its cost: intelligence index 42 (about sol at high), agentic coding 33, lowest hallucination rate here (about 28%). Slow: measured here at a median of 11 s per model turn (p90 38 s), with long reasoning; about 13 min per benchmark task. Good for background research, audits, and routine implementation when time does not matter. Avoid it when a fast answer matters, including trivial tasks. Quota cost per task: about $0.25.",
+      "fallback": "muse-spark",
+      "stronger": "astra"
     },
-    "low": {
-      "candidates": [
-        "openai-codex/gpt-*-luna",
-        "pi-claude-code-provider/sonnet"
+    "muse-spark": {
+      "routes": [
+        "opencode-zen-free/muse-spark-1.3-contributor-free"
       ],
-      "thinking": "low"
+      "family": "opencode",
+      "profile": "Free. Intelligence index 48 (between sol at max and astra at medium), agentic coding 33, hallucination rate about 33%. About 165 tokens/s, but about 25 s before the first token and about 4 min per benchmark task. Good free option for background research, audits, and routine implementation. Free tier: can be slow or unavailable at busy times. Costs nothing (free tier).",
+      "fallback": "glm-flash",
+      "stronger": "astra"
     },
-    "mid": {
-      "candidates": [
-        "pi-claude-code-provider/opus",
-        "openai-codex/gpt-*-sol"
+    "luna": {
+      "routes": [
+        "openai-codex/gpt-6-luna",
+        "openai-codex-account-2/gpt-6-luna"
       ],
-      "thinking": "medium"
+      "family": "openai",
+      "profile": "Fastest model: measured here at a median of 4 s per model turn. Weakest on reasoning. Intelligence index by effort: low 21, medium 29, high 32, xhigh 34, max 37. Agentic coding (Terminal-Bench 4.0): low 0, medium 3, high 5, max 13. Hallucination rate about 84%, the highest here: it invents answers when unsure. Use it for trivial commands, listings, reformatting, and simple searches where tool output is the evidence. Not for implementation beyond trivial edits, debugging, design, or fact-sensitive research. Quota cost per benchmark task: low $0.004, medium $0.02, high $0.03, max $0.07.",
+      "fallback": "muse-spark",
+      "stronger": "sol"
     },
-    "high": {
-      "candidates": [
-        "pi-claude-code-provider/fable",
-        "openai-codex/gpt-*-astra"
+    "sonnet": {
+      "routes": [
+        "claude-bridge/claude-sonnet-5"
       ],
-      "thinking": "high"
+      "family": "anthropic",
+      "profile": "Outperformed by opus at low effort: opus low scores 42 at a similar cost and a fraction of the time. Intelligence index: low 24, medium 28, high 32, xhigh 34, max 38. Agentic coding: low 3, medium 2, high 5, max 14. About 70 tokens/s, 2.5 min per task at low and 15 min at max. Hallucination rate about 73% at low, 39% at max. Pick it only when opus is unavailable and a Claude model is required. Quota cost per task: low $0.51, medium $1.00, high $1.79, max $5.09.",
+      "fallback": "opus",
+      "stronger": "opus"
+    },
+    "sol": {
+      "routes": [
+        "openai-codex/gpt-6-sol",
+        "openai-codex-account-2/gpt-6-sol"
+      ],
+      "family": "openai",
+      "profile": "Balanced OpenAI model, fast in practice: measured here at a median of 7 s per model turn (p90 17 s). Intelligence index: non-reasoning 28, low 34, medium 40, high 43, xhigh 44, max 48. Agentic coding: low 9, medium 19, high 26, xhigh 30, max 44. Low effort is cheap and quick (about 40 s per task) with a much lower hallucination rate than luna (about 51%), so sol at low beats luna for research and routine edits. Use high or xhigh for multi-file implementation, and max for coding-heavy work when time is not critical. Two Codex accounts, so quota is plentiful. Quota cost per task: low $0.13, medium $0.25, high $0.38, xhigh $0.53, max $1.06.",
+      "fallback": "opus",
+      "stronger": "astra"
+    },
+    "opus": {
+      "routes": [
+        "claude-bridge/claude-opus-5-5"
+      ],
+      "family": "anthropic",
+      "profile": "Strongest model measured. Intelligence index: low 42, medium 51, high 54, xhigh 56, max 58. Agentic coding: low 31, medium 53, high 57, xhigh 60, max 60. Fast in practice: measured here at a median of 7-10 s per model turn (p90 about 30 s), about 90 tokens/s. Higher effort adds time: xhigh and max are much slower. Hallucination rate about 66%. Medium is the best value; high for subtle correctness; xhigh or max only for exceptional tasks. Uses Claude quota shared with the main session. Always pick opus for UI and UX design or implementation: the user requires it. Quota cost per task: low $0.55, medium $1.34, high $1.82, xhigh $3.46, max $5.98.",
+      "fallback": "astra"
+    },
+    "astra": {
+      "routes": [
+        "openai-codex/gpt-6-astra",
+        "openai-codex-account-2/gpt-6-astra"
+      ],
+      "family": "openai",
+      "profile": "Strongest OpenAI model and the most reliable: hallucination rate about 45-50%, the lowest of the frontier models. Intelligence index: low 46, medium 50, high 51, xhigh 52, max 53. Agentic coding: low 42, medium 50, high 54, xhigh 60. Slowest model in practice: measured here at a median of 15 s per model turn (p90 65 s), about twice opus. Astra at low already beats sol at xhigh. Good for hard correctness, security, and fact-sensitive work when speed does not matter; when opus is usable and speed matters, prefer opus. Two Codex accounts. Quota cost per task: low $0.82, medium $1.54, high $1.73, xhigh $2.31, max $3.26, so about 6 times sol at the same effort. Reserve it for hard work.",
+      "fallback": "opus",
+      "stronger": "opus"
+    },
+    "fable": {
+      "routes": [
+        "claude-bridge/claude-fable-5-1"
+      ],
+      "family": "anthropic",
+      "profile": "Weaker than opus at every effort level, at about twice the time and cost. Intelligence index: low 47, medium 49, high 51, xhigh 53, max 53. Agentic coding: low 40, medium 45, high 52, xhigh 55. Slow: measured here at a median of 12-15 s per model turn (p90 up to 136 s). Has an extra weekly limit of its own. No measured advantage over opus; pick it only when opus is unavailable. Quota cost per task: low $2.37, medium $2.98, high $3.91, max $7.63.",
+      "fallback": "opus",
+      "stronger": "opus"
     }
   },
+  "agentTypes": {},
   "quota": {
     "maxUsedPercent": 95,
     "claudeCacheMs": 300000,
+    "claudeWaitMs": 1000,
     "rateLimitCooldownMs": 1800000
   },
-  "maxOutputChars": 400000
+  "maxOutputChars": 400000,
+  "modelData": "Quality, hallucination, and cost figures: Artificial Analysis, retrieved 2026-09-28 from artificialanalysis.ai/models/<model>. Speed: median seconds per model turn measured from local Pi sessions on 2026-09-28."
 }

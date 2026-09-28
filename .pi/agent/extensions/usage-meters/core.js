@@ -427,11 +427,68 @@ function parseClaudeUsagePayload(stdout) {
   return result;
 }
 
-// Claude Code subscription usage, read through the local `claude` CLI rather than pi's anthropic
-// OAuth provider: this machine drives Claude through pi-claude-code-provider, so no anthropic
-// credential exists in pi and none is wanted. The CLI retrieves subscription quota;
-// this extension makes no direct Anthropic API calls.
-export async function fetchClaudeCode(_ctx, { runClaude = runClaudeUsage, readAccount = readClaudeAccount, clock = Date.now } = {}) {
+// Claude Code's own OAuth access token, read (never written or refreshed) from its credential file.
+// A token near expiry is skipped: refreshing here would rotate Claude Code's refresh token, so the
+// CLI path, which refreshes through Claude Code itself, handles that case instead.
+const CLAUDE_TOKEN_SKEW_MS = 60_000;
+export async function readClaudeCodeToken({ clock = Date.now } = {}) {
+  try {
+    const path = process.env.PI_USAGE_METERS_CLAUDE_CREDENTIALS || join(homedir(), ".claude", ".credentials.json");
+    const oauth = JSON.parse(await readFile(path, "utf8"))?.claudeAiOauth;
+    const token = typeof oauth?.accessToken === "string" ? oauth.accessToken.trim() : "";
+    if (!token || !(Number(oauth.expiresAt) > clock() + CLAUDE_TOKEN_SKEW_MS)) return undefined;
+    return token;
+  } catch {
+    return undefined;
+  }
+}
+
+// Meters from api.anthropic.com/api/oauth/usage. `limits` is the generic list (session, weekly, and
+// per-model weekly); the named five_hour/seven_day windows are the fallback when it is absent.
+export function claudeUsageMeters(usage) {
+  const meters = [];
+  const push = (label, percent, resetsAt, windowMs) => {
+    if (percent === undefined || percent === null || meters.length >= 12) return;
+    meters.push({ label, percent: clampPct(percent), resetMs: Date.parse(resetsAt), windowMs });
+  };
+  if (Array.isArray(usage?.limits) && usage.limits.length) {
+    for (const limit of usage.limits.slice(0, 12)) {
+      const model = clean(limit?.scope?.model?.display_name, 40);
+      if (limit?.group === "session" && !limit.scope) push("Session (5h)", limit.percent, limit.resets_at, H5);
+      else if (limit?.group === "weekly" && !limit.scope) push("Week (all models)", limit.percent, limit.resets_at, D7);
+      else if (limit?.group === "weekly" && model) push(`Week (${model})`, limit.percent, limit.resets_at, D7);
+    }
+  } else {
+    push("Session (5h)", usage?.five_hour?.utilization, usage?.five_hour?.resets_at, H5);
+    push("Week (all models)", usage?.seven_day?.utilization, usage?.seven_day?.resets_at, D7);
+  }
+  return meters;
+}
+
+export async function fetchClaudeUsageDirect({ readToken = readClaudeCodeToken, fetchJson = getJson } = {}) {
+  const token = await readToken();
+  if (!token) return undefined;
+  const usage = await fetchJson("https://api.anthropic.com/api/oauth/usage", token, { "anthropic-beta": "oauth-2025-04-20" });
+  const meters = claudeUsageMeters(usage);
+  return meters.length ? meters : undefined;
+}
+
+// Claude Code subscription usage. The fast path reads Claude Code's own OAuth token and asks the
+// usage endpoint directly (~0.3s); pi holds no anthropic credential here, so pi's auth store is not
+// involved. Without a fresh token, or when that request fails, it falls back to the local
+// `claude` CLI (~4s), which also refreshes the token through Claude Code itself.
+export async function fetchClaudeCode(_ctx, { fetchDirect = fetchClaudeUsageDirect, runClaude = runClaudeUsage, readAccount = readClaudeAccount, clock = Date.now } = {}) {
+  let direct;
+  try {
+    direct = await fetchDirect();
+  } catch {
+    direct = undefined; // any direct failure (401, timeout, shape change) defers to the CLI
+  }
+  if (direct) {
+    const lines = [header("Claude", claudePlanLabel(await readAccount()))];
+    for (const meter of direct) lines.push(line(meter.label, meter.percent, meter.resetMs, meter.windowMs));
+    return lines;
+  }
   let text;
   try {
     text = await runClaude();
@@ -853,7 +910,7 @@ export async function fetchCopilot(ctx, { readCredential = readPiCredential } = 
 }
 
 const FETCHERS = [
-  ["Claude", fetchClaudeCode, null], // local claude CLI: no pi login target
+  ["Claude", fetchClaudeCode, null], // Claude Code token or CLI: no pi login target
   ["Codex", fetchCodex, "openai-codex"],
   ["Kimi", fetchKimi, "kimi-coding"],
   ["Grok", fetchXai, "xai"],

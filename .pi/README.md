@@ -67,6 +67,7 @@ After package updates, run the Claude repair separately.
 See each repair README for refusal conditions and recovery limits.
 
 Pi uses its built-in `cacheWarming` setting.
+This setting warms only eligible providers; it does not guarantee warming for Codex or the Claude bridge.
 The retired warm-cache extension and its repair inputs are not required.
 
 ## Files kept locally
@@ -77,7 +78,10 @@ The retired warm-cache extension and its repair inputs are not required.
 - `agent/npm/` contains the installed packages and their dependency records.
 - `agent/cache-forensics/` contains retained diagnostic tools and private capture controls.
 
-The prefix diagnostic targets one historical session. It remains because you explicitly chose to keep both diagnostic tools.
+The metadata-only cache diagnostic replaces the historical single-session prefix observer.
+Use `/cache-diagnostics on|off|status|report` to inspect cache behavior across observed providers and sessions.
+Its persistent HMAC key, fingerprints, and logs stay local under `agent/cache-diagnostics/`.
+This does not enable the separate raw `/forensics` capture. See `agent/extensions/cache-diagnostics/README.md` for coverage limits.
 The Herdr extension is active in this environment. The usage extension supplies `/usage`.
 Session directories use mode `0700`, and existing session files use mode `0600` on this machine.
 Git does not preserve these runtime permissions. The private session directory also protects newly created session files.

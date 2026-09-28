@@ -1,0 +1,19 @@
+--- a/src/mcp-server.ts
++++ b/src/mcp-server.ts
+@@ -25,6 +25,7 @@
+ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+ import type { McpResult } from "./extract-tool-results.js";
++import { flattenRootUnion } from "./schema-flatten.js";
+ 
+ // Claude Code stamps every tools/call with the id of the tool_use block it came
+ // from. That is the only reliable way to pair a call with its result: call order
+@@ -57,6 +58,8 @@
+ }
+ 
+ export function createToolServer(name: string, tools: McpToolDef[]) {
++	// Local patch (claude-bridge-root-union): see schema-flatten.ts.
++	tools = tools.map((tool) => ({ ...tool, inputSchema: flattenRootUnion(tool.inputSchema) }));
+ 	const server = new McpServer({ name, version: "1.0.0" }, { capabilities: { tools: {} } });
+ 	const byName = new Map(tools.map((tool) => [tool.name, tool]));
+ 	for (const tool of tools) assertObjectSchema(tool);

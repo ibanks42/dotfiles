@@ -20,7 +20,18 @@
 !/agent/extensions/cache-forensics.ts
 !/agent/extensions/cache-forensics-tests/
 !/agent/extensions/cache-forensics-tests/cache-forensics.test.ts
-!/agent/extensions/cache-prefix-diagnostic.ts
+!/agent/extensions/cache-diagnostics/
+!/agent/extensions/cache-diagnostics/index.ts
+!/agent/extensions/cache-diagnostics/fingerprint.ts
+!/agent/extensions/cache-diagnostics/store.ts
+!/agent/extensions/cache-diagnostics/schema.ts
+!/agent/extensions/cache-diagnostics/report.ts
+!/agent/extensions/cache-diagnostics/README.md
+!/agent/extensions/cache-diagnostics/tests/
+!/agent/extensions/cache-diagnostics/tests/cache-diagnostics.test.ts
+!/agent/extensions/cache-diagnostics/tests/concurrent-writer.ts
+!/agent/extensions/cache-diagnostics/tests/fifo-probe.ts
+!/agent/extensions/cache-diagnostics/tests/runner.integration.test.ts
 !/agent/extensions/herdr-agent-state.ts
 !/agent/extensions/subtask-router/
 !/agent/extensions/subtask-router/index.ts
@@ -66,3 +77,37 @@
 !/agent/local-patches/post-update-cache-repair/payload/pi-web-access/
 !/agent/local-patches/post-update-cache-repair/payload/pi-web-access/dist/
 !/agent/local-patches/post-update-cache-repair/payload/pi-web-access/dist/index.js
+
+# Manual reviewer source only; snapshots and packets remain private.
+!/agent/agents/subtask-reviewer.md
+!/agent/extensions/subtask-router/reviewer.ts
+!/agent/extensions/subtask-router/tests/reviewer.test.ts
+
+# Reviewed cache trace patch inputs only; runtime trace data stays private.
+!/agent/local-patches/claude-bridge-cache-trace/
+!/agent/local-patches/claude-bridge-cache-trace/payload/
+!/agent/local-patches/claude-bridge-cache-trace/payload/src/
+!/agent/local-patches/claude-bridge-cache-trace/pristine/
+!/agent/local-patches/claude-bridge-cache-trace/pristine/src/
+!/agent/local-patches/claude-bridge-cache-trace/bridge.patch
+!/agent/local-patches/claude-bridge-cache-trace/manifest.json
+!/agent/local-patches/claude-bridge-cache-trace/repair.py
+!/agent/local-patches/claude-bridge-cache-trace/test_repair.py
+!/agent/local-patches/claude-bridge-cache-trace/offline.test.mjs
+!/agent/local-patches/claude-bridge-cache-trace/README.md
+!/agent/local-patches/claude-bridge-cache-trace/VALIDATION.md
+!/agent/local-patches/claude-bridge-cache-trace/payload/src/index.ts
+!/agent/local-patches/claude-bridge-cache-trace/payload/src/cache-trace.ts
+!/agent/local-patches/claude-bridge-cache-trace/pristine/package.json
+!/agent/local-patches/claude-bridge-cache-trace/pristine/src/index.ts
+!/agent/local-patches/claude-bridge-cache-trace/pristine/src/transcript.ts
+
+# Root-union schema patch for pi-claude-bridge.
+!/agent/local-patches/claude-bridge-root-union/
+!/agent/local-patches/claude-bridge-root-union/README.md
+!/agent/local-patches/claude-bridge-root-union/UPSTREAM.md
+!/agent/local-patches/claude-bridge-root-union/apply.sh
+!/agent/local-patches/claude-bridge-root-union/mcp-server.patch
+!/agent/local-patches/claude-bridge-root-union/schema-flatten.ts
+!/agent/local-patches/claude-bridge-root-union/regression.test.mjs
+!/agent/local-patches/claude-bridge-root-union/notebook-schema.json

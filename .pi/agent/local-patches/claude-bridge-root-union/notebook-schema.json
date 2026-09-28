@@ -1,0 +1,139 @@
+{
+	"anyOf": [
+		{
+			"type": "object",
+			"required": [
+				"action"
+			],
+			"properties": {
+				"action": {
+					"type": "string",
+					"enum": [
+						"status",
+						"list"
+					]
+				},
+				"query": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false
+		},
+		{
+			"type": "object",
+			"required": [
+				"action"
+			],
+			"properties": {
+				"action": {
+					"type": "string",
+					"enum": [
+						"checkpoint",
+						"restart",
+						"diagnostics",
+						"reset"
+					]
+				}
+			},
+			"additionalProperties": false
+		},
+		{
+			"type": "object",
+			"required": [
+				"action",
+				"name"
+			],
+			"properties": {
+				"action": {
+					"type": "string",
+					"enum": [
+						"save",
+						"load"
+					]
+				},
+				"name": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false
+		},
+		{
+			"type": "object",
+			"required": [
+				"action",
+				"names"
+			],
+			"properties": {
+				"action": {
+					"type": "string",
+					"const": "pin"
+				},
+				"names": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"minItems": 1
+				},
+				"hook": {
+					"anyOf": [
+						{
+							"type": "string",
+							"enum": [
+								"startup",
+								"tool_result"
+							]
+						},
+						{
+							"type": "boolean",
+							"const": false
+						}
+					],
+					"description": "Await self-contained fn(event); tool_result gets {type,toolName,input,status,result?,error?}; hook tool calls do not retrigger; false removes hook"
+				}
+			},
+			"additionalProperties": false
+		},
+		{
+			"type": "object",
+			"required": [
+				"action",
+				"names"
+			],
+			"properties": {
+				"action": {
+					"type": "string",
+					"enum": [
+						"unpin",
+						"release"
+					]
+				},
+				"names": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"minItems": 1
+				}
+			},
+			"additionalProperties": false
+		},
+		{
+			"type": "object",
+			"required": [
+				"action",
+				"query"
+			],
+			"properties": {
+				"action": {
+					"type": "string",
+					"const": "prune"
+				},
+				"query": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false
+		}
+	]
+}
