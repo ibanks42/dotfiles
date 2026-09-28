@@ -61,5 +61,9 @@ add-zsh-hook precmd _show_cursor
 # ── Machine-specific settings (last, so they can override anything) ─────
 [[ -f $HOME/.zshrc.local ]] && source "$HOME/.zshrc.local"
 
-# Standard command-line editing, even when EDITOR is vim or nvim.
+# Bash-style command-line editing, even when EDITOR is vim or nvim.
 bindkey -e
+autoload -Uz select-word-style
+select-word-style bash
+bindkey '^[[1;5D' backward-word
+bindkey '^[[1;5C' forward-word
