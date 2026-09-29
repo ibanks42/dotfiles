@@ -69,6 +69,13 @@
 !/agent/patches/test_runner.py
 !/agent/patches/test_launcher.py
 !/agent/patches/diffs/claude-bridge.patch
+!/agent/patches/diffs/ask-user-question-host-peers.patch
+!/agent/patches/diffs/opencode-direct-host-peers.patch
+!/agent/patches/diffs/subagents-host-peers.patch
+!/agent/patches/diffs/multi-account-host-peers.patch
+!/agent/patches/diffs/multi-account-oauth-init.patch
+!/agent/patches/checks/host-peers.test.mjs
+!/agent/patches/checks/multi-account-oauth.test.mjs
 !/agent/patches/checks/target.mjs
 !/agent/patches/checks/root-union.test.mjs
 !/agent/patches/checks/cache-trace.test.mjs

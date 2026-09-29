@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "0.99.1",
   "terminal": {
     "showTerminalProgress": true
   },
@@ -20,22 +20,19 @@
     "zai/glm-5.3-highspeed",
     "claude-bridge/claude-fable-5-1",
     "claude-bridge/claude-opus-5-5",
-    "claude-bridge/claude-sonnet-5-5",
-    "openai-codex-account-2/gpt-6-luna",
-    "openai-codex-account-2/gpt-6-sol",
-    "openai-codex-account-2/gpt-6-astra"
+    "claude-bridge/claude-sonnet-5-5"
   ],
   "packages": [
     "npm:pi-web-access",
-    "npm:pi-mcp-adapter",
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:pi-multi-account",
-    "npm:@howaboua/pi-codex-conversion",
     "npm:@narumitw/pi-goal",
     "npm:pi-opencode-direct",
-    "npm:pi-zentui",
     "npm:@tintinweb/pi-subagents",
-    "npm:pi-claude-bridge"
+    "npm:pi-claude-bridge",
+    "npm:openwiki",
+    "npm:pi-cc-extensions",
+    "npm:@xzzpig/pi-starline"
   ],
   "fullscreenScrollbar": "always",
   "doubleEscapeAction": "tree",
@@ -46,5 +43,15 @@
   "hideThinkingBlock": false,
   "editorPaddingX": 0,
   "fullscreenExitOutput": "resume-hint",
-  "cacheWarming": "idle"
+  "cacheWarming": "idle",
+  "npmCommand": [
+    "bun-as-npm"
+  ],
+  "defaultTools": [
+    "+codemode"
+  ],
+  "codemode": {
+    "mode": "on",
+    "inlineBudget": 10000
+  }
 }

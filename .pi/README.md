@@ -37,10 +37,15 @@ Before you start Pi on a new machine:
 
 1. If you will replace an existing installation, review its local patches first.
 2. Create the private session directory with `install -d -m 700 ~/.pi/agent/sessions`.
-3. Install the launcher described in `agent/patches/README.md`.
-4. Install the packages declared in `agent/settings.json` with `pi update --extensions`.
-5. Resolve any reported patch failure before starting Pi.
-6. Configure credentials locally with `/login` or provider environment variables.
+3. Link `~/dotfiles/bin/bun-as-npm` to `~/.local/bin/bun-as-npm` and install Bun.
+4. Make sure that `~/.local/bin` is on `PATH`. The `npmCommand` setting uses this wrapper.
+5. Install the launcher described in `agent/patches/README.md`.
+6. Install the packages declared in `agent/settings.json` with `pi update --extensions`.
+7. Resolve any reported patch failure before starting Pi.
+8. Configure credentials locally with `/login` or provider environment variables.
+
+The wrapper translates npm's `--prefix` to Bun's `--cwd`. Without this translation, Bun installs packages in `agent/` instead of `agent/npm/`.
+Run `sh bin/test-bun-as-npm.sh` from the dotfiles repo to check the wrapper without a network request.
 
 The router tests resolve dependencies relative to this directory, not a fixed home directory.
 

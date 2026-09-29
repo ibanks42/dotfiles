@@ -2,7 +2,7 @@
   "components": {
     "editor": {
       "enabled": true,
-      "style": "minimalist",
+      "style": "opencode-copy-friendly",
       "codexQuota": true,
       "colorSource": "terminal",
       "borderColorMode": "adaptive",
@@ -34,7 +34,8 @@
           "contextThresholds": {
             "warning": 70,
             "error": 90
-          }
+          },
+          "separator": "dash"
         }
       }
     },
@@ -108,7 +109,7 @@
     },
     "userMessages": {
       "enabled": true,
-      "style": "labeled",
+      "style": "framed-copy-friendly",
       "colorSource": "terminal",
       "styles": {
         "framed": {},
@@ -120,7 +121,7 @@
     "selectorBorders": {
       "enabled": true,
       "style": "zentui",
-      "colorSource": "theme"
+      "colorSource": "terminal"
     },
     "thinkingSteps": {
       "enabled": true,

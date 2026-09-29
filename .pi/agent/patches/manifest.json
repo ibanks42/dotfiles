@@ -2,6 +2,47 @@
   "schemaVersion": 1,
   "packages": [
     {
+      "name": "@juicesharp/rpiv-ask-user-question",
+      "patches": [{
+        "id": "host-peers",
+        "file": "diffs/ask-user-question-host-peers.patch",
+        "files": ["package.json"],
+        "check": ["node", "--test", "{patchDir}/checks/host-peers.test.mjs"]
+      }]
+    },
+    {
+      "name": "pi-opencode-direct",
+      "patches": [{
+        "id": "host-peers",
+        "file": "diffs/opencode-direct-host-peers.patch",
+        "files": ["package.json"],
+        "check": ["node", "--test", "{patchDir}/checks/host-peers.test.mjs"]
+      }]
+    },
+    {
+      "name": "@tintinweb/pi-subagents",
+      "patches": [{
+        "id": "host-peers",
+        "file": "diffs/subagents-host-peers.patch",
+        "files": ["package.json"],
+        "check": ["node", "--test", "{patchDir}/checks/host-peers.test.mjs"]
+      }]
+    },
+    {
+      "name": "pi-multi-account",
+      "patches": [{
+        "id": "host-peers",
+        "file": "diffs/multi-account-host-peers.patch",
+        "files": ["package.json"],
+        "check": ["node", "--test", "{patchDir}/checks/host-peers.test.mjs"]
+      }, {
+        "id": "oauth-init",
+        "file": "diffs/multi-account-oauth-init.patch",
+        "files": ["index.ts"],
+        "check": ["node", "--test", "{patchDir}/checks/multi-account-oauth.test.mjs"]
+      }]
+    },
+    {
       "name": "pi-claude-bridge",
       "patches": [
         {

@@ -1,0 +1,13 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -32,9 +32,6 @@
+   "engines": {
+     "node": ">=22.19.0"
+   },
+-  "dependencies": {
+-    "@earendil-works/pi-ai": "0.86.1"
+-  },
+   "peerDependencies": {
+     "@earendil-works/pi-ai": "*",
+     "@earendil-works/pi-coding-agent": "*"

@@ -122,6 +122,11 @@ package manager. Ask which runtimes to install globally; defaults are node, go
 and bun. Optional: python, rust, zig, java. For each one:
 `mise use --global <name>@latest`.
 
+### Pi with Bun
+If you install the Pi configuration, link `$DOTFILES/bin/bun-as-npm` to `~/.local/bin/bun-as-npm`.
+Install Bun and add `~/.local/bin` to `PATH` before you run `pi update --extensions`.
+The wrapper keeps Pi packages in `~/.pi/agent/npm/`. See `.pi/README.md` for the Pi setup steps.
+
 ### Hyprland desktop (off by default; Arch)
 Packages: hyprland hyprlock hyprpaper xdg-desktop-portal-hyprland pipewire
 wireplumber brightnessctl grim slurp wl-clipboard ydotool wtype pavucontrol

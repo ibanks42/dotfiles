@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+# Pi calls this command as npm, so it sends npm's --prefix and --legacy-peer-deps.
+# Bun needs --cwd to install into Pi's agent/npm directory instead.
+run_local() {
+  local command=$1 prefix= arg
+  shift
+  local -a args=()
+  while (($#)); do
+    arg=$1
+    shift
+    case "$arg" in
+      --prefix)
+        if (($# == 0)) || [[ -z $1 ]]; then
+          echo 'bun-as-npm: --prefix requires a directory' >&2
+          return 2
+        fi
+        prefix=$1
+        shift
+        ;;
+      --prefix=*) prefix=${arg#--prefix=} ;;
+      --legacy-peer-deps)
+        if [[ $command == install ]]; then args+=(--omit=peer); fi
+        ;;
+      *) args+=("$arg") ;;
+    esac
+  done
+  if [[ -n $prefix ]]; then args+=(--cwd "$prefix"); fi
+  exec bun "$command" "${args[@]}"
+}
+
+case "$1" in
+  install)
+    shift
+    # Translate "install -g <pkg>" → "add -g <pkg>"
+    if [ "$1" = "-g" ] && [ -n "$2" ]; then
+      shift
+      exec bun add -g "$@"
+    fi
+    run_local install "$@"
+    ;;
+  add)     shift; exec bun add "$@" ;;
+  root)
+    if [ "$2" = "-g" ]; then
+      echo "${BUN_INSTALL:-$HOME/.bun}/install/global/node_modules"
+      exit 0
+    fi
+    exit 1
+    ;;
+  view)    shift; exec bun info "$@" ;;
+  uninstall|remove) shift; run_local remove "$@" ;;
+  *) exec bun "$@" ;;
+esac

@@ -38,10 +38,12 @@ const writeConfig = (patch: object = {}) =>
 const mk = (provider: string, id: string, extra: object = {}) => ({ provider, id, reasoning: true, contextWindow: 400_000, ...extra });
 const luna1 = mk("openai-codex", "gpt-6-luna", { thinkingLevelMap: { off: null, minimal: null, low: "low", medium: "medium", high: "high" } });
 const luna2 = mk("openai-codex-account-2", "gpt-6-luna");
-const sol1 = mk("openai-codex", "gpt-6-sol"), sol2 = mk("openai-codex-account-2", "gpt-6-sol");
+const solThinking = { off: null, minimal: null, low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
+const sol1 = mk("openai-codex", "gpt-6.1-sol", { thinkingLevelMap: solThinking });
+const sol2 = mk("openai-codex-account-2", "gpt-6.1-sol", { thinkingLevelMap: solThinking });
 const astra1 = mk("openai-codex", "gpt-6-astra"), astra2 = mk("openai-codex-account-2", "gpt-6-astra");
 const levels = { off: null, minimal: null, low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
-const sonnet = mk("claude-bridge", "claude-sonnet-5"), opus = mk("claude-bridge", "claude-opus-5-5", { thinkingLevelMap: levels }), fable = mk("claude-bridge", "claude-fable-5-1");
+const sonnet = mk("claude-bridge", "claude-sonnet-5-5"), opus = mk("claude-bridge", "claude-opus-5-5", { thinkingLevelMap: levels }), fable = mk("claude-bridge", "claude-fable-5-1");
 const flash = mk("zai", "glm-5.3-flash"), muse = mk("opencode-zen-free", "muse-spark-1.3-contributor-free");
 const ALL = [luna1, luna2, sol1, sol2, astra1, astra2, sonnet, opus, fable, flash, muse];
 
@@ -130,6 +132,13 @@ test("the real configuration loads; its fallbackModel names a configured model",
   expect(P.configWarnings(real, models).filter(w => !w.startsWith("fallbackModel"))).toEqual([]);
 });
 
+test("Sol 6.1 replaces both old Sol routes and is the safe classifier fallback", () => {
+  const real = P.parseConfig(REAL_CONFIG);
+  expect(real.models.sol.routes).toEqual(["openai-codex/gpt-6.1-sol", "openai-codex-account-2/gpt-6.1-sol"]);
+  expect(real.fallbackModel).toBe("sol");
+  expect(Object.values(real.models).flatMap(m => m.routes).some(route => route.endsWith("/gpt-6-sol"))).toBe(false);
+});
+
 test("fallbackModel accepts a model name or the one model's exact route, and explains anything else", () => {
   const models = {
     flash: { routes: ["zai/glm-5.3-flash"], family: "zai", profile: "y" },
@@ -150,7 +159,7 @@ test("routing uses every authenticated model, not only /scoped-models", async ()
   const c = ctx([decision({ model: "sol", kind: "implementation" })], ALL, { scoped: [luna1] });
   const e: any = { toolName: "Agent", toolCallId: "a", input: { prompt: "Edit", routing: { level: "routine" } } };
   expect(await h.handlers.get("tool_call")(e, c)).toBeUndefined();
-  expect(e.input.model).toBe("openai-codex/gpt-6-sol");
+  expect(e.input.model).toBe("openai-codex/gpt-6.1-sol");
   expect(P.universe(c as any)).toHaveLength(ALL.length);
   // An unauthenticated route is skipped for the next one, with an availability reason.
   expect(P.pickRoute("sol", P.loadConfig(), [sol2]).skipped.join()).toContain("not available");
@@ -180,7 +189,7 @@ test("routes go account 1, account 2, then the fallback model", async () => {
   const second = P.pickRoute("sol", cfg, ALL);
   expect(second.model).toBe(sol2);
   expect(second.skipped.join()).toContain("rate-limited");
-  expect(P.pickRoute("sol", cfg, ALL, new Set(["openai-codex-account-2/gpt-6-sol"])).model).toBe(opus);
+  expect(P.pickRoute("sol", cfg, ALL, new Set(["openai-codex-account-2/gpt-6.1-sol"])).model).toBe(opus);
   expect(await P.markRateLimited(sol2, "context length exceeded", cfg)).toBe(false);
 });
 
@@ -250,7 +259,7 @@ test("classifier failure uses fallbackModel, or blocks when it is unset", async 
   writeConfig({ fallbackModel: "sol" });
   const e: any = { toolName: "Agent", toolCallId: "b", input: { prompt: "x", routing: { level: "hard" } } };
   await h.handlers.get("tool_call")(e, ctx(["garbage"]));
-  expect(e.input).toMatchObject({ model: "openai-codex/gpt-6-sol", thinking: "medium" });
+  expect(e.input).toMatchObject({ model: "openai-codex/gpt-6.1-sol", thinking: "medium" });
 });
 
 test("a pinned model name and effort skip classification; resumes are untouched", async () => {
@@ -268,6 +277,14 @@ test("unsupported effort is clamped to the selected model", async () => {
   const h = harness();
   const e: any = { toolName: "Agent", toolCallId: "a", input: { prompt: "x", model: "openai-codex/gpt-6-luna", thinking: "minimal" } };
   await h.handlers.get("tool_call")(e, ctx());
+  expect(e.input.thinking).toBe("low");
+});
+
+test("Sol 6.1 clamps unsupported minimal effort to low", async () => {
+  const h = harness();
+  const e: any = { toolName: "Agent", toolCallId: "sol-effort", input: { prompt: "x", model: "sol", thinking: "minimal" } };
+  await h.handlers.get("tool_call")(e, ctx());
+  expect(e.input.model).toBe("openai-codex/gpt-6.1-sol");
   expect(e.input.thinking).toBe("low");
 });
 
@@ -296,7 +313,7 @@ test("a rate-limited editing agent that used tools is not restarted", async () =
   records.a2 = { id: "a2", toolCallId: "t1", toolUses: 0, session: { model: sol1, messages: [] } };
   h.events.emit("subagents:failed", { id: "a2", error: "rate limit", toolUses: 0 });
   await flush();
-  expect(h.spawns[0].options.model).toBe("openai-codex-account-2/gpt-6-sol");
+  expect(h.spawns[0].options.model).toBe("openai-codex-account-2/gpt-6.1-sol");
 });
 
 test("escalate starts a new agent on the stronger model and counts it", async () => {

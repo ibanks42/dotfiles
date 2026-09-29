@@ -1,0 +1,92 @@
+diff --git a/index.ts b/index.ts
+index 8eecadc..a6cc0b4 100644
+--- a/index.ts
++++ b/index.ts
+@@ -409,10 +409,68 @@ function tryLoadPiAiOauth(): PiAiOauthBridge | undefined {
+ 	return undefined;
+ }
+ 
++let piAiOauthWarmup: Promise<PiAiOauthBridge | undefined> | undefined;
++let piAiOauthAsyncError: string | undefined;
++
++/**
++ * Async fallback for {@link tryLoadPiAiOauth}. NEVER throws.
++ *
++ * A failed native import elsewhere in the host (for example jiti first trying an
++ * extension's `.js` entry natively) can leave pi-ai's provider modules half-loaded in
++ * Node's ESM map. require() of them then throws ERR_REQUIRE_ESM_RACE_CONDITION for
++ * the rest of the process, while import() of the same files still completes. The
++ * factory awaits this once so the synchronous getters below see a cached bridge.
++ */
++export function warmPiAiOauth(): Promise<PiAiOauthBridge | undefined> {
++	const ready = tryLoadPiAiOauth();
++	if (ready) return Promise.resolve(ready);
++	const root = findPiAiRoot();
++	if (!root) return Promise.resolve(undefined);
++	piAiOauthWarmup ??= (async () => {
++		const tried: string[] = [];
++		const load = async (relative: string): Promise<any> => {
++			const file = join(root, "dist", relative);
++			if (!existsSync(file)) return undefined;
++			try {
++				return await import(/* @vite-ignore */ file);
++			} catch (error) {
++				tried.push(
++					`${relative}: ${error instanceof Error ? error.message : String(error)}`,
++				);
++				return undefined;
++			}
++		};
++		// Sequential, in the same order as the synchronous path.
++		const bridge =
++			adaptLegacyOauthEntry(await load("oauth.js")) ??
++			adaptProviderFactories(
++				await load(join("providers", "anthropic.js")),
++				await load(join("providers", "openai-codex.js")),
++				await load(join("providers", "kimi-coding.js")),
++				await load(join("providers", "xai.js")),
++			);
++		if (bridge) {
++			piAiOauthBridge = bridge;
++			piAiOauthLoadError = undefined;
++			piAiOauthAsyncError = undefined;
++			return bridge;
++		}
++		tried.push("dist/providers/{anthropic,openai-codex}.js exposed no auth.oauth");
++		piAiOauthAsyncError = tried.join("; ");
++		return undefined;
++	})().finally(() => {
++		piAiOauthWarmup = undefined;
++	});
++	return piAiOauthWarmup;
++}
++
+ /** Load reason, or undefined when OAuth is available. */
+-function piAiOauthUnavailableReason(): string | undefined {
++export function piAiOauthUnavailableReason(): string | undefined {
+ 	tryLoadPiAiOauth();
+-	return piAiOauthBridge ? undefined : piAiOauthLoadError;
++	if (piAiOauthBridge) return undefined;
++	return piAiOauthAsyncError
++		? `${piAiOauthLoadError} Async import retry: ${piAiOauthAsyncError}`
++		: piAiOauthLoadError;
+ }
+ 
+ function requirePiAiOauth(): PiAiOauthBridge {
+@@ -3922,13 +3980,15 @@ interface HostCompletionRouterAPI {
+ 	unregisterCompletionRouter?(): void;
+ }
+ 
+-export default function piMultiAccount(pi: ExtensionAPI) {
++export default async function piMultiAccount(pi: ExtensionAPI) {
+ 	// Warm up the OAuth helpers before any provider registration: providers are
+ 	// registered synchronously below and their `usesCallbackServer`/`getApiKey`
+ 	// read from the cached module. Deliberately NON-fatal — if pi-ai's oauth entry
+ 	// cannot be resolved (hoisted npm layout, incompatible pi-ai), the extension
+ 	// still loads and every non-OAuth account keeps working; only subscription
+ 	// logins are unavailable, and the user is told once at session start.
++	// Pi awaits extension factories, so the async fallback completes first.
++	await warmPiAiOauth();
+ 	const oauthUnavailable = piAiOauthUnavailableReason();
+ 	let subagentChild = isSubagentChildProcess();
+ 	let hostOwnsSessionModel = false;

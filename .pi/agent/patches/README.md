@@ -48,6 +48,26 @@ Calling the real executable directly bypasses automatic patches.
 
 ## Active customization
 
+### Pi 0.99 extension compatibility
+
+Four manifest patches move host-provided packages from dependencies to peers:
+
+- `@juicesharp/rpiv-ask-user-question`: `typebox`.
+- `pi-opencode-direct` and `pi-multi-account`: `@earendil-works/pi-ai`.
+- `@tintinweb/pi-subagents`: `typebox` and `@sinclair/typebox`.
+
+These patches remove Pi's manifest warnings. They do not delete existing runtime packages or change the declared host-version ranges.
+
+A separate `pi-multi-account` patch repairs OAuth initialization after a failed native import leaves provider modules partially loaded.
+The extension factory awaits asynchronous imports before it registers providers. Login and refresh callbacks remain unchanged.
+The checks cover the original module-load failure, optional providers, cached results, and genuine OAuth-load failures.
+The checks use isolated account stores and never perform a login or token refresh.
+
+The tested combination is Pi 0.99.0, `pi-multi-account` 1.23.2, and its local `pi-ai` 0.87.1.
+The extension still declares a host range below 0.88.0. These checks do not establish full compatibility with every Pi 0.99 feature.
+
+### Claude bridge
+
 The bridge uses the upstream `npm:pi-claude-bridge` package, not a local fork.
 One combined diff preserves changes that share `src/index.ts`:
 

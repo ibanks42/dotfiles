@@ -31,6 +31,15 @@ Steering takes effect after the current tool execution. Stopping does not undo e
 Levels are `trivial`, `routine`, `hard`, and `extreme`.
 Kinds are `implementation`, `debugging`, `review`, `research`, `docs`, and `mechanical`.
 
+Model profiles define task priorities, not a universal model ranking. Effort defaults can change when a profile recommends a specific effort for coding.
+The September 29 update replaces both Sol account routes with GPT-6.1 Sol and makes Sol the classifier-failure fallback.
+This prevents a failed classifier from sending difficult work to Luna.
+The main-session model cycle and the fixed manual reviewer are unchanged.
+The primary Sol 6.1 route passed a live smoke test. The second account still needs an updated account-specific catalog.
+Use `/multi-account rediscover` to refresh those catalogs. The router skips an unavailable account route rather than forcing it.
+See the [benchmark evidence and selection rationale](../../../../research/gpt-6.1-sol-routing.md).
+API prices and benchmark latency do not measure subscription quota use or local Pi latency.
+
 Explicit model and thinking arguments override the decision. A configured model name, such as `sol`, keeps its routes and fallback chain.
 A model pin alone still gets a classified thinking level.
 Custom agent frontmatter takes precedence over tool arguments, as required by the backend.

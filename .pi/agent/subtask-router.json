@@ -9,25 +9,25 @@
     "timeoutMs": 15000,
     "levelGap": 2
   },
-  "fallbackModel": "luna",
+  "fallbackModel": "sol",
   "models": {
     "glm-flash": {
       "routes": [
         "zai/glm-5.3-flash"
       ],
       "family": "zai",
-      "profile": "Strong for its cost: intelligence index 42 (about sol at high), agentic coding 33, lowest hallucination rate here (about 28%). Slow: measured here at a median of 11 s per model turn (p90 38 s), with long reasoning; about 13 min per benchmark task. Good for background research, audits, and routine implementation when time does not matter. Avoid it when a fast answer matters, including trivial tasks. Quota cost per task: about $0.25.",
+      "profile": "Budget background option for bounded research, inventories, and audits with cited tool evidence. Prefer sol for implementation or reasoning-heavy work. AA Intelligence 41.8, Terminal-Bench 4.0 32.8%. Omniscience accuracy 27.5%, hallucination rate 27.6%: low hallucination reflects abstention, not superior knowledge. Historically 11 s median per local turn on Sept 28; AA first-answer latency 46.9 s. Not a fast foreground default. AA API task cost $0.253 is not subscription quota usage.",
       "fallback": "muse-spark",
-      "stronger": "astra"
+      "stronger": "sol"
     },
     "muse-spark": {
       "routes": [
         "opencode-zen-free/muse-spark-1.3-contributor-free"
       ],
       "family": "opencode",
-      "profile": "Free. Intelligence index 48 (between sol at max and astra at medium), agentic coding 33, hallucination rate about 33%. About 165 tokens/s, but about 25 s before the first token and about 4 min per benchmark task. Good free option for background research, audits, and routine implementation. Free tier: can be slow or unavailable at busy times. Costs nothing (free tier).",
+      "profile": "Free route for bounded background research and a different-family review when quota matters. Prefer sol for terminal implementation. AA max: Intelligence 48.1, Terminal-Bench 4.0 33.3%, SciCode 58.8%; xhigh terminal score is only 16.7%. AA API throughput 174 tokens/s and first-answer latency 45 s do not measure this free route. Omniscience accuracy 43.6%, hallucination 32.9%. Contributor-free service may be slow or unavailable. No paid API-cost claim applies to this route.",
       "fallback": "glm-flash",
-      "stronger": "astra"
+      "stronger": "sol"
     },
     "luna": {
       "routes": [
@@ -35,8 +35,8 @@
         "openai-codex-account-2/gpt-6-luna"
       ],
       "family": "openai",
-      "profile": "Fastest model: measured here at a median of 4 s per model turn. Weakest on reasoning. Intelligence index by effort: low 21, medium 29, high 32, xhigh 34, max 37. Agentic coding (Terminal-Bench 4.0): low 0, medium 3, high 5, max 13. Hallucination rate about 84%, the highest here: it invents answers when unsure. Use it for trivial commands, listings, reformatting, and simple searches where tool output is the evidence. Not for implementation beyond trivial edits, debugging, design, or fact-sensitive research. Quota cost per benchmark task: low $0.004, medium $0.02, high $0.03, max $0.07.",
-      "fallback": "muse-spark",
+      "profile": "First choice only for deterministic mechanical tasks: exact commands, listings, copying, formatting, and simple searches verified by tool output. Historical local median 4 s per turn. Use low or the lowest supported effort. For judgment, implementation, debugging, or factual synthesis choose sol instead. AA high/max: Intelligence 32.2/37.3, Terminal-Bench 4.0 4.5/12.6%. Omniscience max accuracy 43.8%, hallucination 76.7%. Cheap API usage does not establish subscription quota cost.",
+      "fallback": "sol",
       "stronger": "sol"
     },
     "sonnet": {
@@ -44,17 +44,17 @@
         "claude-bridge/claude-sonnet-5-5"
       ],
       "family": "anthropic",
-      "profile": "Sonnet 5.5 is a substantial upgrade over Sonnet 5. Artificial Analysis Intelligence Index by effort: low 35.8, medium 40.7, high 46.7, xhigh 51.9, max 56.0. Terminal-Bench 4.0: low 20.7%, medium 29.8%, high 43.9%, xhigh 57.1%, max 63.6%. Trial candidate for bounded implementation, tests, and reviews at medium/high effort. Local latency is unmeasured: do not assume faster than Opus or Sol. Opus-low slightly exceeds Sonnet-medium on these benchmarks. Max uses substantially more output tokens; do not default to max. AA API cost per task: low $0.41, medium $0.59, high $1.08, xhigh $2.74, max $7.60; these are not subscription quota measurements. Claude evaluations use AA default-fallback configuration, which may differ from this bridge. Keep Opus for UI/UX as requested.",
+      "profile": "Claude alternative for bounded implementation and independent review of OpenAI-authored changes; use high when substantial reasoning is needed. Sol medium beats Sonnet high on AA terminal coding, so Sonnet is not the routine coding default. Specialist for difficult terminal-agent work at xhigh; max is a deliberate expensive escalation, not a default. AA high/xhigh/max: Intelligence 46.7/51.9/56.0, Terminal-Bench 4.0 43.9/57.1/63.6%. Max leads this terminal benchmark, but Opus leads broad intelligence and SciCode. AA API task costs $1.08/$2.74/$7.60 are not Claude quota measurements. Local latency is unmeasured. UI/UX always goes to Opus.",
       "fallback": "opus",
       "stronger": "opus"
     },
     "sol": {
       "routes": [
-        "openai-codex/gpt-6-sol",
-        "openai-codex-account-2/gpt-6-sol"
+        "openai-codex/gpt-6.1-sol",
+        "openai-codex-account-2/gpt-6.1-sol"
       ],
       "family": "openai",
-      "profile": "Balanced OpenAI model, fast in practice: measured here at a median of 7 s per model turn (p90 17 s). Intelligence index: non-reasoning 28, low 34, medium 40, high 43, xhigh 44, max 48. Agentic coding: low 9, medium 19, high 26, xhigh 30, max 44. Low effort is cheap and quick (about 40 s per task) with a much lower hallucination rate than luna (about 51%), so sol at low beats luna for research and routine edits. Use high or xhigh for multi-file implementation, and max for coding-heavy work when time is not critical. Two Codex accounts, so quota is plentiful. Quota cost per task: low $0.13, medium $0.25, high $0.38, xhigh $0.53, max $1.06.",
+      "profile": "GPT-6.1 Sol replaces GPT-6 Sol. First choice for general-purpose coding and evidence-backed research: low for bounded research/docs, medium for routine implementation/tests, high for hard coding/debugging, xhigh for exceptional correctness. Supports low/medium/high/xhigh/max, not off/minimal. AA low/medium/high/xhigh/max: Intelligence 42.1/47.8/50.2/51.0/51.8; Terminal-Bench 4.0 30.8/48.0/51.5/54.0/56.1%. Medium beats old Sol max on terminal coding. AA API task costs $0.131/$0.214/$0.319/$0.393/$0.724; these are not Codex quota measurements. Local latency is unmeasured; old Sol timings and history are not measurements of 6.1. AA first-answer latency rises from 5.3 s at medium to 57.3 s at high and 204.6 s at max. Opus remains the broad high-stakes and UI/UX choice; Astra is a specialist escalation, not the routine default.",
       "fallback": "opus",
       "stronger": "astra"
     },
@@ -63,7 +63,7 @@
         "claude-bridge/claude-opus-5-5"
       ],
       "family": "anthropic",
-      "profile": "Strongest model measured. Intelligence index: low 42, medium 51, high 54, xhigh 56, max 58. Agentic coding: low 31, medium 53, high 57, xhigh 60, max 60. Fast in practice: measured here at a median of 7-10 s per model turn (p90 about 30 s), about 90 tokens/s. Higher effort adds time: xhigh and max are much slower. Hallucination rate about 66%. Medium is the best value; high for subtle correctness; xhigh or max only for exceptional tasks. Uses Claude quota shared with the main session. Always pick opus for UI and UX design or implementation: the user requires it. Quota cost per task: low $0.55, medium $1.34, high $1.82, xhigh $3.46, max $5.98.",
+      "profile": "First choice for UI/UX design and implementation (user requirement), broad difficult architecture, and high-stakes cross-family review of OpenAI code. Prefer sol for ordinary coding to preserve shared Claude quota. Medium for bounded difficult work, high for subtle correctness, xhigh only for exceptional tasks. AA medium/high/xhigh/max: Intelligence 51.2/53.6/56.0/57.6; Terminal-Bench 4.0 52.5/56.6/59.6/59.6%; SciCode 59.3/60.4/65.1/66.9%. Best broad intelligence and SciCode in this comparison, not the highest terminal score. Historical local median 7-10 s per turn; no local comparison to Sol 6.1 yet. Omniscience max accuracy 66.2%, hallucination 58.6%. API task costs $1.34/$1.82/$3.46/$5.98 are not subscription quota measurements.",
       "fallback": "astra"
     },
     "astra": {
@@ -72,7 +72,7 @@
         "openai-codex-account-2/gpt-6-astra"
       ],
       "family": "openai",
-      "profile": "Strongest OpenAI model and the most reliable: hallucination rate about 45-50%, the lowest of the frontier models. Intelligence index: low 46, medium 50, high 51, xhigh 52, max 53. Agentic coding: low 42, medium 50, high 54, xhigh 60. Slowest model in practice: measured here at a median of 15 s per model turn (p90 65 s), about twice opus. Astra at low already beats sol at xhigh. Good for hard correctness, security, and fact-sensitive work when speed does not matter; when opus is usable and speed matters, prefer opus. Two Codex accounts. Quota cost per task: low $0.82, medium $1.54, high $1.73, xhigh $2.31, max $3.26, so about 6 times sol at the same effort. Reserve it for hard work.",
+      "profile": "Specialist OpenAI escalation for hard correctness/security and independent review of Claude-authored code; prefer sol for routine work. High for careful review, xhigh for exceptional terminal reasoning. AA high/xhigh/max: Intelligence 50.9/52.4/52.7; Terminal-Bench 4.0 54.0/59.6/59.1%. Sol xhigh matches Astra high on terminal coding at much lower API task cost, so Astra is no longer a large default step above Sol. Omniscience max accuracy 62.6%, hallucination 51.3%; not uniformly the most reliable model. Historical local median 15 s per turn (p90 65 s). AA API task costs $1.73/$2.31/$3.26 are not Codex quota usage. Two account routes; manual fixed reviewer remains Astra high.",
       "fallback": "opus",
       "stronger": "opus"
     },
@@ -81,7 +81,7 @@
         "claude-bridge/claude-fable-5-1"
       ],
       "family": "anthropic",
-      "profile": "Weaker than opus at every effort level, at about twice the time and cost. Intelligence index: low 47, medium 49, high 51, xhigh 53, max 53. Agentic coding: low 40, medium 45, high 52, xhigh 55. Slow: measured here at a median of 12-15 s per model turn (p90 up to 136 s). Has an extra weekly limit of its own. No measured advantage over opus; pick it only when opus is unavailable. Quota cost per task: low $2.37, medium $2.98, high $3.91, max $7.63.",
+      "profile": "Last-resort Claude alternative when Opus and Sonnet are unavailable. No new evaluation in the Sept 29 comparison. Older Sept 28 results showed no clear advantage over Opus and local median 12-15 s per turn with large tail latency. Has its own extra weekly limit. Do not prefer it over freshly evaluated models without task-specific evidence.",
       "fallback": "opus",
       "stronger": "opus"
     }
@@ -94,5 +94,5 @@
     "rateLimitCooldownMs": 1800000
   },
   "maxOutputChars": 400000,
-  "modelData": "Quality, hallucination, and cost figures: Artificial Analysis, retrieved 2026-09-28 from artificialanalysis.ai/models/<model>. Speed: median seconds per model turn measured from local Pi sessions on 2026-09-28."
+  "modelData": "AA Intelligence Index v4.3.2, Terminal-Bench 4.0, SciCode, and API costs retrieved 2026-09-29; sources and limits in research/gpt-6.1-sol-routing.md. Effort labels are not equal compute budgets. AA API prices/latency are not local timings or subscription quota measurements. Historical local timings are from 2026-09-28 and never apply to new Sol 6.1. Fable was not re-evaluated. Profiles define task priorities, not a universal ranking."
 }
