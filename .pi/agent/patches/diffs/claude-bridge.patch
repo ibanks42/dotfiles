@@ -1,6 +1,15 @@
+diff --git a/src/index.ts b/src/index.ts
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -26,6 +26,7 @@
+@@ -10,6 +10,7 @@
+ import { dirname, join } from "path";
+ import { PROVIDER_ID, messageContentToText, convertPiMessages } from "./convert.js";
+ import { applyLongContext, buildModels, claudeCodeModelId, type LongContextSettings, resolveModel as _resolveModel } from "./models.js";
++import { withCatalogFallbacks } from "./catalog-fallbacks.js";
+ import { MCP_SERVER_NAME, MCP_TOOL_PREFIX, renderSkillsBlock } from "./skills.js";
+ import { verifyWrittenSession as _verifyWrittenSession } from "./session-verify.js";
+ import { extractAllToolResults as _extractAllToolResults, type McpResult } from "./extract-tool-results.js";
+@@ -26,6 +27,7 @@
  import { buildActionSummary, type ToolCallState } from "./askclaude-ui.js";
  import { askClaudeCallTags, askClaudeToolDescription, buildAskClaudeParams, resolveAskClaudeDefaults, resolveAskClaudeMode, type AskClaudeMode } from "./askclaude-schema.js";
  import { nonSystemMessages, toBridgeContext } from "./transcript.js";
@@ -8,7 +17,18 @@
  
  // --- Debug logging ---
  // CLAUDE_BRIDGE_DEBUG=1 enables debug logging to ~/.pi/agent/claude-bridge.log
-@@ -296,6 +297,7 @@
+@@ -138,8 +140,8 @@
+ 	read: "read", write: "write", edit: "edit", bash: "bash",
+ };
+ 
+-// MODELS is buildModels(getModels("anthropic")) — projection kept in models.js.
+-const MODELS = buildModels(getModels("anthropic"));
++// Only fill catalog gaps locally; projection and runtime policy stay in models.js.
++const MODELS = buildModels(withCatalogFallbacks(getModels("anthropic")));
+ let providerSettings: NonNullable<Config["provider"]> = {};
+ let longContextSettings: LongContextSettings = { plan: "pro", longContextExtraUsage: false };
+ 
+@@ -296,6 +298,7 @@
   *  with no session id, so such a rewrite forces the REBUILD side; the discard
   *  set holds real ids only — see the comment on historyRewrittenBySession. */
  function markRebuildForSession(piSession: string | null, event: string): void {
@@ -16,7 +36,7 @@
  	// The rewriting session's own mirror: the rewrite changed the history it was
  	// built from, so its next sync must REBUILD rather than REUSE. Every other
  	// session's mirror stays untouched — its conversation was never rewritten.
-@@ -777,6 +779,7 @@
+@@ -777,6 +780,7 @@
  		const trailingAssistantOnly =
  			missed.length === 1 && (missed[0] as { role?: string }).role === "assistant";
  		if (missed.length === 0 || trailingAssistantOnly) {
@@ -24,7 +44,7 @@
  		if (trailingAssistantOnly) {
  			setSessionStateFor(piSessionId, { ...sharedSession, cursor: priorMessages.length, cwd });
  			debug(`Case 3: advanced cursor past trailing assistant, resuming session ${sharedSession.sessionId.slice(0, 8)}, cursor=${priorMessages.length}`);
-@@ -804,6 +807,7 @@
+@@ -804,6 +808,7 @@
  	// (/compact, session_tree, /new, fork) always set needsRebuild or clear
  	// sharedSession before the next syncSharedSession call.
  	if (sharedSession && !sharedSession.needsRebuild && priorMessages.length < sharedSession.cursor) {
@@ -32,7 +52,7 @@
  		debug(`Case 1 synthetic: clean start for shorter context, preserving shared session ${sharedSession.sessionId.slice(0, 8)}, cursor=${sharedSession.cursor}`);
  		debug(`syncResult: path=clean-start preserve-shared sessionId=${sharedSession.sessionId} cursor=${sharedSession.cursor}`);
  		return { sessionId: null, preserveSharedSession: true };
-@@ -811,6 +815,7 @@
+@@ -811,6 +816,7 @@
  
  	// REBUILD path
  	if (priorMessages.length === 0) {
@@ -40,7 +60,7 @@
  		debug(`Case 1: clean start, ${history.length} total messages`);
  		debug(`syncResult: path=clean-start`);
  		return { sessionId: null };
-@@ -822,6 +827,7 @@
+@@ -822,6 +828,7 @@
  	// and for any tools that key off them. Skipped when there's a concurrent
  	// writer we shouldn't race (forceRotate).
  	const preserveId = previousSessionId !== undefined && !sharedSession?.forceRotate;
@@ -48,7 +68,7 @@
  	// Before deleteSession — it wipes the file these live in.
  	const carried = previousSessionId !== undefined ? readCarriedAttachments(previousSessionId, cwd) : [];
  	if (preserveId) {
-@@ -1112,6 +1118,7 @@
+@@ -1112,6 +1119,7 @@
  // --- Usage helpers ---
  
  function updateUsage(output: AssistantMessage, usage: Record<string, number | undefined>, model: Model<any>): void {
@@ -56,7 +76,7 @@
  	if (usage.input_tokens != null) output.usage.input = usage.input_tokens;
  	if (usage.output_tokens != null) output.usage.output = usage.output_tokens;
  	if (usage.cache_read_input_tokens != null) output.usage.cacheRead = usage.cache_read_input_tokens;
-@@ -1515,6 +1522,7 @@
+@@ -1515,6 +1523,7 @@
  			continue;
  		}
  		if (!queryCtx.currentPiStream || !queryCtx.turnOutput) continue;
@@ -64,7 +84,7 @@
  
  		switch (message.type) {
  			case "stream_event":
-@@ -1576,6 +1584,7 @@
+@@ -1576,6 +1585,7 @@
   *  it, so count-based sync would skip it forever — rebuild instead, which
   *  re-imports the message from pi's context. */
  function steerMissedSession(c: QueryContext, text: string): void {
@@ -72,7 +92,7 @@
  	c.missedSteer = true;
  	const state = sessionStateFor(c.piSessionId);
  	if (state) setSessionStateFor(c.piSessionId, { ...state, needsRebuild: true });
-@@ -1684,6 +1693,7 @@
+@@ -1684,6 +1694,7 @@
   *  history — so the turn continues instead of ending here. Nothing is lost by
   *  killing the subprocess: pi owns the only copy of the conversation that counts. */
  function discardRewrittenQuery(c: QueryContext): void {
@@ -80,7 +100,7 @@
  	const discarded = c.activeQuery as { interrupt?: () => Promise<unknown>; close?: () => void } | null;
  	if (discarded) abandonedQueries.add(discarded);
  	c.activeQuery = null;
-@@ -1762,6 +1772,7 @@
+@@ -1762,6 +1773,7 @@
  	// (everything after the last assistant message) and match against waiting MCP
  	// handlers. Results that arrive before their handler get queued in pendingResults.
  	if (resultCtx) {
@@ -88,7 +108,7 @@
  		claimCurrentPiStream(stream, "tool-result", resultCtx);
  		resultCtx.resetTurnState(model);
  		// A rewrite that armed the mark after this query parked gets copied here,
-@@ -1856,6 +1867,7 @@
+@@ -1856,6 +1868,7 @@
  	// follow-up) and on SessionState. A fresh instance of this module inside a
  	// worktree-spawned subagent has its own contexts; each records its own.
  	queryCtx.piSessionId = options?.sessionId ?? null;
@@ -96,7 +116,7 @@
  	// A discarded query's replacement reuses this context; without the reset its
  	// first tool result would sit on armed staleness again (the mark is consumed
  	// from the set, not from here) and re-discard a healthy query.
-@@ -1937,6 +1949,7 @@
+@@ -1937,6 +1950,7 @@
  			: VALID_EFFORTS.has(mapped as EffortLevel) ? mapped as EffortLevel : undefined
  		: undefined;
  
@@ -104,7 +124,7 @@
  	const extraArgs: Record<string, string | null> = { model: cliModel };
  	if (strictMcpConfigEnabled) extraArgs["strict-mcp-config"] = null;
  	// Opus 4.7 defaults thinking.display to "omitted" (empty thinking text in stream).
-@@ -1995,6 +2008,7 @@
+@@ -1995,6 +2009,7 @@
  	// 3. Start SDK query and claim it for this context
  	let wasAborted = false;
  	const sdkQuery = queryImpl({ prompt: promptStream.stream, options: queryOptions });
@@ -112,7 +132,7 @@
  	queryCtx.activeQuery = sdkQuery;
  	activeQueryContexts.add(queryCtx);
  
-@@ -2020,6 +2034,7 @@
+@@ -2020,6 +2035,7 @@
  	// Background consumer — runs until query ends
  	consumeQuery(sdkQuery, customToolNameToPi, model, () => wasAborted, queryCtx)
  		.then(async ({ capturedSessionId }) => {
@@ -120,7 +140,7 @@
  			debug(`provider: consumeQuery completed, stopReason=${queryCtx.turnOutput?.stopReason}, error=${queryCtx.turnOutput?.errorMessage}, aborted=${wasAborted}`);
  
  			// Discarded out from under: the query continuing the turn owns the context,
-@@ -2078,6 +2093,7 @@
+@@ -2078,6 +2094,7 @@
  			finalizeCurrentStream(queryCtx, queryCtx.turnOutput?.stopReason);
  		})
  		.catch((error) => {
@@ -128,6 +148,54 @@
  			debug(`provider: query error, model=${cliModel}, aborted=${Boolean(options?.signal?.aborted)}, error=`, error);
  			if (abandonedQueries.has(sdkQuery)) {
  				debug("provider: discarded query ended in error, leaving session and stream to its replacement");
+diff --git a/src/mcp-server.ts b/src/mcp-server.ts
+--- a/src/mcp-server.ts
++++ b/src/mcp-server.ts
+@@ -25,6 +25,7 @@
+ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+ import type { McpResult } from "./extract-tool-results.js";
++import { flattenRootUnion } from "./schema-flatten.js";
+ 
+ // Claude Code stamps every tools/call with the id of the tool_use block it came
+ // from. That is the only reliable way to pair a call with its result: call order
+@@ -57,6 +58,7 @@
+ }
+ 
+ export function createToolServer(name: string, tools: McpToolDef[]) {
++	tools = tools.map((tool) => ({ ...tool, inputSchema: flattenRootUnion(tool.inputSchema) }));
+ 	const server = new McpServer({ name, version: "1.0.0" }, { capabilities: { tools: {} } });
+ 	const byName = new Map(tools.map((tool) => [tool.name, tool]));
+ 	for (const tool of tools) assertObjectSchema(tool);
+diff --git a/src/models.ts b/src/models.ts
+--- a/src/models.ts
++++ b/src/models.ts
+@@ -76,8 +76,11 @@
+ //   measured-good ids get `[1m]`.
+ // - The registered contextWindow must match the window the bridge actually
+ //   requests, or pi's status bar and compaction threshold misreport.
+-// [1m] ids verified to serve 1M on every plan. A new model serves 200K until
+-// someone measures it (diag/context-size.mjs) and adds it here.
++// [1m] ids verified to serve 1M on every plan (sonnet-5-5 measured on Pro with
++// and without Extra Usage; opus-5-5 on Max per its run notes). A new model
++// serves 200K until someone measures it (diag/context-size.mjs) and adds it
++// here. Known exception unrelated to long context: fable-5 is not included
++// with Pro account without Extra Usage.
+ const MEASURED_ONE_M = new Set([
+ 	"claude-fable-5",
+ 	"claude-fable-5-1",
+@@ -85,7 +88,8 @@
+ 	"claude-opus-5",
+ 	"claude-opus-4-8",
+ 	"claude-opus-4-7",
+-	"claude-sonnet-5",
++  "claude-sonnet-5",
++	"claude-sonnet-5-5",
+ ]);
+ 
+ // Measured exceptions: pi-ai declares 1M and the [1m] id works, but only when
+diff --git a/src/cache-trace.ts b/src/cache-trace.ts
+new file mode 100644
 --- /dev/null
 +++ b/src/cache-trace.ts
 @@ -0,0 +1,182 @@
@@ -143,7 +211,7 @@
 +const reasons = new Set(["session_compact", "session_tree", "history_rewrite_unknown", "missed_steering", "rewritten_parked_query"]);
 +const finishes = new Set(["completed", "aborted", "error", "abandoned"]);
 +const efforts = new Set(["minimal", "low", "medium", "high", "xhigh", "max"]);
-+const models = new Set(["claude-opus-4-6", "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-opus-5-5", "claude-sonnet-4-6", "claude-sonnet-5", "claude-fable-5", "claude-fable-5-1", "claude-haiku-4-5", "claude-haiku-4-5-20251001"]);
++const models = new Set(["claude-opus-4-6", "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-opus-5-5", "claude-sonnet-4-6", "claude-sonnet-5", "claude-sonnet-5-5", "claude-fable-5", "claude-fable-5-1", "claude-haiku-4-5", "claude-haiku-4-5-20251001"]);
 +// Opaque object identity for WeakMap attribution. Never inspect bridge objects.
 +type Identity = object;
 +type RecordValue = string | number | boolean | null;
@@ -237,10 +305,10 @@
 + function safe<T>(fn: (fp: boolean) => T): T | undefined {
 +  try {
 +   const config = flag(root());
-+   if (!config.enabled) { clear(); return; }
++   if (!config.enabled) { clear(); return undefined; }
 +   secret ??= randomBytes(32);
 +   return fn(config.fingerprints);
-+  } catch { clear(); return; }
++  } catch { clear(); return undefined; }
 + }
 + function hash(domain: string, value: unknown): string {
 +  return createHmac("sha256", secret!).update(domain).update("\0").update(typeof value === "string" ? value : JSON.stringify(value) ?? "null").digest("hex").slice(0, 24);
@@ -313,3 +381,119 @@
 + };
 +}
 +export const cacheTrace = createCacheTrace();
+diff --git a/src/schema-flatten.ts b/src/schema-flatten.ts
+new file mode 100644
+--- /dev/null
++++ b/src/schema-flatten.ts
+@@ -0,0 +1,70 @@
++// Flattens a root-level union of object schemas into one object schema.
++//
++// MCP and the Anthropic API both require a tool's input schema to be an object
++// at the root, and reject a root anyOf/oneOf. Some pi tools declare parameters
++// as a TypeBox union of object variants — pi-codex-conversion's `notebook` tool
++// is one — which pi accepts but which cannot go on the wire as-is.
++//
++// The flattened schema is a superset of the union: every property from every
++// variant, required only when all variants require it. That is looser than the
++// original, which is safe here because the arguments MCP sees are discarded —
++// pi validates each call against the tool's real schema before executing it.
++//
++// Anything that is not a union of objects is returned unchanged, so
++// assertObjectSchema still reports genuinely unusable schemas.
++
++type JsonSchema = Record<string, unknown>;
++
++export function flattenRootUnion(schema: unknown): unknown {
++	if (!isRecord(schema) || schema.type !== undefined) return schema;
++	const variants = schema.anyOf ?? schema.oneOf;
++	if (!Array.isArray(variants) || variants.length === 0) return schema;
++	if (!variants.every((variant) => isRecord(variant) && variant.type === "object")) return schema;
++	const objects = variants as JsonSchema[];
++
++	const byName = new Map<string, unknown[]>();
++	for (const variant of objects) {
++		for (const [name, prop] of Object.entries((variant.properties ?? {}) as JsonSchema)) {
++			byName.set(name, [...(byName.get(name) ?? []), prop]);
++		}
++	}
++	const properties: JsonSchema = {};
++	for (const [name, props] of byName) properties[name] = mergeProperty(props);
++
++	const required = objects
++		.map((variant) => (Array.isArray(variant.required) ? (variant.required as string[]) : []))
++		.reduce((common, names) => common.filter((name) => names.includes(name)));
++
++	const flat: JsonSchema = { type: "object", properties };
++	if (required.length > 0) flat.required = required;
++	if (objects.every((variant) => variant.additionalProperties === false)) flat.additionalProperties = false;
++	if (typeof schema.description === "string") flat.description = schema.description;
++	return flat;
++}
++
++// Identical definitions collapse to one. String enums and consts — the usual
++// discriminator, like `action` — merge into a single enum. Anything else keeps
++// its alternatives as a nested anyOf, which is valid below the root.
++function mergeProperty(props: unknown[]): unknown {
++	const unique = [...new Map(props.map((prop) => [JSON.stringify(prop), prop])).values()];
++	if (unique.length === 1) return unique[0];
++	const values = unique.map(stringValues);
++	if (values.every((value) => value !== undefined)) {
++		const merged: JsonSchema = { type: "string", enum: [...new Set(values.flat())] };
++		const description = unique.map((prop) => (prop as JsonSchema).description).find((text) => typeof text === "string");
++		if (description !== undefined) merged.description = description;
++		return merged;
++	}
++	return { anyOf: unique };
++}
++
++function stringValues(prop: unknown): string[] | undefined {
++	if (!isRecord(prop) || prop.type !== "string") return undefined;
++	if (typeof prop.const === "string") return [prop.const];
++	if (Array.isArray(prop.enum) && prop.enum.every((value) => typeof value === "string")) return prop.enum as string[];
++	return undefined;
++}
++
++function isRecord(value: unknown): value is JsonSchema {
++	return typeof value === "object" && value !== null && !Array.isArray(value);
++}
+diff --git a/src/catalog-fallbacks.ts b/src/catalog-fallbacks.ts
+new file mode 100644
+--- /dev/null
++++ b/src/catalog-fallbacks.ts
+@@ -0,0 +1,36 @@
++// Local fork stopgap: pi-ai 0.87.1 does not yet list Sonnet 5.5.
++// Remove this module and its index.ts call once the host pi-ai catalog ships
++// claude-sonnet-5-5. An authoritative catalog entry always wins, unchanged.
++// Only provider-registration fields are copied: Sonnet 5's 1M window,
++// 128K output limit, text/image input and effort map are provisional metadata
++// for 5.5, not independent measurements of those catalog fields. The bridge's
++// separate [1m] runtime policy is measured (diag/CONTEXT-SIZE.md). Do not
++// copy Sonnet 5's prices, API settings, cache limits or other capabilities.
++
++type CatalogFallback = {
++	id: string;
++	name: string;
++	reasoning: boolean;
++	input: string[];
++	contextWindow: number;
++	maxTokens: number;
++	thinkingLevelMap?: Record<string, string | null>;
++};
++
++export function withCatalogFallbacks<T extends CatalogFallback>(models: readonly T[]): Array<T | CatalogFallback> {
++	const result: Array<T | CatalogFallback> = [...models];
++	if (models.some((model) => model.id === "claude-sonnet-5-5")) return result;
++	const sonnet5 = models.find((model) => model.id === "claude-sonnet-5");
++	if (!sonnet5) return result;
++
++	result.push({
++		id: "claude-sonnet-5-5",
++		name: "Claude Sonnet 5.5",
++		reasoning: sonnet5.reasoning,
++		input: [...sonnet5.input],
++		contextWindow: sonnet5.contextWindow,
++		maxTokens: sonnet5.maxTokens,
++		...(sonnet5.thinkingLevelMap ? { thinkingLevelMap: { ...sonnet5.thinkingLevelMap } } : {}),
++	});
++	return result;
++}

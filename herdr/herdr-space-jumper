@@ -20,6 +20,8 @@
 # Requires: jq, nc (Unix socket support)
 
 set -euo pipefail
+# DEBUG-TRACE (temporary)
+mkdir -p "${XDG_RUNTIME_DIR:-/tmp}/herdr-space-jumper"; exec 2>>"${XDG_RUNTIME_DIR:-/tmp}/herdr-space-jumper/trace.log"; echo "=== $(date +%T) args=$* ws=${HERDR_ACTIVE_WORKSPACE_ID:-} pane=${HERDR_ACTIVE_PANE_ID:-}" >&2; set -x
 
 N="${1:?usage: herdr-space-jumper <1-9>}"
 STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/herdr-space-jumper"

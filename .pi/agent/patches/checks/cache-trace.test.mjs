@@ -3,15 +3,16 @@ import { test } from 'node:test';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, symlinkSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { stripTypeScriptTypes } from 'node:module';
 import vm from 'node:vm';
-import { createCacheTrace } from './payload/src/cache-trace.ts';
+import { target, bridgeLoader, sourcePath, fixtures } from './target.mjs';
 
-const assets = fileURLToPath(new URL('.', import.meta.url));
-const source = readFileSync(join(assets, 'payload/src/index.ts'), 'utf8');
-const stock = readFileSync(join(assets, 'pristine/src/index.ts'), 'utf8');
-const transcript = readFileSync(join(assets, 'pristine/src/transcript.ts'), 'utf8');
+const packageRoot = target('pi-claude-bridge');
+const jiti = await bridgeLoader(packageRoot);
+const { createCacheTrace } = await jiti.import(sourcePath(packageRoot, 'cache-trace.ts'));
+const source = readFileSync(sourcePath(packageRoot, 'index.ts'), 'utf8');
+const stock = readFileSync(join(fixtures, 'index.ts'), 'utf8');
+const transcript = readFileSync(join(fixtures, 'transcript.ts'), 'utf8');
 const secret = 'SENTINEL_SECRET_/private/path_AUTH_tool_prompt_session';
 function extract(text, name) {
  const start = text.indexOf(`function ${name}`);
@@ -263,7 +264,12 @@ test('actual provider late abandoned callback cannot take replacement identity',
 });
 
 test('all index modifications are observational insertions, with stable SDK attribution', () => {
- const without = source.split('\n').filter(line => !line.includes('cacheTrace')).join('\n');
+ // Catalog fallback is a separate patch: remove only its known import and wiring.
+ const without = source.split('\n').filter(line => !line.includes('cacheTrace')
+  && line !== 'import { withCatalogFallbacks } from "./catalog-fallbacks.js";'
+ ).join('\n')
+  .replace('// Only fill catalog gaps locally; projection and runtime policy stay in models.js.', '// MODELS is buildModels(getModels("anthropic")) — projection kept in models.js.')
+  .replace('buildModels(withCatalogFallbacks(getModels("anthropic")))', 'buildModels(getModels("anthropic"))');
  assert.equal(without, stock);
  assert.ok(source.includes('cacheTrace.output(sdkQuery, queryCtx.turnOutput)'));
  assert.equal((source.match(/cacheTrace.finish\(sdkQuery,/g) ?? []).length, 2);

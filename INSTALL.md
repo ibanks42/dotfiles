@@ -52,7 +52,7 @@ Packages: zsh, starship.
 | Source | Target |
 |---|---|
 | `$DOTFILES/zsh/.zshrc` | `~/.zshrc` |
-| `$DOTFILES/bash/.customrc` | `~/.customrc` (aliases, starship, zoxide, mise; shared with bash) |
+| `$DOTFILES/zsh/custom.zsh` | `~/.zsh/custom.zsh` (aliases, starship, zoxide, mise; zsh only) |
 | `$DOTFILES/bash/starship.toml` | `~/.config/starship.toml` |
 
 Then:
@@ -72,14 +72,12 @@ git clone --recursive --depth 1 --shallow-submodules https://github.com/akinomyo
 bash ~/.local/share/blesh-repo/make install PREFIX=~/.local
 rm -rf ~/.local/share/blesh-repo
 ```
-Link `$DOTFILES/bash/.blerc` → `~/.blerc` and `$DOTFILES/bash/.customrc` →
-`~/.customrc`. Add these lines to `~/.bashrc` if missing:
+Link `$DOTFILES/bash/.blerc` → `~/.blerc`. Add this line to `~/.bashrc` if missing:
 ```sh
 [[ -f $HOME/.local/share/blesh/ble.sh ]] && source "$HOME/.local/share/blesh/ble.sh"
-[[ -f $HOME/.customrc ]] && source "$HOME/.customrc"
 ```
-Note: `.customrc` currently uses zsh-flavoured lines (zoxide/mise init for zsh,
-nvm `zsh_completion`). Warn the user if they want it for bash too.
+Aliases and tool init live in `zsh/custom.zsh`, which is zsh-only; bash does
+not load it.
 
 ### ✅ Neovim
 Packages: neovim (recent; the config is LazyVim). Link `$DOTFILES/nvim` →
@@ -154,7 +152,7 @@ current machines. Ask the user before linking them.
 
 ## Package names
 - Debian/Ubuntu: `fd` is `fd-find` (binary `fdfind`), `bat` is binary `batcat`.
-  `.customrc` has `alias fd=fdfind` and `alias bat=batcat` for this; on
+  `zsh/custom.zsh` has `alias fd=fdfind` and `alias bat=batcat` for this; on
   other distros those aliases break `fd`/`bat`, so tell the user.
 - eza, lazygit, starship, ghostty, yazi and a recent neovim may be missing or
   old in apt/dnf repos. Use the upstream install method (release binary,

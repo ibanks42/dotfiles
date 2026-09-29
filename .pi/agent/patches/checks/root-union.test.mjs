@@ -1,23 +1,18 @@
-// Regression test for claude-bridge-root-union. Runs against the installed
-// bridge (or PI_CLAUDE_BRIDGE_ROOT), so it also shows whether upstream fixed it.
-// Usage: node --test regression.test.mjs
+// Regression against PI_PATCH_PACKAGE_ROOT (or the default installed bridge).
+// No model requests; the MCP server and client use linked in-memory transports.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { target, dependency, bridgeLoader, sourcePath, fixtures } from './target.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const modules = path.resolve(here, "../../npm/node_modules");
-const bridge = process.env.PI_CLAUDE_BRIDGE_ROOT ?? path.join(modules, "pi-claude-bridge");
-const { createJiti } = await import(path.join(modules, "jiti/lib/jiti.mjs"));
-const jiti = createJiti(path.join(bridge, "src/"));
-
-const { createToolServer } = await jiti.import(path.join(bridge, "src/mcp-server.ts"));
-const { Client } = await jiti.import("@modelcontextprotocol/sdk/client/index.js");
-const { InMemoryTransport } = await jiti.import("@modelcontextprotocol/sdk/inMemory.js");
-// pi-codex-conversion 3.0.39's notebook parameters, as Pi hands them to the bridge.
-const NOTEBOOK_PARAMETERS = JSON.parse(readFileSync(path.join(here, "notebook-schema.json"), "utf8"));
+const bridge = target('pi-claude-bridge');
+const jiti = await bridgeLoader(bridge);
+const { createToolServer } = await jiti.import(sourcePath(bridge, 'mcp-server.ts'));
+const { Client } = await import(dependency(bridge, '@modelcontextprotocol/sdk/client/index.js'));
+const { InMemoryTransport } = await import(dependency(bridge, '@modelcontextprotocol/sdk/inMemory.js'));
+// Pi's notebook parameters, as handed to the bridge.
+const NOTEBOOK_PARAMETERS = JSON.parse(readFileSync(path.join(fixtures, 'notebook-schema.json'), 'utf8'));
 
 const plain = { type: "object", properties: { path: { type: "string" } }, required: ["path"] };
 

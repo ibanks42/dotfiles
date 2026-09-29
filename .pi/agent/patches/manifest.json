@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "pi-claude-bridge",
+      "patches": [
+        {
+          "id": "bridge-compatibility",
+          "file": "diffs/claude-bridge.patch",
+          "files": [
+            "src/index.ts",
+            "src/mcp-server.ts",
+            "src/models.ts",
+            "src/cache-trace.ts",
+            "src/schema-flatten.ts",
+            "src/catalog-fallbacks.ts"
+          ],
+          "check": [
+            "node",
+            "--test",
+            "{patchDir}/checks/root-union.test.mjs",
+            "{patchDir}/checks/cache-trace.test.mjs",
+            "{patchDir}/checks/catalog.test.mjs",
+            "{patchDir}/checks/sdk.test.mjs"
+          ]
+        }
+      ]
+    }
+  ]
+}

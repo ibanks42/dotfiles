@@ -3,9 +3,12 @@
 set -euo pipefail
 
 case "${1:-}" in
-  left) direction=right ;;
-  up) direction=down ;;
-  *) echo "usage: herdr-split <left|up>" >&2; exit 2 ;;
+left) direction=right ;;
+up) direction=down ;;
+*)
+  echo "usage: herdr-split <left|up>" >&2
+  exit 2
+  ;;
 esac
 
 HERDR_BIN="${HERDR_BIN_PATH:-$(command -v herdr || true)}"

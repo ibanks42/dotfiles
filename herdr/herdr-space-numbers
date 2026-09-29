@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # herdr-space-numbers — mirror workspace positions into the $num sidebar token.
 #
 # Herdr numbers workspaces positionally (the digit switch_workspace jumps to),

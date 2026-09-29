@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""Pi launcher that repairs patched packages after extension updates.
+
+Symlink this file into PATH ahead of the real `pi`. It forwards every
+invocation to the real Pi. Non-update invocations replace this process with
+os.execv, so arguments, stdin, the TTY, the environment, and signals reach Pi
+unchanged.
+
+For `pi update` invocations that update extensions, the launcher takes the
+patch lock, runs the real update as a child process with inherited stdio, and,
+only if the update exits 0, runs the manifest-driven patch runner
+(runner.py apply) while it still holds the lock.
+
+Real Pi discovery: $PI_REAL_BIN if set, otherwise the first `pi` on PATH that is
+not this launcher (compared by resolved path and by the marker below).
+"""
+
+# pi-patch-launcher:v1  (marker used to skip copies of this launcher on PATH)
+
+from __future__ import annotations
+
+import os
+import signal
+import sys
+
+LAUNCHER_MARKER = b"pi-patch-launcher:v1"
+EXIT_NOT_FOUND = 127
+EXIT_CANNOT_EXEC = 126
+
+
+class LauncherError(Exception):
+    pass
+
+
+def update_includes_extensions(args: list[str]) -> bool:
+    """Return True if `pi <args>` is a valid update that updates extensions.
+
+    Mirrors parsePackageCommand in pi-coding-agent's package-manager-cli.js.
+    Help, invalid, or conflicting invocations return False because Pi rejects
+    them or does not update packages.
+    """
+    if not args or args[0] != "update":
+        return False
+    rest = args[1:]
+    source = None
+    extension_source = None
+    self_flag = extensions_flag = models_flag = all_flag = False
+    invalid = False
+    index = 0
+    while index < len(rest):
+        arg = rest[index]
+        if arg in ("-h", "--help"):
+            return False
+        if arg == "--self":
+            self_flag = True
+        elif arg == "--extensions":
+            extensions_flag = True
+        elif arg == "--models":
+            models_flag = True
+        elif arg == "--all":
+            all_flag = True
+        elif arg in ("--approve", "-a", "--no-approve", "-na", "--force"):
+            pass
+        elif arg == "--extension":
+            value = rest[index + 1] if index + 1 < len(rest) else None
+            if not value or value.startswith("-"):
+                invalid = True
+            elif extension_source is not None:
+                invalid = True
+                index += 1
+            else:
+                extension_source = value
+                index += 1
+        elif arg.startswith("-"):
+            invalid = True
+        elif source is None:
+            source = arg
+        else:
+            invalid = True
+        index += 1
+
+    if invalid:
+        return False
+    if all_flag and (self_flag or extensions_flag or models_flag or extension_source or source):
+        return False
+    if models_flag:
+        return False
+    if extension_source is not None:
+        return not (self_flag or extensions_flag or source)
+    if source is not None:
+        if source in ("self", "pi"):
+            return extensions_flag
+        return not (extensions_flag or self_flag)
+    if all_flag:
+        return True
+    return extensions_flag
+
+
+def _is_launcher(path: str, self_real: str) -> bool:
+    real = os.path.realpath(path)
+    if real == self_real:
+        return True
+    try:
+        with open(real, "rb") as handle:
+            return LAUNCHER_MARKER in handle.read(4096)
+    except OSError:
+        return False
+
+
+def _is_executable_file(path: str) -> bool:
+    return os.path.isfile(path) and os.access(path, os.X_OK)
+
+
+def find_real_pi(self_real: str, environ: dict[str, str] | None = None) -> str:
+    environ = os.environ if environ is None else environ
+    override = environ.get("PI_REAL_BIN")
+    if override:
+        if not _is_executable_file(override):
+            raise LauncherError(f"PI_REAL_BIN is not an executable file: {override}")
+        if _is_launcher(override, self_real):
+            raise LauncherError(f"PI_REAL_BIN points at this launcher (would recurse): {override}")
+        return override
+    for directory in environ.get("PATH", "").split(os.pathsep):
+        if not directory:
+            continue
+        candidate = os.path.join(directory, "pi")
+        if _is_executable_file(candidate) and not _is_launcher(candidate, self_real):
+            return candidate
+    raise LauncherError("real pi not found on PATH (only this launcher was found); set PI_REAL_BIN")
+
+
+def exec_real(real: str, args: list[str]) -> None:
+    # Python ignores SIGPIPE and SIGXFSZ at startup, and ignored dispositions
+    # survive exec. Restore the defaults so Pi sees normal signal handling.
+    for name in ("SIGPIPE", "SIGXFSZ"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), signal.SIG_DFL)
+    try:
+        os.execv(real, [real, *args])
+    except OSError as exc:
+        print(f"pi launcher: cannot execute {real}: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CANNOT_EXEC)
+
+
+def _run_child(real: str, args: list[str]) -> tuple[int, int | None]:
+    """Run real Pi with inherited stdio. Return (returncode, forwarded_signal)."""
+    import subprocess
+
+    forwarded: list[int] = []
+    proc = None
+
+    def forward(signum: int, _frame: object) -> None:
+        forwarded.append(signum)
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.send_signal(signum)
+            except ProcessLookupError:
+                pass
+
+    # Like a shell: the terminal delivers SIGINT/SIGQUIT to Pi directly, so the
+    # launcher ignores them and waits. SIGTERM/SIGHUP sent to the launcher are
+    # forwarded to Pi.
+    previous = {
+        signal.SIGINT: signal.signal(signal.SIGINT, signal.SIG_IGN),
+        signal.SIGQUIT: signal.signal(signal.SIGQUIT, signal.SIG_IGN),
+        signal.SIGTERM: signal.signal(signal.SIGTERM, forward),
+        signal.SIGHUP: signal.signal(signal.SIGHUP, forward),
+    }
+    # Ignored dispositions survive exec, so the child restores the dispositions
+    # the launcher started with. restore_signals (default) resets SIGPIPE/SIGXFSZ.
+    def child_signals() -> None:
+        for signum in (signal.SIGINT, signal.SIGQUIT):
+            if previous[signum] is not signal.SIG_IGN:
+                signal.signal(signum, signal.SIG_DFL)
+
+    try:
+        proc = subprocess.Popen([real, *args], preexec_fn=child_signals)
+        if forwarded:
+            proc.send_signal(forwarded[0])
+        returncode = proc.wait()
+    finally:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+    return returncode, (forwarded[0] if forwarded else None)
+
+
+def _exit_like(returncode: int) -> int:
+    """Return an exit status for returncode; re-raise the signal if the child died by one."""
+    if returncode < 0:
+        signum = -returncode
+        sys.stdout.flush()
+        sys.stderr.flush()
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+        return 128 + signum
+    return returncode
+
+
+def run_update(real: str, args: list[str], self_real: str) -> int:
+    sys.path.insert(0, os.path.dirname(self_real))
+    import runner
+
+    agent_dir = runner.default_agent_dir()
+    manifest = runner.default_manifest_path()
+    with runner.AgentLock(agent_dir, create_dir=True):
+        returncode, forwarded = _run_child(real, args)
+        if returncode != 0 or forwarded is not None:
+            status = f"signal {-returncode}" if returncode < 0 else f"exit {returncode}"
+            print(f"pi launcher: pi update failed ({status}); patches were NOT applied or checked.",
+                  file=sys.stderr, flush=True)
+            if returncode == 0 and forwarded is not None:
+                return 128 + forwarded
+            return returncode
+        print(f"pi launcher: pi update succeeded; applying patches from {manifest}", flush=True)
+        try:
+            code = runner.run("apply", manifest, agent_dir, lock_held=True)
+        except KeyboardInterrupt:
+            code = 130
+        except runner.Interrupted as exc:
+            code = 128 + exc.signum
+    if code == runner.EXIT_OK:
+        print("pi launcher: update and patch repair complete. Restart Pi processes that were already running.",
+              flush=True)
+    else:
+        print(f"pi launcher: pi update succeeded, but patch repair failed (exit {code}). "
+              "Changes made by the repair were rolled back; the package update itself was kept.",
+              file=sys.stderr, flush=True)
+    return code
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    self_real = os.path.realpath(__file__)
+    try:
+        real = find_real_pi(self_real)
+    except LauncherError as exc:
+        print(f"pi launcher: {exc}", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    if not update_includes_extensions(args):
+        exec_real(real, args)
+    return _exit_like(run_update(real, args, self_real))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

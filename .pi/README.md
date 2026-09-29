@@ -29,42 +29,40 @@ Never use `git add -f` for credentials or runtime data.
 ## Machine setup
 
 Extension declarations have no version pins. Pi can update them to newer releases.
-The default Claude provider uses `npm:pi-claude-code-provider`.
-Local repairs remain specific to their reviewed package versions and hashes.
+The active Claude bridge comes from `npm:pi-claude-bridge`. No local fork loads as an extension.
+The shared patch runner preserves its Sonnet 5.5 support, metadata-only cache tracing, and support for notebook tool schemas.
+See `agent/patches/README.md` for launcher installation, checks, and failure handling.
 
 Before you start Pi on a new machine:
 
 1. If you will replace an existing installation, review its local patches first.
 2. Create the private session directory with `install -d -m 700 ~/.pi/agent/sessions`.
-3. Install the packages declared in `agent/settings.json` with `pi update --extensions`.
-4. Check whether the local patches still apply to the installed versions.
-5. Configure credentials locally with `/login` or provider environment variables.
+3. Install the launcher described in `agent/patches/README.md`.
+4. Install the packages declared in `agent/settings.json` with `pi update --extensions`.
+5. Resolve any reported patch failure before starting Pi.
+6. Configure credentials locally with `/login` or provider environment variables.
 
 The router tests resolve dependencies relative to this directory, not a fixed home directory.
-The Claude recovery procedure checks the exact package version and source hashes before any write.
-See `agent/local-patches/claude-tool-schema-filter/README.md` for recovery tests and prerequisites.
 
-## Repair tools
+## Automatic patches
 
-The web-access repair retains its source fixture and reviewed payload.
-The Claude repair retains a patch and a manifest of reviewed source hashes.
-These files are test and repair inputs, not disposable backups.
-Both repairs refuse unreviewed package versions or hashes.
-These safety checks do not pin extensions or prevent Pi from updating them.
-If a new release fails a repair check, review or retire the patch instead of bypassing its checks.
+The normal `pi` command runs a launcher ahead of the real executable on `PATH`.
+After a successful extension update, it applies registered diffs and runs their offline regression checks.
+The launcher also handles `pi update --all` and individual package updates.
+Other commands pass directly to Pi.
 
-With Pi sessions stopped, run these commands from `~/.pi`:
+Use these commands from `~/.pi`:
 
 ```sh
-python3 agent/local-patches/post-update-cache-repair/repair.py apply
-python3 agent/local-patches/claude-tool-schema-filter/repair.py apply
+pi update --extensions
+python3 agent/patches/runner.py check
 ```
 
-To inspect an installation without changes, replace `apply` with `check`.
-The existing `pi-update-with-cache-fixes` launcher restores only the web-access patch.
-An extension update can succeed while the launcher's subsequent repair refuses the new version.
-After package updates, run the Claude repair separately.
-See each repair README for refusal conditions and recovery limits.
+If a patch conflicts or its check fails, the launcher returns an error and restores files changed by that patch run.
+It does not undo the package update. Review the failure rather than bypassing the checks.
+Restart running Pi sessions after successful updates.
+The old repair scripts and bridge fork remain in a private migration backup under `agent/backups/`.
+Pi Web Access includes its former fix upstream. The inactive Claude Code provider no longer needs an automatic repair.
 
 Pi uses its built-in `cacheWarming` setting.
 This setting warms only eligible providers; it does not guarantee warming for Codex or the Claude bridge.

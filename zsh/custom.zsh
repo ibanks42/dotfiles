@@ -1,3 +1,5 @@
+# Aliases, env, and tool init (starship, zoxide, mise) for zsh. Sourced by ~/.zshrc.
+
 . "$HOME/.cargo/env"
 
 if [[ -n $SSH_CONNECTION ]]; then
@@ -69,21 +71,21 @@ export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
 # bun completions
-[ -s "/home/ibanks/.bun/_bun" ] && source "/home/ibanks/.bun/_bun"
+[ -s "$BUN_INSTALL/_bun" ] && source "$BUN_INSTALL/_bun"
 
 # flyctl
-export FLYCTL_INSTALL="/home/ibanks/.fly"
-export PATH="$FLYCTL_INSTALL/bin:$PATH"
+export FLYCTL_INSTALL="$HOME/.fly"
+[[ -d $FLYCTL_INSTALL/bin ]] && export PATH="$FLYCTL_INSTALL/bin:$PATH"
 
 # pnpm
-export PNPM_HOME="/home/ibanks/.local/share/pnpm"
+export PNPM_HOME="$HOME/.local/share/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 
 # opencode
-export PATH=/home/ibanks/.opencode/bin:$PATH
+[[ -d $HOME/.opencode/bin ]] && export PATH="$HOME/.opencode/bin:$PATH"
 
 if [[ $- == *i* ]]; then
   eval "$(starship init zsh)"
@@ -91,4 +93,7 @@ fi
 
 eval "$(zoxide init zsh)"
 eval "$($HOME/.local/bin/mise activate zsh)"
+
+# Apply reviewed Pi patches after extension updates.
+export PATH="$HOME/.local/share/pi-launcher/bin:$PATH"
 

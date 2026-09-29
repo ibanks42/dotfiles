@@ -52,62 +52,29 @@
 !/agent/cache-forensics/test_analyze.py
 !/agent/cache-forensics/README.md
 
-# Repair tools and their required fixtures. Generated backups stay private.
-!/agent/local-patches/
-!/agent/local-patches/claude-tool-schema-filter/
-!/agent/local-patches/claude-tool-schema-filter/README.md
-!/agent/local-patches/claude-tool-schema-filter/regression.test.mjs
-!/agent/local-patches/claude-tool-schema-filter/fix.patch
-!/agent/local-patches/claude-tool-schema-filter/installed-hashes.json
-!/agent/local-patches/claude-tool-schema-filter/manifest.json
-!/agent/local-patches/claude-tool-schema-filter/repair.py
-!/agent/local-patches/claude-tool-schema-filter/test_repair.py
-!/agent/local-patches/pi-web-access-dyn-activation/
-!/agent/local-patches/pi-web-access-dyn-activation/README.md
-!/agent/local-patches/pi-web-access-dyn-activation/ISSUE.md
-!/agent/local-patches/pi-web-access-dyn-activation/index.before.js
-!/agent/local-patches/post-update-cache-repair/
-!/agent/local-patches/post-update-cache-repair/README.md
-!/agent/local-patches/post-update-cache-repair/manifest.json
-!/agent/local-patches/post-update-cache-repair/repair.py
-!/agent/local-patches/post-update-cache-repair/test_repair.py
-!/agent/local-patches/post-update-cache-repair/pi-cache-fix-repair
-!/agent/local-patches/post-update-cache-repair/pi-update-with-cache-fixes
-!/agent/local-patches/post-update-cache-repair/payload/
-!/agent/local-patches/post-update-cache-repair/payload/pi-web-access/
-!/agent/local-patches/post-update-cache-repair/payload/pi-web-access/dist/
-!/agent/local-patches/post-update-cache-repair/payload/pi-web-access/dist/index.js
-
 # Manual reviewer source only; snapshots and packets remain private.
 !/agent/agents/subtask-reviewer.md
 !/agent/extensions/subtask-router/reviewer.ts
 !/agent/extensions/subtask-router/tests/reviewer.test.ts
 
-# Reviewed cache trace patch inputs only; runtime trace data stays private.
-!/agent/local-patches/claude-bridge-cache-trace/
-!/agent/local-patches/claude-bridge-cache-trace/payload/
-!/agent/local-patches/claude-bridge-cache-trace/payload/src/
-!/agent/local-patches/claude-bridge-cache-trace/pristine/
-!/agent/local-patches/claude-bridge-cache-trace/pristine/src/
-!/agent/local-patches/claude-bridge-cache-trace/bridge.patch
-!/agent/local-patches/claude-bridge-cache-trace/manifest.json
-!/agent/local-patches/claude-bridge-cache-trace/repair.py
-!/agent/local-patches/claude-bridge-cache-trace/test_repair.py
-!/agent/local-patches/claude-bridge-cache-trace/offline.test.mjs
-!/agent/local-patches/claude-bridge-cache-trace/README.md
-!/agent/local-patches/claude-bridge-cache-trace/VALIDATION.md
-!/agent/local-patches/claude-bridge-cache-trace/payload/src/index.ts
-!/agent/local-patches/claude-bridge-cache-trace/payload/src/cache-trace.ts
-!/agent/local-patches/claude-bridge-cache-trace/pristine/package.json
-!/agent/local-patches/claude-bridge-cache-trace/pristine/src/index.ts
-!/agent/local-patches/claude-bridge-cache-trace/pristine/src/transcript.ts
-
-# Root-union schema patch for pi-claude-bridge.
-!/agent/local-patches/claude-bridge-root-union/
-!/agent/local-patches/claude-bridge-root-union/README.md
-!/agent/local-patches/claude-bridge-root-union/UPSTREAM.md
-!/agent/local-patches/claude-bridge-root-union/apply.sh
-!/agent/local-patches/claude-bridge-root-union/mcp-server.patch
-!/agent/local-patches/claude-bridge-root-union/schema-flatten.ts
-!/agent/local-patches/claude-bridge-root-union/regression.test.mjs
-!/agent/local-patches/claude-bridge-root-union/notebook-schema.json
+# Unified update patches and offline checks. Backups stay private.
+!/agent/patches/
+!/agent/patches/diffs/
+!/agent/patches/checks/
+!/agent/patches/checks/fixtures/
+!/agent/patches/README.md
+!/agent/patches/manifest.json
+!/agent/patches/pi
+!/agent/patches/runner.py
+!/agent/patches/test_runner.py
+!/agent/patches/test_launcher.py
+!/agent/patches/diffs/claude-bridge.patch
+!/agent/patches/checks/target.mjs
+!/agent/patches/checks/root-union.test.mjs
+!/agent/patches/checks/cache-trace.test.mjs
+!/agent/patches/checks/catalog.test.mjs
+!/agent/patches/checks/sdk.test.mjs
+!/agent/patches/checks/web-access.test.mjs
+!/agent/patches/checks/fixtures/index.ts
+!/agent/patches/checks/fixtures/transcript.ts
+!/agent/patches/checks/fixtures/notebook-schema.json

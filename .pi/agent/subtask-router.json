@@ -41,10 +41,10 @@
     },
     "sonnet": {
       "routes": [
-        "claude-bridge/claude-sonnet-5"
+        "claude-bridge/claude-sonnet-5-5"
       ],
       "family": "anthropic",
-      "profile": "Outperformed by opus at low effort: opus low scores 42 at a similar cost and a fraction of the time. Intelligence index: low 24, medium 28, high 32, xhigh 34, max 38. Agentic coding: low 3, medium 2, high 5, max 14. About 70 tokens/s, 2.5 min per task at low and 15 min at max. Hallucination rate about 73% at low, 39% at max. Pick it only when opus is unavailable and a Claude model is required. Quota cost per task: low $0.51, medium $1.00, high $1.79, max $5.09.",
+      "profile": "Sonnet 5.5 is a substantial upgrade over Sonnet 5. Artificial Analysis Intelligence Index by effort: low 35.8, medium 40.7, high 46.7, xhigh 51.9, max 56.0. Terminal-Bench 4.0: low 20.7%, medium 29.8%, high 43.9%, xhigh 57.1%, max 63.6%. Trial candidate for bounded implementation, tests, and reviews at medium/high effort. Local latency is unmeasured: do not assume faster than Opus or Sol. Opus-low slightly exceeds Sonnet-medium on these benchmarks. Max uses substantially more output tokens; do not default to max. AA API cost per task: low $0.41, medium $0.59, high $1.08, xhigh $2.74, max $7.60; these are not subscription quota measurements. Claude evaluations use AA default-fallback configuration, which may differ from this bridge. Keep Opus for UI/UX as requested.",
       "fallback": "opus",
       "stronger": "opus"
     },

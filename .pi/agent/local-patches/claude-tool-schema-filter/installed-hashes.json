@@ -1,8 +1,0 @@
-{
-  "src/context-serializer.ts": "58b8b5b30c27ee999937f28be8f0eca8a3b4f9c527c0618b802275a5fd109360",
-  "src/provider.ts": "916bc9708427f84344a10c5ea6e9558bb9a88fafceeb017b35d8abc071cad819",
-  "src/session-registry.ts": "8632b3bce18d7f0cc7b1d3453cb44b436768909a60ecd24509449bf31303cb2b",
-  "src/types.ts": "4aaca603df9d0956f1b4b3ebb0a7e2ba277d81739cc4780da7997e85efb9c7fc",
-  "extensions/pi-claude-code-provider.ts": "9b0bf4b0d82ba7aa0c0ceda250df6248de0be6f81066e1d02e1a3a0fdf0b414a",
-  "src/tool-schema-compatibility.ts": "ef1c67e63baad4092f9a14892fefd7a18623ed9278db04b0b71e0e8b9d2e5614"
-}

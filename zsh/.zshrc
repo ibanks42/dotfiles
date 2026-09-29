@@ -12,8 +12,8 @@ export PATH
 export EDITOR=nvim
 export SUDOEDITOR=vim
 
-# Aliases, starship, zoxide, mise (shared with bash)
-[[ -f $HOME/.customrc ]] && source "$HOME/.customrc"
+# Aliases, starship, zoxide, mise
+[[ -f $HOME/.zsh/custom.zsh ]] && source "$HOME/.zsh/custom.zsh"
 
 # if [[ -f "/usr/share/ghost/ghost.sh" ]]; then
 #   source "/usr/share/ghost/ghost.sh"
@@ -67,3 +67,6 @@ autoload -Uz select-word-style
 select-word-style bash
 bindkey '^[[1;5D' backward-word
 bindkey '^[[1;5C' forward-word
+
+# Keep the Pi update launcher ahead of Bun and other runtime paths.
+export PATH="$HOME/.local/share/pi-launcher/bin:$PATH"
