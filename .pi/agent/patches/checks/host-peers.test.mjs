@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const expected = {
-  '@juicesharp/rpiv-ask-user-question': ['typebox'],
   'pi-opencode-direct': ['@earendil-works/pi-ai'],
   '@tintinweb/pi-subagents': ['@sinclair/typebox', 'typebox'],
   'pi-multi-account': ['@earendil-works/pi-ai'],

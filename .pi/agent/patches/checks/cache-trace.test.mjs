@@ -49,10 +49,10 @@ function bridge(trace, text = source) {
   deleteSession(id) { io.push(['delete', id]); },
   createSession(options) { io.push(['create', options]); return { sessionId: options.sessionId ?? `generated-${++next}`, records: [], save() {}, jsonlPath: secret }; },
   convertAndImportMessages(s, messages) { s.records.push(...messages); }, verifyWrittenSession() {},
-  calculateCost() {},
+  updateUsage() { return { cachePct: 0 }; },
  };
  vm.createContext(sandbox);
- const names = ['sessionKey', 'sessionStateFor', 'setSessionStateFor', 'turnStart', 'syncSharedSession', 'markRebuildForSession', 'armStaleContexts', 'steerMissedSession', 'discardRewrittenQuery', 'updateUsage'];
+ const names = ['sessionKey', 'sessionStateFor', 'setSessionStateFor', 'turnStart', 'syncSharedSession', 'markRebuildForSession', 'armStaleContexts', 'steerMissedSession', 'discardRewrittenQuery', 'recordUsage'];
  vm.runInContext(extract(transcript, 'nonSystemMessages') + '\n' + names.map(n => extract(text, n)).join('\n'), sandbox);
  return { b: sandbox, io };
 }
@@ -137,7 +137,7 @@ test('query identity survives context replacement; idle excludes tool boundaries
  const { b } = bridge(f.trace);
  f.trace.output(replacement.q, output);
  const usage = { input_tokens: 4, output_tokens: 5, cache_read_input_tokens: 100, cache_creation_input_tokens: 6, [secret]: secret };
- b.updateUsage(output, usage, { id: secret }); b.updateUsage(output, usage, { id: secret });
+ b.recordUsage(output, usage, { id: secret }); b.recordUsage(output, usage, { id: secret });
  const rows = f.records().filter(r => r.event === 'usage');
  assert.equal(rows.length, 2); assert.equal(rows[1].cacheRead, 100); assert.equal(rows[1].aggregation, 'none');
  assert.equal(rows[1].kind, 'snapshot_partial'); assert.equal(rows[1].observation, 2);

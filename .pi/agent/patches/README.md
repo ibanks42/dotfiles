@@ -50,12 +50,12 @@ Calling the real executable directly bypasses automatic patches.
 
 ### Pi 0.99 extension compatibility
 
-Four manifest patches move host-provided packages from dependencies to peers:
+Three manifest patches move host-provided packages from dependencies to peers:
 
-- `@juicesharp/rpiv-ask-user-question`: `typebox`.
 - `pi-opencode-direct` and `pi-multi-account`: `@earendil-works/pi-ai`.
 - `@tintinweb/pi-subagents`: `typebox` and `@sinclair/typebox`.
 
+`@juicesharp/rpiv-ask-user-question` fixed its `typebox` peer upstream in 2.12.0, so its patch was retired.
 These patches remove Pi's manifest warnings. They do not delete existing runtime packages or change the declared host-version ranges.
 
 A separate `pi-multi-account` patch repairs OAuth initialization after a failed native import leaves provider modules partially loaded.
@@ -74,9 +74,8 @@ One combined diff preserves changes that share `src/index.ts`:
 - Object-only root union schemas work with the Claude MCP tool server, including the notebook tool.
 - Optional cache tracing records bounded metadata, not prompts or credentials. Its existing runtime control file still applies.
 - The catalog supplies Sonnet 5.5 only when the host catalog lacks it. Authoritative catalog entries win.
-- Sonnet 5.5 retains the upstream 1M-context policy from the former fork.
 
-The diff is based on the npm 0.9.0 release. Exact context and regression checks decide whether a newer release is compatible.
+The diff is based on the npm 0.9.1 release. Upstream 0.9.1 includes the former Sonnet 5.5 1M-context change. Exact context and regression checks decide whether a newer release is compatible.
 The catalog fallback copies provisional registration metadata from Sonnet 5. It does not copy pricing.
 The checks require Agent SDK 0.3.284 or newer and its native Claude executable on this Linux host.
 

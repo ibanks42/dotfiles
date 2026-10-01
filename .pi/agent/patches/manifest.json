@@ -2,15 +2,6 @@
   "schemaVersion": 1,
   "packages": [
     {
-      "name": "@juicesharp/rpiv-ask-user-question",
-      "patches": [{
-        "id": "host-peers",
-        "file": "diffs/ask-user-question-host-peers.patch",
-        "files": ["package.json"],
-        "check": ["node", "--test", "{patchDir}/checks/host-peers.test.mjs"]
-      }]
-    },
-    {
       "name": "pi-opencode-direct",
       "patches": [{
         "id": "host-peers",
@@ -51,7 +42,6 @@
           "files": [
             "src/index.ts",
             "src/mcp-server.ts",
-            "src/models.ts",
             "src/cache-trace.ts",
             "src/schema-flatten.ts",
             "src/catalog-fallbacks.ts"

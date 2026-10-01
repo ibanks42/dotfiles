@@ -1,201 +1,6 @@
-diff --git a/src/index.ts b/src/index.ts
---- a/src/index.ts
-+++ b/src/index.ts
-@@ -10,6 +10,7 @@
- import { dirname, join } from "path";
- import { PROVIDER_ID, messageContentToText, convertPiMessages } from "./convert.js";
- import { applyLongContext, buildModels, claudeCodeModelId, type LongContextSettings, resolveModel as _resolveModel } from "./models.js";
-+import { withCatalogFallbacks } from "./catalog-fallbacks.js";
- import { MCP_SERVER_NAME, MCP_TOOL_PREFIX, renderSkillsBlock } from "./skills.js";
- import { verifyWrittenSession as _verifyWrittenSession } from "./session-verify.js";
- import { extractAllToolResults as _extractAllToolResults, type McpResult } from "./extract-tool-results.js";
-@@ -26,6 +27,7 @@
- import { buildActionSummary, type ToolCallState } from "./askclaude-ui.js";
- import { askClaudeCallTags, askClaudeToolDescription, buildAskClaudeParams, resolveAskClaudeDefaults, resolveAskClaudeMode, type AskClaudeMode } from "./askclaude-schema.js";
- import { nonSystemMessages, toBridgeContext } from "./transcript.js";
-+import { cacheTrace } from "./cache-trace.js";
- 
- // --- Debug logging ---
- // CLAUDE_BRIDGE_DEBUG=1 enables debug logging to ~/.pi/agent/claude-bridge.log
-@@ -138,8 +140,8 @@
- 	read: "read", write: "write", edit: "edit", bash: "bash",
- };
- 
--// MODELS is buildModels(getModels("anthropic")) — projection kept in models.js.
--const MODELS = buildModels(getModels("anthropic"));
-+// Only fill catalog gaps locally; projection and runtime policy stay in models.js.
-+const MODELS = buildModels(withCatalogFallbacks(getModels("anthropic")));
- let providerSettings: NonNullable<Config["provider"]> = {};
- let longContextSettings: LongContextSettings = { plan: "pro", longContextExtraUsage: false };
- 
-@@ -296,6 +298,7 @@
-  *  with no session id, so such a rewrite forces the REBUILD side; the discard
-  *  set holds real ids only — see the comment on historyRewrittenBySession. */
- function markRebuildForSession(piSession: string | null, event: string): void {
-+	cacheTrace.rewrite(piSession, event);
- 	// The rewriting session's own mirror: the rewrite changed the history it was
- 	// built from, so its next sync must REBUILD rather than REUSE. Every other
- 	// session's mirror stays untouched — its conversation was never rewritten.
-@@ -777,6 +780,7 @@
- 		const trailingAssistantOnly =
- 			missed.length === 1 && (missed[0] as { role?: string }).role === "assistant";
- 		if (missed.length === 0 || trailingAssistantOnly) {
-+		cacheTrace.sync(piSessionId, trailingAssistantOnly ? "reuse_trailing_assistant" : "reuse", sharedSession, history.length, priorMessages.length);
- 		if (trailingAssistantOnly) {
- 			setSessionStateFor(piSessionId, { ...sharedSession, cursor: priorMessages.length, cwd });
- 			debug(`Case 3: advanced cursor past trailing assistant, resuming session ${sharedSession.sessionId.slice(0, 8)}, cursor=${priorMessages.length}`);
-@@ -804,6 +808,7 @@
- 	// (/compact, session_tree, /new, fork) always set needsRebuild or clear
- 	// sharedSession before the next syncSharedSession call.
- 	if (sharedSession && !sharedSession.needsRebuild && priorMessages.length < sharedSession.cursor) {
-+		cacheTrace.sync(piSessionId, "clean_shorter", sharedSession, history.length, priorMessages.length);
- 		debug(`Case 1 synthetic: clean start for shorter context, preserving shared session ${sharedSession.sessionId.slice(0, 8)}, cursor=${sharedSession.cursor}`);
- 		debug(`syncResult: path=clean-start preserve-shared sessionId=${sharedSession.sessionId} cursor=${sharedSession.cursor}`);
- 		return { sessionId: null, preserveSharedSession: true };
-@@ -811,6 +816,7 @@
- 
- 	// REBUILD path
- 	if (priorMessages.length === 0) {
-+		cacheTrace.sync(piSessionId, "clean_no_priors", sharedSession, history.length, priorMessages.length);
- 		debug(`Case 1: clean start, ${history.length} total messages`);
- 		debug(`syncResult: path=clean-start`);
- 		return { sessionId: null };
-@@ -822,6 +828,7 @@
- 	// and for any tools that key off them. Skipped when there's a concurrent
- 	// writer we shouldn't race (forceRotate).
- 	const preserveId = previousSessionId !== undefined && !sharedSession?.forceRotate;
-+	cacheTrace.sync(piSessionId, previousSessionId === undefined ? "rebuild_first" : preserveId ? "rebuild_preserve" : "rebuild_rotate", sharedSession, history.length, priorMessages.length);
- 	// Before deleteSession — it wipes the file these live in.
- 	const carried = previousSessionId !== undefined ? readCarriedAttachments(previousSessionId, cwd) : [];
- 	if (preserveId) {
-@@ -1112,6 +1119,7 @@
- // --- Usage helpers ---
- 
- function updateUsage(output: AssistantMessage, usage: Record<string, number | undefined>, model: Model<any>): void {
-+	cacheTrace.usage(output, usage);
- 	if (usage.input_tokens != null) output.usage.input = usage.input_tokens;
- 	if (usage.output_tokens != null) output.usage.output = usage.output_tokens;
- 	if (usage.cache_read_input_tokens != null) output.usage.cacheRead = usage.cache_read_input_tokens;
-@@ -1515,6 +1523,7 @@
- 			continue;
- 		}
- 		if (!queryCtx.currentPiStream || !queryCtx.turnOutput) continue;
-+		cacheTrace.output(sdkQuery, queryCtx.turnOutput);
- 
- 		switch (message.type) {
- 			case "stream_event":
-@@ -1576,6 +1585,7 @@
-  *  it, so count-based sync would skip it forever — rebuild instead, which
-  *  re-imports the message from pi's context. */
- function steerMissedSession(c: QueryContext, text: string): void {
-+	cacheTrace.mark(c, "missed_steering");
- 	c.missedSteer = true;
- 	const state = sessionStateFor(c.piSessionId);
- 	if (state) setSessionStateFor(c.piSessionId, { ...state, needsRebuild: true });
-@@ -1684,6 +1694,7 @@
-  *  history — so the turn continues instead of ending here. Nothing is lost by
-  *  killing the subprocess: pi owns the only copy of the conversation that counts. */
- function discardRewrittenQuery(c: QueryContext): void {
-+	cacheTrace.mark(c, "rewritten_parked_query");
- 	const discarded = c.activeQuery as { interrupt?: () => Promise<unknown>; close?: () => void } | null;
- 	if (discarded) abandonedQueries.add(discarded);
- 	c.activeQuery = null;
-@@ -1762,6 +1773,7 @@
- 	// (everything after the last assistant message) and match against waiting MCP
- 	// handlers. Results that arrive before their handler get queued in pendingResults.
- 	if (resultCtx) {
-+		cacheTrace.continuation(resultCtx, allResults.length);
- 		claimCurrentPiStream(stream, "tool-result", resultCtx);
- 		resultCtx.resetTurnState(model);
- 		// A rewrite that armed the mark after this query parked gets copied here,
-@@ -1856,6 +1868,7 @@
- 	// follow-up) and on SessionState. A fresh instance of this module inside a
- 	// worktree-spawned subagent has its own contexts; each records its own.
- 	queryCtx.piSessionId = options?.sessionId ?? null;
-+	const cacheTraceQuery = cacheTrace.start(queryCtx, queryCtx.piSessionId, model.id, options?.reasoning, systemPromptAppend, mcpTools, context.messages.length);
- 	// A discarded query's replacement reuses this context; without the reset its
- 	// first tool result would sit on armed staleness again (the mark is consumed
- 	// from the set, not from here) and re-discard a healthy query.
-@@ -1937,6 +1950,7 @@
- 			: VALID_EFFORTS.has(mapped as EffortLevel) ? mapped as EffortLevel : undefined
- 		: undefined;
- 
-+	cacheTrace.selected(cacheTraceQuery, effort);
- 	const extraArgs: Record<string, string | null> = { model: cliModel };
- 	if (strictMcpConfigEnabled) extraArgs["strict-mcp-config"] = null;
- 	// Opus 4.7 defaults thinking.display to "omitted" (empty thinking text in stream).
-@@ -1995,6 +2009,7 @@
- 	// 3. Start SDK query and claim it for this context
- 	let wasAborted = false;
- 	const sdkQuery = queryImpl({ prompt: promptStream.stream, options: queryOptions });
-+	cacheTrace.bind(cacheTraceQuery, sdkQuery);
- 	queryCtx.activeQuery = sdkQuery;
- 	activeQueryContexts.add(queryCtx);
- 
-@@ -2020,6 +2035,7 @@
- 	// Background consumer — runs until query ends
- 	consumeQuery(sdkQuery, customToolNameToPi, model, () => wasAborted, queryCtx)
- 		.then(async ({ capturedSessionId }) => {
-+			cacheTrace.finish(sdkQuery, abandonedQueries.has(sdkQuery) ? "abandoned" : wasAborted || options?.signal?.aborted ? "aborted" : queryCtx.turnOutput?.stopReason === "error" ? "error" : "completed", capturedSessionId);
- 			debug(`provider: consumeQuery completed, stopReason=${queryCtx.turnOutput?.stopReason}, error=${queryCtx.turnOutput?.errorMessage}, aborted=${wasAborted}`);
- 
- 			// Discarded out from under: the query continuing the turn owns the context,
-@@ -2078,6 +2094,7 @@
- 			finalizeCurrentStream(queryCtx, queryCtx.turnOutput?.stopReason);
- 		})
- 		.catch((error) => {
-+			cacheTrace.finish(sdkQuery, abandonedQueries.has(sdkQuery) ? "abandoned" : wasAborted || options?.signal?.aborted ? "aborted" : "error");
- 			debug(`provider: query error, model=${cliModel}, aborted=${Boolean(options?.signal?.aborted)}, error=`, error);
- 			if (abandonedQueries.has(sdkQuery)) {
- 				debug("provider: discarded query ended in error, leaving session and stream to its replacement");
-diff --git a/src/mcp-server.ts b/src/mcp-server.ts
---- a/src/mcp-server.ts
-+++ b/src/mcp-server.ts
-@@ -25,6 +25,7 @@
- import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
- import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
- import type { McpResult } from "./extract-tool-results.js";
-+import { flattenRootUnion } from "./schema-flatten.js";
- 
- // Claude Code stamps every tools/call with the id of the tool_use block it came
- // from. That is the only reliable way to pair a call with its result: call order
-@@ -57,6 +58,7 @@
- }
- 
- export function createToolServer(name: string, tools: McpToolDef[]) {
-+	tools = tools.map((tool) => ({ ...tool, inputSchema: flattenRootUnion(tool.inputSchema) }));
- 	const server = new McpServer({ name, version: "1.0.0" }, { capabilities: { tools: {} } });
- 	const byName = new Map(tools.map((tool) => [tool.name, tool]));
- 	for (const tool of tools) assertObjectSchema(tool);
-diff --git a/src/models.ts b/src/models.ts
---- a/src/models.ts
-+++ b/src/models.ts
-@@ -76,8 +76,11 @@
- //   measured-good ids get `[1m]`.
- // - The registered contextWindow must match the window the bridge actually
- //   requests, or pi's status bar and compaction threshold misreport.
--// [1m] ids verified to serve 1M on every plan. A new model serves 200K until
--// someone measures it (diag/context-size.mjs) and adds it here.
-+// [1m] ids verified to serve 1M on every plan (sonnet-5-5 measured on Pro with
-+// and without Extra Usage; opus-5-5 on Max per its run notes). A new model
-+// serves 200K until someone measures it (diag/context-size.mjs) and adds it
-+// here. Known exception unrelated to long context: fable-5 is not included
-+// with Pro account without Extra Usage.
- const MEASURED_ONE_M = new Set([
- 	"claude-fable-5",
- 	"claude-fable-5-1",
-@@ -85,7 +88,8 @@
- 	"claude-opus-5",
- 	"claude-opus-4-8",
- 	"claude-opus-4-7",
--	"claude-sonnet-5",
-+  "claude-sonnet-5",
-+	"claude-sonnet-5-5",
- ]);
- 
- // Measured exceptions: pi-ai declares 1M and the [1m] id works, but only when
 diff --git a/src/cache-trace.ts b/src/cache-trace.ts
 new file mode 100644
+index 0000000..8b6538e
 --- /dev/null
 +++ b/src/cache-trace.ts
 @@ -0,0 +1,182 @@
@@ -381,8 +186,222 @@ new file mode 100644
 + };
 +}
 +export const cacheTrace = createCacheTrace();
+diff --git a/src/catalog-fallbacks.ts b/src/catalog-fallbacks.ts
+new file mode 100644
+index 0000000..a1ca526
+--- /dev/null
++++ b/src/catalog-fallbacks.ts
+@@ -0,0 +1,36 @@
++// Local fork stopgap: pi-ai 0.87.1 does not yet list Sonnet 5.5.
++// Remove this module and its index.ts call once the host pi-ai catalog ships
++// claude-sonnet-5-5. An authoritative catalog entry always wins, unchanged.
++// Only provider-registration fields are copied: Sonnet 5's 1M window,
++// 128K output limit, text/image input and effort map are provisional metadata
++// for 5.5, not independent measurements of those catalog fields. The bridge's
++// separate [1m] runtime policy is measured (diag/CONTEXT-SIZE.md). Do not
++// copy Sonnet 5's prices, API settings, cache limits or other capabilities.
++
++type CatalogFallback = {
++	id: string;
++	name: string;
++	reasoning: boolean;
++	input: string[];
++	contextWindow: number;
++	maxTokens: number;
++	thinkingLevelMap?: Record<string, string | null>;
++};
++
++export function withCatalogFallbacks<T extends CatalogFallback>(models: readonly T[]): Array<T | CatalogFallback> {
++	const result: Array<T | CatalogFallback> = [...models];
++	if (models.some((model) => model.id === "claude-sonnet-5-5")) return result;
++	const sonnet5 = models.find((model) => model.id === "claude-sonnet-5");
++	if (!sonnet5) return result;
++
++	result.push({
++		id: "claude-sonnet-5-5",
++		name: "Claude Sonnet 5.5",
++		reasoning: sonnet5.reasoning,
++		input: [...sonnet5.input],
++		contextWindow: sonnet5.contextWindow,
++		maxTokens: sonnet5.maxTokens,
++		...(sonnet5.thinkingLevelMap ? { thinkingLevelMap: { ...sonnet5.thinkingLevelMap } } : {}),
++	});
++	return result;
++}
+diff --git a/src/index.ts b/src/index.ts
+index b209b34..f1f6516 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -10,6 +10,7 @@ import { dirname, join } from "path";
+ import { PROVIDER_ID, messageContentToText, convertPiMessages } from "./convert.js";
+ import { DEBUG_LOG_PATH, DIAG_LOG_PATH } from "./log-paths.js";
+ import { applyLongContext, buildModels, claudeCodeModelId, type LongContextSettings, resolveModel as _resolveModel } from "./models.js";
++import { withCatalogFallbacks } from "./catalog-fallbacks.js";
+ import { MCP_SERVER_NAME, MCP_TOOL_PREFIX, renderSkillsBlock } from "./skills.js";
+ import { verifyWrittenSession as _verifyWrittenSession } from "./session-verify.js";
+ import { extractAllToolResults as _extractAllToolResults, type McpResult } from "./extract-tool-results.js";
+@@ -28,6 +29,7 @@ import { buildActionSummary, type ToolCallState } from "./askclaude-ui.js";
+ import { askClaudeCallTags, askClaudeToolDescription, buildAskClaudeParams, resolveAskClaudeDefaults, resolveAskClaudeMode, type AskClaudeMode } from "./askclaude-schema.js";
+ import { nonSystemMessages, toBridgeContext } from "./transcript.js";
+ import { updateUsage, type SdkUsage } from "./usage.js";
++import { cacheTrace } from "./cache-trace.js";
+ 
+ // --- Debug logging ---
+ // CLAUDE_BRIDGE_DEBUG=1 enables debug logging to the bridge log in pi's agent
+@@ -140,8 +142,8 @@ const SDK_TO_PI_TOOL_NAME: Record<string, string> = {
+ 	read: "read", write: "write", edit: "edit", bash: "bash",
+ };
+ 
+-// MODELS is buildModels(getModels("anthropic")) — projection kept in models.js.
+-const MODELS = buildModels(getModels("anthropic"));
++// Only fill catalog gaps locally; projection and runtime policy stay in models.js.
++const MODELS = buildModels(withCatalogFallbacks(getModels("anthropic")));
+ let providerSettings: NonNullable<Config["provider"]> = {};
+ let longContextSettings: LongContextSettings = { plan: "pro", longContextExtraUsage: false };
+ 
+@@ -298,6 +300,7 @@ const markRebuildHooks: Set<MarkRebuildHook> =
+  *  with no session id, so such a rewrite forces the REBUILD side; the discard
+  *  set holds real ids only — see the comment on historyRewrittenBySession. */
+ function markRebuildForSession(piSession: string | null, event: string): void {
++	cacheTrace.rewrite(piSession, event);
+ 	// The rewriting session's own mirror: the rewrite changed the history it was
+ 	// built from, so its next sync must REBUILD rather than REUSE. Every other
+ 	// session's mirror stays untouched — its conversation was never rewritten.
+@@ -779,6 +782,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
+ 		const trailingAssistantOnly =
+ 			missed.length === 1 && (missed[0] as { role?: string }).role === "assistant";
+ 		if (missed.length === 0 || trailingAssistantOnly) {
++		cacheTrace.sync(piSessionId, trailingAssistantOnly ? "reuse_trailing_assistant" : "reuse", sharedSession, history.length, priorMessages.length);
+ 		if (trailingAssistantOnly) {
+ 			setSessionStateFor(piSessionId, { ...sharedSession, cursor: priorMessages.length, cwd });
+ 			debug(`Case 3: advanced cursor past trailing assistant, resuming session ${sharedSession.sessionId.slice(0, 8)}, cursor=${priorMessages.length}`);
+@@ -806,6 +810,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
+ 	// (/compact, session_tree, /new, fork) always set needsRebuild or clear
+ 	// sharedSession before the next syncSharedSession call.
+ 	if (sharedSession && !sharedSession.needsRebuild && priorMessages.length < sharedSession.cursor) {
++		cacheTrace.sync(piSessionId, "clean_shorter", sharedSession, history.length, priorMessages.length);
+ 		debug(`Case 1 synthetic: clean start for shorter context, preserving shared session ${sharedSession.sessionId.slice(0, 8)}, cursor=${sharedSession.cursor}`);
+ 		debug(`syncResult: path=clean-start preserve-shared sessionId=${sharedSession.sessionId} cursor=${sharedSession.cursor}`);
+ 		return { sessionId: null, preserveSharedSession: true };
+@@ -813,6 +818,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
+ 
+ 	// REBUILD path
+ 	if (priorMessages.length === 0) {
++		cacheTrace.sync(piSessionId, "clean_no_priors", sharedSession, history.length, priorMessages.length);
+ 		debug(`Case 1: clean start, ${history.length} total messages`);
+ 		debug(`syncResult: path=clean-start`);
+ 		return { sessionId: null };
+@@ -824,6 +830,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
+ 	// and for any tools that key off them. Skipped when there's a concurrent
+ 	// writer we shouldn't race (forceRotate).
+ 	const preserveId = previousSessionId !== undefined && !sharedSession?.forceRotate;
++	cacheTrace.sync(piSessionId, previousSessionId === undefined ? "rebuild_first" : preserveId ? "rebuild_preserve" : "rebuild_rotate", sharedSession, history.length, priorMessages.length);
+ 	// Before deleteSession — it wipes the file these live in.
+ 	const carried = previousSessionId !== undefined ? readCarriedAttachments(previousSessionId, cwd) : [];
+ 	if (preserveId) {
+@@ -1116,6 +1123,7 @@ function buildMcpServers(tools: Tool[], queryCtx: QueryContext): Record<string,
+ // The counter mapping lives in usage.ts; the debug line is this side's job, so every
+ // call site logs the same way rather than three times over.
+ function recordUsage(output: AssistantMessage, usage: SdkUsage, model: Model<any>): void {
++	cacheTrace.usage(output, usage);
+ 	const { cachePct, reasoning } = updateUsage(output, usage, model);
+ 	const reasoningText = reasoning == null ? "" : ` reasoning=${reasoning}`;
+ 	debug(`usage: in=${output.usage.input} out=${output.usage.output} cacheRead=${output.usage.cacheRead} cacheWrite=${output.usage.cacheWrite} total=${output.usage.totalTokens}${reasoningText} cachePct=${cachePct}% model=${model.id}`);
+@@ -1509,6 +1517,7 @@ async function consumeQuery(
+ 			continue;
+ 		}
+ 		if (!queryCtx.currentPiStream || !queryCtx.turnOutput) continue;
++		cacheTrace.output(sdkQuery, queryCtx.turnOutput);
+ 
+ 		switch (message.type) {
+ 			case "stream_event":
+@@ -1570,6 +1579,7 @@ function steerBlocks(messages: Context["messages"]): ContentBlockParam[] | null
+  *  it, so count-based sync would skip it forever — rebuild instead, which
+  *  re-imports the message from pi's context. */
+ function steerMissedSession(c: QueryContext, text: string): void {
++	cacheTrace.mark(c, "missed_steering");
+ 	c.missedSteer = true;
+ 	const state = sessionStateFor(c.piSessionId);
+ 	if (state) setSessionStateFor(c.piSessionId, { ...state, needsRebuild: true });
+@@ -1678,6 +1688,7 @@ const CONTINUE_AFTER_REWRITE_PROMPT =
+  *  history — so the turn continues instead of ending here. Nothing is lost by
+  *  killing the subprocess: pi owns the only copy of the conversation that counts. */
+ function discardRewrittenQuery(c: QueryContext): void {
++	cacheTrace.mark(c, "rewritten_parked_query");
+ 	const discarded = c.activeQuery as { interrupt?: () => Promise<unknown>; close?: () => void } | null;
+ 	if (discarded) abandonedQueries.add(discarded);
+ 	c.activeQuery = null;
+@@ -1756,6 +1767,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+ 	// (everything after the last assistant message) and match against waiting MCP
+ 	// handlers. Results that arrive before their handler get queued in pendingResults.
+ 	if (resultCtx) {
++		cacheTrace.continuation(resultCtx, allResults.length);
+ 		claimCurrentPiStream(stream, "tool-result", resultCtx);
+ 		resultCtx.resetTurnState(model);
+ 		// A rewrite that armed the mark after this query parked gets copied here,
+@@ -1872,6 +1884,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+ 	// follow-up) and on SessionState. A fresh instance of this module inside a
+ 	// worktree-spawned subagent has its own contexts; each records its own.
+ 	queryCtx.piSessionId = options?.sessionId ?? null;
++	const cacheTraceQuery = cacheTrace.start(queryCtx, queryCtx.piSessionId, model.id, options?.reasoning, systemPromptAppend, mcpTools, context.messages.length);
+ 	// A discarded query's replacement reuses this context; without the reset its
+ 	// first tool result would sit on armed staleness again (the mark is consumed
+ 	// from the set, not from here) and re-discard a healthy query.
+@@ -1953,6 +1966,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+ 			: VALID_EFFORTS.has(mapped as EffortLevel) ? mapped as EffortLevel : undefined
+ 		: undefined;
+ 
++	cacheTrace.selected(cacheTraceQuery, effort);
+ 	const extraArgs: Record<string, string | null> = { model: cliModel };
+ 	if (strictMcpConfigEnabled) extraArgs["strict-mcp-config"] = null;
+ 	// Opus 4.7 defaults thinking.display to "omitted" (empty thinking text in stream).
+@@ -2011,6 +2025,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+ 	// 3. Start SDK query and claim it for this context
+ 	let wasAborted = false;
+ 	const sdkQuery = queryImpl({ prompt: promptStream.stream, options: queryOptions });
++	cacheTrace.bind(cacheTraceQuery, sdkQuery);
+ 	queryCtx.activeQuery = sdkQuery;
+ 	activeQueryContexts.add(queryCtx);
+ 
+@@ -2036,6 +2051,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+ 	// Background consumer — runs until query ends
+ 	consumeQuery(sdkQuery, customToolNameToPi, model, () => wasAborted, queryCtx)
+ 		.then(async ({ capturedSessionId }) => {
++			cacheTrace.finish(sdkQuery, abandonedQueries.has(sdkQuery) ? "abandoned" : wasAborted || options?.signal?.aborted ? "aborted" : queryCtx.turnOutput?.stopReason === "error" ? "error" : "completed", capturedSessionId);
+ 			debug(`provider: consumeQuery completed, stopReason=${queryCtx.turnOutput?.stopReason}, error=${queryCtx.turnOutput?.errorMessage}, aborted=${wasAborted}`);
+ 
+ 			// Discarded out from under: the query continuing the turn owns the context,
+@@ -2094,6 +2110,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+ 			finalizeCurrentStream(queryCtx, queryCtx.turnOutput?.stopReason);
+ 		})
+ 		.catch((error) => {
++			cacheTrace.finish(sdkQuery, abandonedQueries.has(sdkQuery) ? "abandoned" : wasAborted || options?.signal?.aborted ? "aborted" : "error");
+ 			debug(`provider: query error, model=${cliModel}, aborted=${Boolean(options?.signal?.aborted)}, error=`, error);
+ 			if (abandonedQueries.has(sdkQuery)) {
+ 				debug("provider: discarded query ended in error, leaving session and stream to its replacement");
+diff --git a/src/mcp-server.ts b/src/mcp-server.ts
+index abaabec..7900190 100644
+--- a/src/mcp-server.ts
++++ b/src/mcp-server.ts
+@@ -25,6 +25,7 @@
+ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+ import type { McpResult } from "./extract-tool-results.js";
++import { flattenRootUnion } from "./schema-flatten.js";
+ 
+ // Claude Code stamps every tools/call with the id of the tool_use block it came
+ // from. That is the only reliable way to pair a call with its result: call order
+@@ -57,6 +58,7 @@ function assertObjectSchema(tool: McpToolDef): void {
+ }
+ 
+ export function createToolServer(name: string, tools: McpToolDef[]) {
++	tools = tools.map((tool) => ({ ...tool, inputSchema: flattenRootUnion(tool.inputSchema) }));
+ 	const server = new McpServer({ name, version: "1.0.0" }, { capabilities: { tools: {} } });
+ 	const byName = new Map(tools.map((tool) => [tool.name, tool]));
+ 	for (const tool of tools) assertObjectSchema(tool);
 diff --git a/src/schema-flatten.ts b/src/schema-flatten.ts
 new file mode 100644
+index 0000000..72d247b
 --- /dev/null
 +++ b/src/schema-flatten.ts
 @@ -0,0 +1,70 @@
@@ -455,45 +474,4 @@ new file mode 100644
 +
 +function isRecord(value: unknown): value is JsonSchema {
 +	return typeof value === "object" && value !== null && !Array.isArray(value);
-+}
-diff --git a/src/catalog-fallbacks.ts b/src/catalog-fallbacks.ts
-new file mode 100644
---- /dev/null
-+++ b/src/catalog-fallbacks.ts
-@@ -0,0 +1,36 @@
-+// Local fork stopgap: pi-ai 0.87.1 does not yet list Sonnet 5.5.
-+// Remove this module and its index.ts call once the host pi-ai catalog ships
-+// claude-sonnet-5-5. An authoritative catalog entry always wins, unchanged.
-+// Only provider-registration fields are copied: Sonnet 5's 1M window,
-+// 128K output limit, text/image input and effort map are provisional metadata
-+// for 5.5, not independent measurements of those catalog fields. The bridge's
-+// separate [1m] runtime policy is measured (diag/CONTEXT-SIZE.md). Do not
-+// copy Sonnet 5's prices, API settings, cache limits or other capabilities.
-+
-+type CatalogFallback = {
-+	id: string;
-+	name: string;
-+	reasoning: boolean;
-+	input: string[];
-+	contextWindow: number;
-+	maxTokens: number;
-+	thinkingLevelMap?: Record<string, string | null>;
-+};
-+
-+export function withCatalogFallbacks<T extends CatalogFallback>(models: readonly T[]): Array<T | CatalogFallback> {
-+	const result: Array<T | CatalogFallback> = [...models];
-+	if (models.some((model) => model.id === "claude-sonnet-5-5")) return result;
-+	const sonnet5 = models.find((model) => model.id === "claude-sonnet-5");
-+	if (!sonnet5) return result;
-+
-+	result.push({
-+		id: "claude-sonnet-5-5",
-+		name: "Claude Sonnet 5.5",
-+		reasoning: sonnet5.reasoning,
-+		input: [...sonnet5.input],
-+		contextWindow: sonnet5.contextWindow,
-+		maxTokens: sonnet5.maxTokens,
-+		...(sonnet5.thinkingLevelMap ? { thinkingLevelMap: { ...sonnet5.thinkingLevelMap } } : {}),
-+	});
-+	return result;
 +}
