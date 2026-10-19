@@ -5,8 +5,6 @@ import { join } from 'node:path';
 
 const expected = {
   'pi-opencode-direct': ['@earendil-works/pi-ai'],
-  '@tintinweb/pi-subagents': ['@sinclair/typebox', 'typebox'],
-  'pi-multi-account': ['@earendil-works/pi-ai'],
 };
 
 test('host-provided packages are peers, not installed dependencies', () => {

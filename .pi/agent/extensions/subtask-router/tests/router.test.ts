@@ -1,7 +1,7 @@
 import { test, expect, mock, beforeEach } from "bun:test";
 import { EventEmitter } from "node:events";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -11,6 +11,8 @@ import { createTwoFilesPatch } from "../../../npm/node_modules/diff/libesm/index
 const AGENT = mkdtempSync(join(tmpdir(), "router-test-"));
 process.env.PI_CODING_AGENT_DIR = AGENT;
 process.env.PI_SUBTASK_ROUTER_STATE = join(AGENT, "state.json");
+const OUTCOMES = join(AGENT, "outcomes.jsonl");
+process.env.PI_SUBTASK_ROUTER_OUTCOMES = OUTCOMES;
 const METERS = join(AGENT, "meters.mjs");
 writeFileSync(METERS, "export async function fetchClaudeUsageDirect() { return globalThis.__testMeters; }\n"
   + "export function parseClaudeUsage() { return []; }\nexport async function runClaudeUsage() { return ''; }\n");
@@ -44,8 +46,8 @@ const sol2 = mk("openai-codex-account-2", "gpt-6.1-sol", { thinkingLevelMap: sol
 const astra1 = mk("openai-codex", "gpt-6-astra"), astra2 = mk("openai-codex-account-2", "gpt-6-astra");
 const levels = { off: null, minimal: null, low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
 const sonnet = mk("claude-bridge", "claude-sonnet-5-5"), opus = mk("claude-bridge", "claude-opus-5-5", { thinkingLevelMap: levels }), fable = mk("claude-bridge", "claude-fable-5-1");
-const flash = mk("zai", "glm-5.3-flash"), muse = mk("opencode-zen-free", "muse-spark-1.3-contributor-free");
-const ALL = [luna1, luna2, sol1, sol2, astra1, astra2, sonnet, opus, fable, flash, muse];
+const muse = mk("opencode-zen-free", "muse-spark-1.3-contributor-free"), haiku = mk("claude-bridge", "claude-haiku-5-5", { contextWindow: 200_000 });
+const ALL = [luna1, luna2, sol1, sol2, astra1, astra2, sonnet, opus, fable, muse, haiku];
 
 const decision = (o: object = {}) => JSON.stringify({ level: "routine", kind: "research", model: "luna", thinking: "low", reason: "test", ...o });
 const toolCallMsg = { content: [{ type: "toolCall", id: "c1", name: "read", arguments: { path: "a.ts" } }], stopReason: "toolUse" };
@@ -112,8 +114,10 @@ beforeEach(() => {
   (globalThis as any).__testMeters = [];
   writeConfig();
   writeFileSync(join(AGENT, "state.json"), JSON.stringify({ models: {} }));
+  rmSync(OUTCOMES, { force: true });
   for (const k of Object.keys(records)) delete records[k];
 });
+const outcomeLines = () => existsSync(OUTCOMES) ? readFileSync(OUTCOMES, "utf8").trim().split("\n").map(l => JSON.parse(l)) : [];
 
 test("config validation: exact routes, known links, legacy keys ignored", () => {
   expect(() => P.parseConfig({})).toThrow("No models configured");
@@ -121,7 +125,22 @@ test("config validation: exact routes, known links, legacy keys ignored", () => 
   expect(() => P.parseConfig({ models: { a: { ...base.models.a, fallback: "missing" } } })).toThrow("unknown model");
   expect(() => P.parseConfig({ models: { a: { ...base.models.a, routes: ["sol"] } } })).toThrow("exact provider/id");
   expect(() => P.parseConfig({ ...base, fallbackModel: "nope" })).toThrow("fallbackModel");
+  expect(() => P.parseConfig({ ...base, direct: { model: "nope" } })).toThrow("direct.model");
+  expect(() => P.parseConfig({ ...base, direct: { model: "a", thinking: "ultra" } })).toThrow("direct.thinking");
+  expect(P.parseConfig(base).direct).toEqual({ model: null, thinking: "low" });
+  expect(P.parseConfig({ ...base, direct: { model: "p/a" } }).direct).toEqual({ model: "a", thinking: "low" });
   expect(P.parseConfig({ ...base, maxParallel: 1, maxDepth: 0, tiers: {} })).toEqual(P.parseConfig(base));
+});
+
+test("October 12 policy: Luna medium classifier, Luna low direct path, Sol → Opus → Astra → Fable escalation", () => {
+  const real = P.parseConfig(REAL_CONFIG);
+  expect(real.router).toEqual({ model: "openai-codex/gpt-6-luna", thinking: "medium", timeoutMs: 45000 });
+  expect(real.direct).toEqual({ model: "luna", thinking: "low" });
+  expect(["sol", "opus", "astra", "fable"].map(n => real.models[n].stronger)).toEqual(["opus", "astra", "fable", undefined]);
+  expect(["luna", "muse-spark", "haiku", "sonnet"].map(n => real.models[n].stronger)).toEqual(["sol", "sol", "sol", "opus"]);
+  expect(real.models.haiku).toMatchObject({ routes: ["claude-bridge/claude-haiku-5-5"], family: "anthropic", fallback: "sol" });
+  expect(real.models["glm-flash"]).toBeUndefined(); // Subscription cancelled on October 12.
+  expect(Object.values(real.models).flatMap(m => m.routes).some(r => r.startsWith("zai/"))).toBe(false);
 });
 
 test("the real configuration loads; its fallbackModel names a configured model", () => {
@@ -141,15 +160,15 @@ test("Sol 6.1 replaces both old Sol routes and is the safe classifier fallback",
 
 test("fallbackModel accepts a model name or the one model's exact route, and explains anything else", () => {
   const models = {
-    flash: { routes: ["zai/glm-5.3-flash"], family: "zai", profile: "y" },
+    flash: { routes: ["v/flash"], family: "v", profile: "y" },
     a: { routes: ["p/shared"], family: "x", profile: "y" },
     b: { routes: ["p/shared", "p/b"], family: "x", profile: "y" },
   };
   expect(P.parseConfig({ models, fallbackModel: "flash" }).fallbackModel).toBe("flash");
-  expect(P.parseConfig({ models, fallbackModel: "zai/glm-5.3-flash" }).fallbackModel).toBe("flash");
+  expect(P.parseConfig({ models, fallbackModel: "v/flash" }).fallbackModel).toBe("flash");
   expect(P.parseConfig({ models, fallbackModel: "p/b" }).fallbackModel).toBe("b");
   expect(() => P.parseConfig({ models, fallbackModel: "p/shared" })).toThrow("more than one model (a, b)");
-  expect(() => P.parseConfig({ models, fallbackModel: "zai/glm-5.3" })).toThrow("Use a model name from models (flash, a, b)");
+  expect(() => P.parseConfig({ models, fallbackModel: "v/other" })).toThrow("Use a model name from models (flash, a, b)");
   expect(() => P.parseConfig({ models, fallbackModel: "" })).toThrow("fallbackModel must be a model name");
   expect(() => P.parseConfig({ models, fallbackModel: "toString" })).toThrow("unknown model toString");
 });
@@ -193,6 +212,31 @@ test("routes go account 1, account 2, then the fallback model", async () => {
   expect(await P.markRateLimited(sol2, "context length exceeded", cfg)).toBe(false);
 });
 
+test("frontier fallback reaches Sonnet instead of looping between Opus and Astra", () => {
+  const cfg = P.loadConfig();
+  expect(P.pickRoute("sol", cfg, [sonnet]).model).toBe(sonnet);
+  expect(P.pickRoute("sonnet", cfg, [sol2]).model).toBe(sol2);
+  // A frontier task must not silently fall back to an auxiliary budget worker.
+  for (const name of ["sol", "opus", "astra", "sonnet"]) {
+    expect(() => P.pickRoute(name, cfg, [luna1, muse, haiku])).toThrow("No usable route");
+  }
+});
+
+test("auxiliary fallback can reach Sol and Muse uses the model vendor family", () => {
+  const cfg = P.loadConfig();
+  expect(P.pickRoute("muse-spark", cfg, [sol1]).model).toBe(sol1);
+  expect(P.pickRoute("haiku", cfg, [sol1]).model).toBe(sol1);
+  expect(P.candidates(cfg, ALL, { task: "Review OpenAI code", reviewAuthor: "anthropic" })).not.toContain("haiku");
+  expect(P.familyOf(muse, cfg)).toBe("meta");
+  expect(P.candidates(cfg, ALL, { task: "Review a Meta model's code", reviewAuthor: "meta" })).not.toContain("muse-spark");
+});
+
+test("classifier can return max for an exceptional task when the profile warrants it", () => {
+  expect(P.ROUTER_PROMPT).toContain('"thinking":"off|minimal|low|medium|high|xhigh|max"');
+  expect(P.parseDecision(decision({ model: "sonnet", level: "extreme", thinking: "max" }), ["sonnet"], "implementation"))
+    .toMatchObject({ model: "sonnet", thinking: "max", level: "extreme" });
+});
+
 test("Claude rate limits are scoped by the fresh meters", async () => {
   const cfg = P.loadConfig();
   (globalThis as any).__testMeters = [{ label: "Week (Fable)", percent: 99, resetMs: Date.now() + 1e7 }];
@@ -222,11 +266,58 @@ test("no parent rating runs the scout with read-only tools", async () => {
   expect(read.execute).toHaveBeenCalledTimes(1);
 });
 
-test("a 2-level disagreement with an unsure scout picks the stronger model", async () => {
+test("a 2-level disagreement with an unsure scout keeps the model and raises its effort", async () => {
   const c = ctx([decision({ level: "hard", model: "sol", thinking: "medium" }), "not json"]);
   const read = { name: "read", description: "r", parameters: {}, execute: mock(async () => ({ content: [] })) };
   const route = await P.classify(c as any, P.loadConfig(), { task: "x", rating: { level: "trivial" } }, { scoutTools: [read] });
-  expect(route).toMatchObject({ model: "astra", scout: "unsure" });
+  expect(route).toMatchObject({ model: "sol", thinking: "high", scout: "unsure" });
+  // An unsure scout must not move UI work off Opus, even though Opus now has an escalation link.
+  const ui = ctx([decision({ level: "hard", model: "opus", thinking: "medium" }), "not json"]);
+  const uiRoute = await P.classify(ui as any, P.loadConfig(), { task: "x", rating: { level: "trivial" } }, { scoutTools: [read] });
+  expect(uiRoute).toMatchObject({ model: "opus", thinking: "high", scout: "unsure" });
+});
+
+test("a trivial or mechanical parent rating skips the classifier; reviews and pins do not", async () => {
+  const h = harness();
+  const c = ctx([decision({ model: "sol", thinking: "medium" })]);
+  const trivial: any = { toolName: "Agent", toolCallId: "d1", input: { prompt: "Run git status", routing: { level: "trivial", kind: "mechanical" } } };
+  expect(await h.handlers.get("tool_call")(trivial, c)).toBeUndefined();
+  expect(trivial.input).toMatchObject({ model: "openai-codex/gpt-6-luna", thinking: "low" });
+  expect(c.modelRegistry.streamSimple).toHaveBeenCalledTimes(0);
+  expect(h.entries.find(e => e.customType === "subtask-routing")?.data).toMatchObject({ by: "parent-rating", level: "trivial", kind: "mechanical", modelName: "luna" });
+
+  const mechanical: any = { toolName: "Agent", toolCallId: "d2", input: { prompt: "Copy the table", routing: { level: "routine", kind: "mechanical" } } };
+  await h.handlers.get("tool_call")(mechanical, c);
+  expect(mechanical.input.model).toBe("openai-codex/gpt-6-luna");
+  const trivialNoKind: any = { toolName: "Agent", toolCallId: "d3", input: { prompt: "List files", routing: { level: "trivial" } } };
+  await h.handlers.get("tool_call")(trivialNoKind, c);
+  expect(h.entries.filter(e => e.customType === "subtask-routing").pop()?.data).toMatchObject({ by: "parent-rating", kind: "mechanical" });
+  expect(c.modelRegistry.streamSimple).toHaveBeenCalledTimes(0);
+
+  // Luna unavailable: the direct path follows Luna's fallback chain, still without a classifier call.
+  const noLuna = ctx([decision({ model: "sol" })], ALL.filter(m => !m.id.includes("luna")));
+  const spill: any = { toolName: "Agent", toolCallId: "d4", input: { prompt: "Run git status", routing: { level: "trivial", kind: "mechanical" } } };
+  await h.handlers.get("tool_call")(spill, noLuna);
+  expect(spill.input).toMatchObject({ model: "openai-codex/gpt-6.1-sol", thinking: "low" });
+  expect(noLuna.modelRegistry.streamSimple).toHaveBeenCalledTimes(0);
+
+  // A review keeps the classifier and the author-family rule; a model pin keeps the classifier for its effort.
+  const review: any = { toolName: "Agent", toolCallId: "d5", input: { prompt: "Review the diff", routing: { level: "trivial", kind: "review", reviewing: "openai" } } };
+  const rc = ctx([decision({ model: "sonnet", kind: "review", thinking: "medium" })]);
+  await h.handlers.get("tool_call")(review, rc);
+  expect(review.input.model).toBe("claude-bridge/claude-sonnet-5-5");
+  expect(rc.modelRegistry.streamSimple).toHaveBeenCalledTimes(1);
+  const pinned: any = { toolName: "Agent", toolCallId: "d6", input: { prompt: "Run git status", model: "sol", routing: { level: "trivial", kind: "mechanical" } } };
+  const pc = ctx([decision({ model: "sol", thinking: "low" })]);
+  await h.handlers.get("tool_call")(pinned, pc);
+  expect(pinned.input.model).toBe("openai-codex/gpt-6.1-sol");
+  expect(pc.modelRegistry.streamSimple).toHaveBeenCalledTimes(1);
+
+  // Direct path off: the classifier decides.
+  writeConfig({ direct: { model: null } });
+  const off = ctx([decision({ model: "luna", thinking: "low" })]);
+  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "d7", input: { prompt: "Run git status", routing: { level: "trivial", kind: "mechanical" } } }, off);
+  expect(off.modelRegistry.streamSimple).toHaveBeenCalledTimes(1);
 });
 
 test("the review rule removes the author's family from the candidates", () => {
@@ -237,9 +328,87 @@ test("the review rule removes the author's family from the candidates", () => {
   expect(P.describeTask(cfg, ALL, names, { task: "x", reviewAuthor: "openai" })).toContain("written by the openai family");
 });
 
+test("review fallback skips the author's family throughout the chain", () => {
+  const cfg = P.loadConfig();
+  expect(P.pickRoute("sonnet", cfg, ALL, new Set([P.key(sonnet)]), "openai").model).toBe(opus);
+  expect(P.pickRoute("opus", cfg, ALL, new Set(), "anthropic").model).toBe(astra1);
+  expect(() => P.pickRoute("sonnet", cfg, [sol1, astra1], new Set(), "openai")).toThrow("No usable route");
+  expect(P.candidates(cfg, [sol1, astra1], { task: "review", reviewAuthor: "openai" })).toEqual([]);
+  expect(() => P.pickRoute("removed-model", cfg, ALL, new Set(), "openai")).toThrow("not configured");
+});
+
+test("classifier failure still selects an independent reviewer", async () => {
+  const h = harness();
+  const e: any = { toolName: "Agent", toolCallId: "review-fallback", input: { prompt: "Review code", routing: { level: "hard", kind: "review", reviewing: "openai" } } };
+  expect(await h.handlers.get("tool_call")(e, ctx(["garbage"]))).toBeUndefined();
+  expect(e.input.model).toBe(P.key(opus));
+});
+
+test("automatic reviews refuse same-family-only availability but explicit pins remain authoritative", async () => {
+  const h = harness();
+  const blocked = await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "review-unavailable", input: { prompt: "Review OpenAI code",
+    routing: { level: "routine", kind: "review", reviewing: "openai" } } }, ctx([], [luna1, sol1, astra1]));
+  expect(blocked.block).toBe(true);
+  expect(blocked.reason).toContain("same family as review author");
+  const pinned: any = { toolName: "Agent", toolCallId: "review-pinned", input: { prompt: "Review OpenAI code", model: "sol", thinking: "high",
+    routing: { level: "routine", kind: "review", reviewing: "openai" } } };
+  expect(await h.handlers.get("tool_call")(pinned, ctx([], [sol1]))).toBeUndefined();
+  expect(pinned.input.model).toBe(P.key(sol1));
+});
+
+test("a review recognized by the classifier also enforces family exclusion", async () => {
+  const h = harness();
+  // With no parent kind, the initial candidate list is unrestricted. The final pick must still enforce review independence.
+  const e: any = { toolName: "Agent", toolCallId: "inferred-review", input: { prompt: "Review this code", routing: { level: "routine" } } };
+  expect(await h.handlers.get("tool_call")(e, ctx([decision({ model: "opus", kind: "review" })]))).toBeUndefined();
+  expect(e.input.model).toBe(P.key(astra1)); // The parent is Opus/Anthropic.
+});
+
+test("review retries and escalations retain the author family, including after reload", async () => {
+  const h = harness(), c = ctx([decision({ model: "sonnet", kind: "review", thinking: "high" })]);
+  h.handlers.get("session_start")({}, c);
+  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "review-retry", input: { prompt: "Review code", subagent_type: "TestReadOnly",
+    routing: { level: "routine", kind: "review", reviewing: "openai" } } }, c);
+  records.r1 = { id: "r1", toolCallId: "review-retry", session: { model: sonnet, messages: [] }, toolUses: 0 };
+  h.events.emit("subagents:failed", { id: "r1", error: "429 Too Many Requests", toolUses: 0 });
+  await flush();
+  expect(h.spawns).toHaveLength(1);
+  expect(h.spawns[0].options.model).toBe(P.key(opus));
+
+  const original = harness(), reviewer = ctx([decision({ model: "sol", kind: "review", thinking: "medium" })]);
+  original.handlers.get("session_start")({}, reviewer);
+  await original.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "review-escalate", input: { prompt: "Review Claude code", routing: { level: "routine", kind: "review", reviewing: "anthropic" } } }, reviewer);
+  original.handlers.get("tool_result")({ toolName: "Agent", toolCallId: "review-escalate", details: { agentId: "r2" } });
+  // Simulate a pre-upgrade launch record: the author was stored on the routing entry only.
+  const saved = structuredClone(original.entries);
+  delete saved.find(e => e.customType === "subtask-routing").data.launch.reviewAuthor;
+  const reloaded = harness(), restored = ctx([], ALL, { entries: saved });
+  reloaded.handlers.get("session_start")({}, restored);
+  records.r2 = { id: "r2", status: "completed", result: "Needs another pass" };
+  await reloaded.commands.get("subtask-router").handler("escalate r2", restored);
+  expect(reloaded.spawns).toHaveLength(1);
+  expect(reloaded.spawns[0].options.model).toBe(P.key(astra1));
+});
+
+test("legacy review spawn records without an author refuse automatic recovery", async () => {
+  const h = harness();
+  const launch = { prompt: "Review code", description: "Legacy review", type: "TestReadOnly", name: "sol", route: P.key(sol1),
+    kind: "review", level: "hard", thinking: "medium", readOnly: true, retries: 0 };
+  const c = ctx([], ALL, { entries: [{ type: "custom", customType: "subtask-routing-spawn", data: { agentId: "legacy-review", launch } }] });
+  h.handlers.get("session_start")({}, c);
+  records["legacy-review"] = { id: "legacy-review", status: "completed", session: { model: sol1, messages: [] }, toolUses: 0 };
+  await h.commands.get("subtask-router").handler("escalate legacy-review", c);
+  expect(h.spawns).toHaveLength(0);
+  expect(c.ui.notify.mock.calls.some(call => String(call[0]).includes("no saved author family"))).toBe(true);
+  h.events.emit("subagents:failed", { id: "legacy-review", error: "429 Too Many Requests", toolUses: 0 });
+  await flush();
+  expect(h.spawns).toHaveLength(0);
+  expect(h.pi.sendMessage.mock.calls.some(call => String(call[0].content).includes("no saved author family"))).toBe(true);
+});
+
 test("Agent calls get a route, effort, and lose the router-only field", async () => {
   const h = harness();
-  expect([...h.tools.keys()]).toEqual(["stop_subagent"]);
+  expect([...h.tools.keys()]).toEqual(["report_subagent_outcome", "stop_subagent"]);
   const e: any = { toolName: "Agent", toolCallId: "a", input: { prompt: "Audit packages", subagent_type: "TestReadOnly",
     routing: { level: "routine", kind: "research", edits: false, why: "inventory" } } };
   expect(await h.handlers.get("tool_call")(e, ctx())).toBeUndefined();
@@ -324,21 +493,100 @@ test("escalate starts a new agent on the stronger model and counts it", async ()
   h.handlers.get("tool_result")({ toolName: "Agent", toolCallId: "t1", details: { agentId: "a1" } });
   records.a1 = { id: "a1", toolCallId: "t1", status: "completed", result: "weak answer", session: { model: sol1, messages: [] } };
   await h.commands.get("subtask-router").handler("escalate a1", c);
-  expect(h.spawns[0].options).toMatchObject({ model: "openai-codex/gpt-6-astra", thinkingLevel: "high" });
+  expect(h.spawns[0].options).toMatchObject({ model: "claude-bridge/claude-opus-5-5", thinkingLevel: "high" });
   expect(h.spawns[0].prompt).toContain("judged insufficient");
   expect(h.spawns[0].prompt).toContain("weak answer");
-  expect(P.loadStats().models.sol.debugging).toEqual({ routed: 1, escalated: 1 });
-  expect(P.historyLine("sol")).toBe("escalated 1/1 debugging");
+  // Escalation is also an outcome: the escalated agent is recorded as insufficient once.
+  expect(P.loadStats().models.sol.debugging).toEqual({ routed: 1, escalated: 1, ok: 0, insufficient: 1, failed: 0 });
+  expect(P.historyLine("sol")).toBe("debugging 1 routed, 1 insufficient, 1 escalated");
+  expect(outcomeLines()).toEqual([expect.objectContaining({ agentId: "a1", outcome: "insufficient", by: "user", model: "sol", thinking: "medium", kind: "debugging" })]);
+  expect(outcomeLines()[0].prompt).toBeUndefined();
+  // The escalation attempt counts as routed for Opus, so its verdict can reach the classifier history.
+  expect(P.loadStats().models.opus.debugging).toMatchObject({ routed: 1 });
+  expect((await h.tools.get("report_subagent_outcome").execute("x", { agent_id: "spawned-1", outcome: "ok" })).details.recorded).toBe(true);
+  expect(P.historyLine("opus")).toBe("debugging 1 routed, 1 ok");
 });
 
-test("escalating a model without a stronger link raises its thinking level", async () => {
+test("Opus escalates to Astra as a second opinion; Fable has no link and raises its effort", async () => {
   const h = harness(), c = ctx([decision({ model: "opus", kind: "debugging", thinking: "high", level: "hard" })]);
   h.handlers.get("session_start")({}, c);
   await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "t1", input: { prompt: "Fix it", routing: { level: "hard" } } }, c);
   h.handlers.get("tool_result")({ toolName: "Agent", toolCallId: "t1", details: { agentId: "a1" } });
   records.a1 = { id: "a1", toolCallId: "t1", status: "completed", result: "weak", session: { model: opus, messages: [] } };
   await h.commands.get("subtask-router").handler("escalate a1", c);
-  expect(h.spawns[0].options).toMatchObject({ model: "claude-bridge/claude-opus-5-5", thinkingLevel: "xhigh" });
+  expect(h.spawns[0].options.model).toBe("openai-codex/gpt-6-astra");
+
+  const f = ctx([decision({ model: "fable", kind: "debugging", thinking: "medium", level: "hard" })]);
+  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "t2", input: { prompt: "Fix it", routing: { level: "hard" } } }, f);
+  h.handlers.get("tool_result")({ toolName: "Agent", toolCallId: "t2", details: { agentId: "a2" } });
+  records.a2 = { id: "a2", toolCallId: "t2", status: "completed", result: "weak", session: { model: fable, messages: [] } };
+  await h.commands.get("subtask-router").handler("escalate a2", f);
+  expect(h.spawns[1].options).toMatchObject({ model: "claude-bridge/claude-fable-5-1", thinkingLevel: "high" });
+});
+
+test("outcomes: the parent tool and the user command record one verdict per routed agent", async () => {
+  const h = harness(), c = ctx([decision({ model: "sol", kind: "implementation", thinking: "medium", level: "routine" })]);
+  h.handlers.get("session_start")({}, c);
+  const tool = h.tools.get("report_subagent_outcome");
+  expect((await tool.execute("x", { agent_id: "nope", outcome: "ok" })).details.recorded).toBe(false);
+
+  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "t1", input: { prompt: "Add flag", routing: { level: "routine", kind: "implementation" } } }, c);
+  h.handlers.get("tool_result")({ toolName: "Agent", toolCallId: "t1", details: { agentId: "a1" } });
+  const first = await tool.execute("x", { agent_id: "a1", outcome: "ok" });
+  expect(first.details.recorded).toBe(true);
+  expect(first.content[0].text).toContain("Recorded ok for agent a1");
+  const again = await tool.execute("x", { agent_id: "a1", outcome: "insufficient", note: "changed my mind" });
+  expect(again.details.recorded).toBe(false);
+  expect(again.content[0].text).toContain("already has the outcome ok");
+  expect(P.loadStats().models.sol.implementation).toEqual({ routed: 1, escalated: 0, ok: 1, insufficient: 0, failed: 0 });
+  expect(P.historyLine("sol")).toBe("implementation 1 routed, 1 ok");
+
+  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "t2", input: { prompt: "Add flag", routing: { level: "routine", kind: "implementation" } } }, c);
+  h.handlers.get("tool_result")({ toolName: "Agent", toolCallId: "t2", details: { agentId: "a2" } });
+  await h.commands.get("subtask-router").handler("outcome a2 insufficient missed the tests", c);
+  expect(c.ui.notify.mock.calls.pop()?.[0]).toContain("Recorded insufficient for agent a2");
+  await h.commands.get("subtask-router").handler("outcome a2 maybe", c);
+  expect(c.ui.notify.mock.calls.pop()?.[0]).toContain("Usage:");
+  expect(outcomeLines().map(l => [l.agentId, l.outcome, l.by, l.note])).toEqual([["a1", "ok", "parent", undefined], ["a2", "insufficient", "user", "missed the tests"]]);
+  expect(h.entries.filter(e => e.customType === "subtask-routing-outcome")).toHaveLength(2);
+
+  // An escalation after a report does not record a second verdict.
+  records.a2 = { id: "a2", toolCallId: "t2", status: "completed", result: "weak", session: { model: sol1, messages: [] } };
+  await h.commands.get("subtask-router").handler("escalate a2", c);
+  expect(P.loadStats().models.sol.implementation).toEqual({ routed: 2, escalated: 1, ok: 1, insufficient: 1, failed: 0 });
+
+  // After /reload the verdicts are restored from the session, so a second report is still refused.
+  const reloaded = harness(), restored = ctx([], ALL, { entries: structuredClone(h.entries) });
+  reloaded.handlers.get("session_start")({}, restored);
+  const late = await reloaded.tools.get("report_subagent_outcome").execute("x", { agent_id: "a1", outcome: "insufficient" });
+  expect(late.details.recorded).toBe(false);
+});
+
+test("outcomes: a crash is recorded as failed; rate limits and user stops are not outcomes", async () => {
+  const h = harness(), c = ctx([decision({ model: "sol", kind: "implementation", thinking: "medium", level: "routine" })]);
+  h.handlers.get("session_start")({}, c);
+  for (const id of ["t1", "t2", "t3", "t4", "t5"]) {
+    await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: id, input: { prompt: "Add flag", routing: { level: "routine", kind: "implementation" } } }, c);
+  }
+  for (const [i, id] of ["a1", "a2", "a3", "a4", "a5"].entries()) records[id] = { id, toolCallId: "t" + (i + 1), toolUses: 4, session: { model: sol1, messages: [] } };
+  // The backend emits subagents:failed for status error, stopped, and aborted. Only error is a verdict.
+  h.events.emit("subagents:failed", { id: "a1", status: "error", error: "TypeError: boom", toolUses: 4 });
+  h.events.emit("subagents:failed", { id: "a2", status: "error", error: "429 Too Many Requests", toolUses: 4 });
+  h.events.emit("subagents:failed", { id: "a3", status: "stopped", error: "", toolUses: 4 });
+  h.events.emit("subagents:failed", { id: "a4", status: "aborted", error: "Operation aborted", toolUses: 4 });
+  h.events.emit("subagents:failed", { id: "a5", status: "error", error: "connection aborted by peer", toolUses: 4 });
+  await flush();
+  expect(outcomeLines().map(l => [l.agentId, l.outcome, l.by])).toEqual([["a1", "failed", "router"], ["a5", "failed", "router"]]);
+  expect(outcomeLines()[0].note).toContain("boom");
+  expect(P.loadStats().models.sol.implementation).toMatchObject({ routed: 5, failed: 2 });
+  expect(h.spawns).toHaveLength(0); // The rate-limited agent had edited, so it was not restarted.
+});
+
+test("old counters without outcome fields still load and count", () => {
+  writeFileSync(join(AGENT, "state.json"), JSON.stringify({ models: { sol: { research: { routed: 4, escalated: 1 } } } }));
+  P.bumpStats("sol", "research", "ok");
+  expect(P.loadStats().models.sol.research).toEqual({ routed: 4, escalated: 1, ok: 1, insufficient: 0, failed: 0 });
+  expect(P.historyLine("sol")).toBe("research 4 routed, 1 ok, 1 escalated");
 });
 
 test("files edited by one family send their review to the other family", async () => {

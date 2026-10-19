@@ -641,6 +641,16 @@ FAKE_PI = textwrap.dedent("""\
 """)
 
 
+FAKE_CLAUDE = textwrap.dedent("""\
+    #!{python}
+    import json, os, sys
+    with open(os.environ["FAKE_CLAUDE_LOG"], "a") as handle:
+        handle.write(json.dumps(sys.argv[1:]) + "\\n")
+    print("fake claude ran", flush=True)
+    sys.exit(int(os.environ.get("FAKE_CLAUDE_EXIT", "0")))
+""")
+
+
 class LauncherTests(unittest.TestCase):
     def setUp(self) -> None:
         self.fx = Fixture(self)
@@ -672,6 +682,20 @@ class LauncherTests(unittest.TestCase):
         if not self.log.exists():
             return []
         return [json.loads(line) for line in self.log.read_text().splitlines()]
+
+    def install_fake_claude(self) -> Path:
+        """Put a recording `claude` next to the fake pi; the test PATH has no real one."""
+        fake = self.real_bin / "claude"
+        fake.write_text(FAKE_CLAUDE.format(python=sys.executable))
+        fake.chmod(0o755)
+        self.claude_log = self.fx.tmp / "fake-claude.log"
+        self.env["FAKE_CLAUDE_LOG"] = str(self.claude_log)
+        return fake
+
+    def claude_calls(self) -> list[list[str]]:
+        if not self.claude_log.exists():
+            return []
+        return [json.loads(line) for line in self.claude_log.read_text().splitlines()]
 
     def launch(self, args: list[str], stdin: str = "", **env: str) -> tuple[subprocess.CompletedProcess, int]:
         proc = subprocess.Popen([self.entry, *args], env={**self.env, **env}, stdin=subprocess.PIPE,
@@ -740,6 +764,71 @@ class LauncherTests(unittest.TestCase):
         self.assertIn("patch repair failed", result.stderr)
         self.assertEqual((self.pkg / "a.txt").read_text(), BASE)
         self.assertEqual((self.pkg / "a.txt.version").read_text(), "2.0.0\n", "update itself is not rolled back")
+
+    def test_extension_update_also_updates_claude(self) -> None:
+        self.install_fake_claude()
+        for args in (["update", "--extensions"], ["update", "--all"], ["update", "npm:pkg-a"]):
+            with self.subTest(args=args):
+                self.log.unlink(missing_ok=True)
+                self.claude_log.unlink(missing_ok=True)
+                result, _ = self.launch(args)
+                self.assertEqual(result.returncode, 0, out(result))
+                self.assertEqual(self.claude_calls(), [["update"]])
+                self.assertIn("update and patch repair complete", result.stdout)
+                self.assertIn("Claude Code update finished", result.stdout)
+                self.assertLess(result.stdout.index("patch repair complete"), result.stdout.index("fake claude ran"),
+                                "Claude Code is updated after the patch repair, outside the lock")
+
+    def test_claude_update_is_skipped_by_env_absence_and_passthrough(self) -> None:
+        self.install_fake_claude()
+        result, _ = self.launch(["update", "--extensions"], PI_LAUNCHER_SKIP_CLAUDE_UPDATE="1")
+        self.assertEqual(result.returncode, 0, out(result))
+        self.assertEqual(self.claude_calls(), [])
+        self.assertIn("Claude Code was not updated", result.stdout)
+
+        self.log.unlink(missing_ok=True)
+        result, _ = self.launch(["update", "--models"])
+        self.assertEqual(result.returncode, 0, out(result))
+        self.assertEqual(self.claude_calls(), [], "passthrough invocations never update Claude Code")
+
+        (self.real_bin / "claude").unlink()
+        self.log.unlink(missing_ok=True)
+        result, _ = self.launch(["update", "--extensions"])
+        self.assertEqual(result.returncode, 0, out(result))
+        self.assertIn("not on PATH; Claude Code was not updated", result.stdout)
+
+    def test_claude_update_follows_the_pi_result(self) -> None:
+        self.install_fake_claude()
+        # A failed Pi update: Claude Code is left alone and the Pi status is preserved.
+        result, _ = self.launch(["update", "--extensions"], FAKE_EXIT="5")
+        self.assertEqual(result.returncode, 5, out(result))
+        self.assertEqual(self.claude_calls(), [])
+
+        # A failed patch repair after a successful update: Claude Code is still updated, the repair status wins.
+        self.fx.install("pkg-b", {"b.txt": "drift\n"})
+        self.fx.add_patch("pkg-b", "two", {"b.txt": BASE}, {"b.txt": PATCHED})
+        self.log.unlink(missing_ok=True)
+        result, _ = self.launch(["update", "--extensions"])
+        self.assertEqual(result.returncode, 1, out(result))
+        self.assertIn("patch repair failed", result.stderr)
+        self.assertEqual(self.claude_calls(), [["update"]])
+
+    def test_failed_claude_update_sets_the_status_only_when_the_rest_succeeded(self) -> None:
+        self.install_fake_claude()
+        result, _ = self.launch(["update", "--extensions"], FAKE_CLAUDE_EXIT="3")
+        self.assertEqual(result.returncode, 3, out(result))
+        self.assertIn("update and patch repair complete", result.stdout)
+        self.assertIn("claude update failed (exit 3)", result.stderr)
+        self.assertEqual((self.pkg / "a.txt").read_text(), PATCHED, "the patch repair is not rolled back")
+
+    def test_find_claude_honours_skip_and_override(self) -> None:
+        fake = self.install_fake_claude()
+        path = {"PATH": str(self.real_bin)}
+        self.assertEqual(launcher.find_claude(path), str(fake))
+        self.assertIsNone(launcher.find_claude({**path, "PI_LAUNCHER_SKIP_CLAUDE_UPDATE": "true"}))
+        self.assertEqual(launcher.find_claude({"PATH": "", "PI_CLAUDE_BIN": str(fake)}), str(fake))
+        self.assertIsNone(launcher.find_claude({"PATH": "", "PI_CLAUDE_BIN": str(self.fx.tmp / "missing")}))
+        self.assertIsNone(launcher.find_claude({"PATH": str(self.launch_bin)}))
 
     def test_missing_manifest_after_update(self) -> None:
         result, _ = self.launch(["update", "--extensions"], PI_PATCH_MANIFEST=str(self.fx.tmp / "none.json"))

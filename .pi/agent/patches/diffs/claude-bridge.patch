@@ -229,26 +229,26 @@ index 0000000..a1ca526
 +	return result;
 +}
 diff --git a/src/index.ts b/src/index.ts
-index b209b34..f1f6516 100644
+index e65ec14..d778efd 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -10,6 +10,7 @@ import { dirname, join } from "path";
  import { PROVIDER_ID, messageContentToText, convertPiMessages } from "./convert.js";
- import { DEBUG_LOG_PATH, DIAG_LOG_PATH } from "./log-paths.js";
+ import { debugLogPath, diagLogPath } from "./log-paths.js";
  import { applyLongContext, buildModels, claudeCodeModelId, type LongContextSettings, resolveModel as _resolveModel } from "./models.js";
 +import { withCatalogFallbacks } from "./catalog-fallbacks.js";
  import { MCP_SERVER_NAME, MCP_TOOL_PREFIX, renderSkillsBlock } from "./skills.js";
  import { verifyWrittenSession as _verifyWrittenSession } from "./session-verify.js";
  import { extractAllToolResults as _extractAllToolResults, type McpResult } from "./extract-tool-results.js";
-@@ -28,6 +29,7 @@ import { buildActionSummary, type ToolCallState } from "./askclaude-ui.js";
- import { askClaudeCallTags, askClaudeToolDescription, buildAskClaudeParams, resolveAskClaudeDefaults, resolveAskClaudeMode, type AskClaudeMode } from "./askclaude-schema.js";
- import { nonSystemMessages, toBridgeContext } from "./transcript.js";
+@@ -30,6 +31,7 @@ import { nonSystemMessages, toBridgeContext } from "./transcript.js";
+ import { forgetSessionCwd, rememberSessionCwd, rememberSummarySession, sessionCwdFor, summarySessionFor } from "./session-cwd.js";
  import { updateUsage, type SdkUsage } from "./usage.js";
+ import { rateLimitResponse } from "./rate-limit.js";
 +import { cacheTrace } from "./cache-trace.js";
  
  // --- Debug logging ---
  // CLAUDE_BRIDGE_DEBUG=1 enables debug logging to the bridge log in pi's agent
-@@ -140,8 +142,8 @@ const SDK_TO_PI_TOOL_NAME: Record<string, string> = {
+@@ -130,8 +132,8 @@ const SDK_TO_PI_TOOL_NAME: Record<string, string> = {
  	read: "read", write: "write", edit: "edit", bash: "bash",
  };
  
@@ -259,7 +259,7 @@ index b209b34..f1f6516 100644
  let providerSettings: NonNullable<Config["provider"]> = {};
  let longContextSettings: LongContextSettings = { plan: "pro", longContextExtraUsage: false };
  
-@@ -298,6 +300,7 @@ const markRebuildHooks: Set<MarkRebuildHook> =
+@@ -288,6 +290,7 @@ const markRebuildHooks: Set<MarkRebuildHook> =
   *  with no session id, so such a rewrite forces the REBUILD side; the discard
   *  set holds real ids only — see the comment on historyRewrittenBySession. */
  function markRebuildForSession(piSession: string | null, event: string): void {
@@ -267,7 +267,7 @@ index b209b34..f1f6516 100644
  	// The rewriting session's own mirror: the rewrite changed the history it was
  	// built from, so its next sync must REBUILD rather than REUSE. Every other
  	// session's mirror stays untouched — its conversation was never rewritten.
-@@ -779,6 +782,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
+@@ -776,6 +779,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
  		const trailingAssistantOnly =
  			missed.length === 1 && (missed[0] as { role?: string }).role === "assistant";
  		if (missed.length === 0 || trailingAssistantOnly) {
@@ -275,7 +275,7 @@ index b209b34..f1f6516 100644
  		if (trailingAssistantOnly) {
  			setSessionStateFor(piSessionId, { ...sharedSession, cursor: priorMessages.length, cwd });
  			debug(`Case 3: advanced cursor past trailing assistant, resuming session ${sharedSession.sessionId.slice(0, 8)}, cursor=${priorMessages.length}`);
-@@ -806,6 +810,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
+@@ -803,6 +807,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
  	// (/compact, session_tree, /new, fork) always set needsRebuild or clear
  	// sharedSession before the next syncSharedSession call.
  	if (sharedSession && !sharedSession.needsRebuild && priorMessages.length < sharedSession.cursor) {
@@ -283,7 +283,7 @@ index b209b34..f1f6516 100644
  		debug(`Case 1 synthetic: clean start for shorter context, preserving shared session ${sharedSession.sessionId.slice(0, 8)}, cursor=${sharedSession.cursor}`);
  		debug(`syncResult: path=clean-start preserve-shared sessionId=${sharedSession.sessionId} cursor=${sharedSession.cursor}`);
  		return { sessionId: null, preserveSharedSession: true };
-@@ -813,6 +818,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
+@@ -810,6 +815,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
  
  	// REBUILD path
  	if (priorMessages.length === 0) {
@@ -291,7 +291,7 @@ index b209b34..f1f6516 100644
  		debug(`Case 1: clean start, ${history.length} total messages`);
  		debug(`syncResult: path=clean-start`);
  		return { sessionId: null };
-@@ -824,6 +830,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
+@@ -821,6 +827,7 @@ function debugSessionPaths(label: string, cwd: string, jsonlPath: string): void
  	// and for any tools that key off them. Skipped when there's a concurrent
  	// writer we shouldn't race (forceRotate).
  	const preserveId = previousSessionId !== undefined && !sharedSession?.forceRotate;
@@ -299,7 +299,7 @@ index b209b34..f1f6516 100644
  	// Before deleteSession — it wipes the file these live in.
  	const carried = previousSessionId !== undefined ? readCarriedAttachments(previousSessionId, cwd) : [];
  	if (preserveId) {
-@@ -1116,6 +1123,7 @@ function buildMcpServers(tools: Tool[], queryCtx: QueryContext): Record<string,
+@@ -1093,6 +1100,7 @@ function buildMcpServers(tools: Tool[], queryCtx: QueryContext): Record<string,
  // The counter mapping lives in usage.ts; the debug line is this side's job, so every
  // call site logs the same way rather than three times over.
  function recordUsage(output: AssistantMessage, usage: SdkUsage, model: Model<any>): void {
@@ -307,7 +307,7 @@ index b209b34..f1f6516 100644
  	const { cachePct, reasoning } = updateUsage(output, usage, model);
  	const reasoningText = reasoning == null ? "" : ` reasoning=${reasoning}`;
  	debug(`usage: in=${output.usage.input} out=${output.usage.output} cacheRead=${output.usage.cacheRead} cacheWrite=${output.usage.cacheWrite} total=${output.usage.totalTokens}${reasoningText} cachePct=${cachePct}% model=${model.id}`);
-@@ -1509,6 +1517,7 @@ async function consumeQuery(
+@@ -1561,6 +1569,7 @@ async function consumeQuery(
  			continue;
  		}
  		if (!queryCtx.currentPiStream || !queryCtx.turnOutput) continue;
@@ -315,7 +315,7 @@ index b209b34..f1f6516 100644
  
  		switch (message.type) {
  			case "stream_event":
-@@ -1570,6 +1579,7 @@ function steerBlocks(messages: Context["messages"]): ContentBlockParam[] | null
+@@ -1622,6 +1631,7 @@ function steerBlocks(messages: Context["messages"]): ContentBlockParam[] | null
   *  it, so count-based sync would skip it forever — rebuild instead, which
   *  re-imports the message from pi's context. */
  function steerMissedSession(c: QueryContext, text: string): void {
@@ -323,7 +323,7 @@ index b209b34..f1f6516 100644
  	c.missedSteer = true;
  	const state = sessionStateFor(c.piSessionId);
  	if (state) setSessionStateFor(c.piSessionId, { ...state, needsRebuild: true });
-@@ -1678,6 +1688,7 @@ const CONTINUE_AFTER_REWRITE_PROMPT =
+@@ -1737,6 +1747,7 @@ const CONTINUE_AFTER_RESUME_PROMPT =
   *  history — so the turn continues instead of ending here. Nothing is lost by
   *  killing the subprocess: pi owns the only copy of the conversation that counts. */
  function discardRewrittenQuery(c: QueryContext): void {
@@ -331,15 +331,15 @@ index b209b34..f1f6516 100644
  	const discarded = c.activeQuery as { interrupt?: () => Promise<unknown>; close?: () => void } | null;
  	if (discarded) abandonedQueries.add(discarded);
  	c.activeQuery = null;
-@@ -1756,6 +1767,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+@@ -1812,6 +1823,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
  	// (everything after the last assistant message) and match against waiting MCP
  	// handlers. Results that arrive before their handler get queued in pendingResults.
  	if (resultCtx) {
 +		cacheTrace.continuation(resultCtx, allResults.length);
- 		claimCurrentPiStream(stream, "tool-result", resultCtx);
+ 		claimCurrentPiStream(stream, "tool-result", resultCtx, options);
  		resultCtx.resetTurnState(model);
  		// A rewrite that armed the mark after this query parked gets copied here,
-@@ -1872,6 +1884,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+@@ -1937,6 +1949,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
  	// follow-up) and on SessionState. A fresh instance of this module inside a
  	// worktree-spawned subagent has its own contexts; each records its own.
  	queryCtx.piSessionId = options?.sessionId ?? null;
@@ -347,15 +347,15 @@ index b209b34..f1f6516 100644
  	// A discarded query's replacement reuses this context; without the reset its
  	// first tool result would sit on armed staleness again (the mark is consumed
  	// from the set, not from here) and re-discard a healthy query.
-@@ -1953,6 +1966,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
- 			: VALID_EFFORTS.has(mapped as EffortLevel) ? mapped as EffortLevel : undefined
- 		: undefined;
+@@ -2012,6 +2025,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+ 
+ 	const effort = effortForReasoning(model, options?.reasoning);
  
 +	cacheTrace.selected(cacheTraceQuery, effort);
  	const extraArgs: Record<string, string | null> = { model: cliModel };
  	if (strictMcpConfigEnabled) extraArgs["strict-mcp-config"] = null;
  	// Opus 4.7 defaults thinking.display to "omitted" (empty thinking text in stream).
-@@ -2011,6 +2025,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+@@ -2070,6 +2084,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
  	// 3. Start SDK query and claim it for this context
  	let wasAborted = false;
  	const sdkQuery = queryImpl({ prompt: promptStream.stream, options: queryOptions });
@@ -363,7 +363,7 @@ index b209b34..f1f6516 100644
  	queryCtx.activeQuery = sdkQuery;
  	activeQueryContexts.add(queryCtx);
  
-@@ -2036,6 +2051,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+@@ -2095,6 +2110,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
  	// Background consumer — runs until query ends
  	consumeQuery(sdkQuery, customToolNameToPi, model, () => wasAborted, queryCtx)
  		.then(async ({ capturedSessionId }) => {
@@ -371,7 +371,7 @@ index b209b34..f1f6516 100644
  			debug(`provider: consumeQuery completed, stopReason=${queryCtx.turnOutput?.stopReason}, error=${queryCtx.turnOutput?.errorMessage}, aborted=${wasAborted}`);
  
  			// Discarded out from under: the query continuing the turn owns the context,
-@@ -2094,6 +2110,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
+@@ -2154,6 +2170,7 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
  			finalizeCurrentStream(queryCtx, queryCtx.turnOutput?.stopReason);
  		})
  		.catch((error) => {
@@ -380,10 +380,10 @@ index b209b34..f1f6516 100644
  			if (abandonedQueries.has(sdkQuery)) {
  				debug("provider: discarded query ended in error, leaving session and stream to its replacement");
 diff --git a/src/mcp-server.ts b/src/mcp-server.ts
-index abaabec..7900190 100644
+index 9b3c39d..787cfe4 100644
 --- a/src/mcp-server.ts
 +++ b/src/mcp-server.ts
-@@ -25,6 +25,7 @@
+@@ -27,6 +27,7 @@
  import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
  import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
  import type { McpResult } from "./extract-tool-results.js";
@@ -391,7 +391,7 @@ index abaabec..7900190 100644
  
  // Claude Code stamps every tools/call with the id of the tool_use block it came
  // from. That is the only reliable way to pair a call with its result: call order
-@@ -57,6 +58,7 @@ function assertObjectSchema(tool: McpToolDef): void {
+@@ -137,6 +138,7 @@ function flattenRootCombinators(schema: Record<string, unknown>): { schema: Reco
  }
  
  export function createToolServer(name: string, tools: McpToolDef[]) {

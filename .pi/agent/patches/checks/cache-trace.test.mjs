@@ -213,7 +213,7 @@ function lifecycle(trace) {
  }
  const current = new Context(); const pending = [];
  Object.assign(b, {
-  QueryContext: Context, ctx: () => current, process: { env: {}, cwd: () => secret },
+  QueryContext: Context, ctx: () => current, process: { env: {}, cwd: () => secret }, sessionCwdFor: () => secret,
   showStartupNoticeOnce() {}, toBridgeContext: c => c,
   isolatedStreamFn: () => 'isolated', createAssistantMessageEventStream: () => ({ push() {}, end() {} }),
   extractAllToolResults: () => [], contextForToolResults: () => undefined,
@@ -223,7 +223,7 @@ function lifecycle(trace) {
   claudeCodeModelId: m => m.id, longContextSettings: {},
   extractUserPromptBlocks: () => null, extractUserPrompt: () => secret, userMessage: value => value,
   makePromptStream: () => ({ push: async () => {}, fail() {}, end() {}, stream: {} }),
-  buildMcpServers: () => undefined, providerSettings: {}, REASONING_TO_EFFORT: { high: 'high' }, VALID_EFFORTS: new Set(['high']),
+  buildMcpServers: () => undefined, providerSettings: {}, effortForReasoning: (_model, level) => level === 'high' ? 'high' : undefined, CONTINUE_AFTER_RESUME_PROMPT: secret,
   CC_CHILD_ENV: {}, CLAUDE_MD_EXCLUDES: [], claudeCodeSettings: () => ({}), makeCliDebugOptions: () => ({}),
   queryImpl: () => ({ interrupt: async () => {}, close() {} }),
   consumeQuery: (q, _names, _model, _aborted, c) => new Promise((resolve, reject) => pending.push({ q, c, resolve, reject })),

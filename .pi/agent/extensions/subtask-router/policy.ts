@@ -14,10 +14,14 @@ const LEVELS: Level[] = ["trivial", "routine", "hard", "extreme"];
 const KINDS: Kind[] = ["implementation", "debugging", "review", "research", "docs", "mechanical"];
 /** Effort used when no classifier decision exists (classifier failure). */
 const LEVEL_THINKING: Record<Level, Thinking> = { trivial: "minimal", routine: "low", hard: "medium", extreme: "high" };
+/** One effort step up, for escalation and for an unsure scout. */
+const LEVEL_UP: Record<Thinking, Thinking> = { off: "low", minimal: "low", low: "medium", medium: "high", high: "xhigh", xhigh: "max", max: "max" };
 
 const AGENT_DIR = process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), ".pi", "agent");
 const CONFIG_PATH = path.join(AGENT_DIR, "subtask-router.json");
 const STATE_PATH = process.env.PI_SUBTASK_ROUTER_STATE || path.join(AGENT_DIR, "subtask-router-state.json");
+/** One JSON line per reported outcome: model, effort, level, kind, and verdict. No prompt text. */
+const OUTCOMES_PATH = process.env.PI_SUBTASK_ROUTER_OUTCOMES || path.join(AGENT_DIR, "subtask-router-outcomes.jsonl");
 const FAILOVER_STATE = path.join(AGENT_DIR, "provider-failover-state.json");
 const USAGE_METERS = process.env.PI_SUBTASK_ROUTER_USAGE_METERS || path.join(AGENT_DIR, "extensions", "usage-meters", "core.js");
 
@@ -39,6 +43,11 @@ interface Config {
   router: { model: string; thinking: Thinking; timeoutMs: number };
   scout: { maxTurns: number; timeoutMs: number; levelGap: number };
   /**
+   * Where a parent rating of trivial level or mechanical kind goes without a classifier call.
+   * Reviews never take this path. null disables it.
+   */
+  direct: { model: string | null; thinking: Thinking };
+  /**
    * Used when the classifier fails. The user sets it; null blocks routing on classifier failure.
    * An exact route that exactly one model lists is accepted and normalized to that model's name.
    */
@@ -52,6 +61,7 @@ interface Config {
 const DEFAULTS: Config = {
   router: { model: "openai-codex/gpt-6-luna", thinking: "low", timeoutMs: 45_000 },
   scout: { maxTurns: 3, timeoutMs: 15_000, levelGap: 2 },
+  direct: { model: null, thinking: "low" },
   fallbackModel: null,
   models: {},
   agentTypes: {},
@@ -69,6 +79,7 @@ function parseConfig(raw: any): Config {
     ...DEFAULTS, ...rest,
     router: { ...DEFAULTS.router, ...raw.router },
     scout: { ...DEFAULTS.scout, ...raw.scout },
+    direct: { ...DEFAULTS.direct, ...raw.direct },
     fallbackModel: raw.fallbackModel ?? null,
     models: raw.models ?? {},
     agentTypes: raw.agentTypes ?? {},
@@ -95,6 +106,8 @@ function parseConfig(raw: any): Config {
     }
   }
   if (cfg.fallbackModel !== null) cfg.fallbackModel = modelNameFor(cfg.fallbackModel, cfg.models, "fallbackModel");
+  if (!THINKING.includes(cfg.direct.thinking)) throw new Error("Invalid direct.thinking.");
+  if (cfg.direct.model !== null) cfg.direct.model = modelNameFor(cfg.direct.model, cfg.models, "direct.model");
   for (const [type, spec] of Object.entries(cfg.agentTypes)) {
     if (!spec || typeof spec !== "object" || (spec.kind !== undefined && !KINDS.includes(spec.kind))
       || (spec.readOnly !== undefined && typeof spec.readOnly !== "boolean")) throw new Error("Invalid agentTypes entry: " + type);
@@ -151,7 +164,7 @@ function configWarnings(cfg: Config, models: M[]): string[] {
   if (cfg.fallbackModel === null) out.push("fallbackModel is not set: a classifier failure will block the Agent call.");
   if (!findRoute(cfg.router.model, models)) out.push("Router model " + cfg.router.model + " is not available (unknown model or no credentials).");
   // The bridge accepts only system prompts captured from a real session, so side calls fail.
-  if (/^claude-bridge\//.test(cfg.router.model)) out.push("Router model " + cfg.router.model + " runs on claude-bridge, which refuses classifier calls. Use a Codex or GLM model.");
+  if (/^claude-bridge\//.test(cfg.router.model)) out.push("Router model " + cfg.router.model + " runs on claude-bridge, which refuses classifier calls. Use a Codex model.");
   for (const [name, spec] of Object.entries(cfg.models)) {
     for (const route of spec.routes) if (!findRoute(route, models)) out.push(name + ": route " + route + " is not available (unknown model or no credentials).");
     const seen = new Set([name]);
@@ -318,12 +331,17 @@ const usable = (name: string, cfg: Config, models: M[]) => routeStates(name, cfg
 
 interface Pick { name: string; model: M; skipped: string[] }
 
-/** The first usable route of the model, then of its fallback chain. Each name is tried once. */
-function pickRoute(name: string, cfg: Config, models: M[], exclude = new Set<string>()): Pick {
+/** First usable route in the fallback chain, preserving review independence. Each name is tried once. */
+function pickRoute(name: string, cfg: Config, models: M[], exclude = new Set<string>(), reviewAuthor?: string): Pick {
   const skipped: string[] = [];
   const seen = new Set<string>();
   for (let n: string | undefined = name; n && !seen.has(n); n = cfg.models[n]?.fallback) {
     seen.add(n);
+    if (!cfg.models[n]) { skipped.push(n + " (not configured)"); break; }
+    if (reviewAuthor && cfg.models[n].family === reviewAuthor) {
+      skipped.push(n + " (same family as review author: " + reviewAuthor + ")");
+      continue;
+    }
     for (const r of routeStates(n, cfg, models)) {
       if (exclude.has(r.route)) { skipped.push(r.route + " (failed)"); continue; }
       if (r.block) { skipped.push(r.route + " (" + r.block + ")"); continue; }
@@ -367,7 +385,13 @@ async function markRateLimited(model: M, error: string, cfg: Config): Promise<bo
 
 // ---------------------------------------------------------------- learned history
 
-interface Stats { models: Record<string, Partial<Record<Kind, { routed: number; escalated: number }>>> }
+/** A reported verdict on a routed agent. Unreported agents are unknown, not ok. */
+type Outcome = "ok" | "insufficient" | "failed";
+const OUTCOMES: Outcome[] = ["ok", "insufficient", "failed"];
+type StatField = "routed" | "escalated" | Outcome;
+type Counts = Record<StatField, number>;
+interface Stats { models: Record<string, Partial<Record<Kind, Counts>>> }
+const ZERO: Counts = { routed: 0, escalated: 0, ok: 0, insufficient: 0, failed: 0 };
 
 function loadStats(): Stats {
   try {
@@ -376,10 +400,11 @@ function loadStats(): Stats {
   } catch { return { models: {} }; }
 }
 
-function bumpStats(name: string, kind: Kind, field: "routed" | "escalated"): void {
+function bumpStats(name: string, kind: Kind, field: StatField): void {
   try {
     const stats = loadStats();
-    const entry = ((stats.models[name] ??= {})[kind] ??= { routed: 0, escalated: 0 });
+    const perKind = (stats.models[name] ??= {});
+    const entry = (perKind[kind] = { ...ZERO, ...perKind[kind] }); // Counters from older versions lack outcome fields.
     entry[field]++;
     const tmp = STATE_PATH + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify(stats, null, 2));
@@ -387,11 +412,24 @@ function bumpStats(name: string, kind: Kind, field: "routed" | "escalated"): voi
   } catch { /* history is best-effort */ }
 }
 
-/** "escalated 1/9 debugging; 0/4 research" — only kinds that were routed. */
+interface OutcomeRecord {
+  agentId: string; outcome: Outcome; note?: string; model?: string; route: string;
+  thinking: Thinking; level: Level; kind: Kind; by: "parent" | "user" | "router";
+}
+
+/** Append one outcome line. Best-effort: a write failure never blocks the session. */
+function logOutcome(record: OutcomeRecord): void {
+  try {
+    fs.appendFileSync(OUTCOMES_PATH, JSON.stringify({ at: new Date().toISOString(), ...record }) + "\n", { mode: 0o600 });
+  } catch { /* history is best-effort */ }
+}
+
+/** "debugging 9 routed, 5 ok, 1 insufficient, 1 escalated; research 4 routed" — zero counts are omitted. */
 function historyLine(name: string, stats = loadStats()): string {
   const kinds = Object.entries(stats.models[name] ?? {}).filter(([, v]) => v && v.routed > 0);
   if (!kinds.length) return "";
-  return "escalated " + kinds.map(([k, v]) => v!.escalated + "/" + v!.routed + " " + k).join("; ");
+  const order: StatField[] = ["routed", "ok", "insufficient", "failed", "escalated"];
+  return kinds.map(([k, v]) => k + " " + order.filter(f => (v as any)[f] > 0).map(f => (v as any)[f] + " " + f).join(", ")).join("; ");
 }
 
 // ---------------------------------------------------------------- classifier
@@ -409,14 +447,18 @@ const ROUTER_PROMPT = [
   "Judge the reasoning the task needs, not its length, its file count, or words such as audit or thorough.",
   "The parent's rating comes from a model that has seen the code and the conversation. Weigh it heavily, but check it against the task.",
   "",
-  "2. thinking: follows the level.",
-  "trivial: off or minimal. routine: low for research/mechanical work, medium for implementation/tests when the model profile recommends it. hard: medium or high according to the model profile and correctness risk. extreme: high, or xhigh only when exceptional.",
-  "Honor the selected model's supported efforts and effort-specific profile rather than applying level defaults rigidly.",
-  "More files do not need more thinking. Harder reasoning does.",
+  "2. model and thinking: choose a pair that fits the task, using each model's role and effort-specific evidence.",
+  "Prefer the smallest sufficient worker for the task's acceptance criteria, not the model with the highest max-effort score.",
+  "Mechanical work needs the lowest supported effort. Bounded lookup can use low; implementation, synthesis, and review usually need medium or high as the profile specifies.",
+  "Use high for interacting failure modes and consequential correctness. Use xhigh for exceptional unresolved reasoning. Choose max only for explicit quality-over-latency work or documented failed attempts with a task-relevant benefit.",
+  "Honor supported efforts and explicit user requirements in the profiles. File count alone does not justify more reasoning.",
+  "For reviews, obey the author-family exclusion, then choose for complexity. The words review or security alone do not require a specialist model.",
   "",
-  "3. model: the best result for this task, from the profiles and history.",
-  "Quality first. When two models would do equally well, pick the faster one. When still tied, pick the one with more quota left.",
-  "Do not pick a model stronger than the task needs. Obey the review rule when one is given.",
+  "3. tradeoffs: quality sufficient for the task comes first; prefer verified speed and available quota among qualified pairs.",
+  "Choose a budget auxiliary only when the preferred model's quota is high or the task is bulk background work that nobody waits on.",
+  "API benchmark dollars are not subscription quota consumption. First-answer latency is not whole-task runtime; unknown local speed is unknown.",
+  "Terminal coding, scientific coding, and knowledge reliability measure different things. None establishes code-review or security superiority.",
+  "Routing history counts routed tasks, reported outcomes, and escalations. An agent without a reported outcome is unknown, not a success.",
   "",
   "Examples of level and thinking:",
   "Run echo hello -> trivial, minimal.",
@@ -425,7 +467,7 @@ const ROUTER_PROMPT = [
   "Implement a multi-file feature with tests -> hard, medium.",
   "Prove and fix a distributed locking race -> extreme, high.",
   "",
-  'Reply ONLY with {"level":"trivial|routine|hard|extreme","kind":"implementation|debugging|review|research|docs|mechanical","model":"<name>","thinking":"off|minimal|low|medium|high|xhigh","reason":"at most 12 words"}.',
+  'Reply ONLY with {"level":"trivial|routine|hard|extreme","kind":"implementation|debugging|review|research|docs|mechanical","model":"<name>","thinking":"off|minimal|low|medium|high|xhigh|max","reason":"at most 12 words"}.',
 ].join("\n");
 
 const SCOUT_PROMPT = [
@@ -467,10 +509,7 @@ function candidates(cfg: Config, models: M[], input: TaskInput, ignoreQuota = fa
   let names = Object.keys(cfg.models).filter(n => ignoreQuota
     ? cfg.models[n].routes.some(r => findRoute(r, models))
     : usable(n, cfg, models));
-  if (input.reviewAuthor) {
-    const others = names.filter(n => cfg.models[n].family !== input.reviewAuthor);
-    if (others.length) names = others;
-  }
+  if (input.reviewAuthor) names = names.filter(n => cfg.models[n].family !== input.reviewAuthor);
   return names;
 }
 
@@ -609,11 +648,25 @@ async function classify(ctx: ExtensionContext, cfg: Config, input: TaskInput, op
     throw new Error("scout gave no decision");
   } catch (e) {
     if (opts.signal?.aborted) throw e;
-    // Still unsure: prefer the stronger model (quality first).
-    const up = cfg.models[first.model]?.stronger;
-    const model = up && names.includes(up) ? up : first.model;
-    return { ...first, model, reason: first.reason + " (scout unsure" + (model !== first.model ? ", stronger model" : "") + ")", by, scout: "unsure", usage };
+    // Still unsure: keep the model and think one level harder. A model switch would
+    // override the profile roles (UI/UX to Opus, review independence) on a guess.
+    const thinking = LEVEL_UP[first.thinking];
+    return { ...first, thinking, reason: first.reason + " (scout unsure" + (thinking !== first.thinking ? ", more thinking" : "") + ")", by, scout: "unsure", usage };
   }
+}
+
+/**
+ * Route for a parent rating that needs no classifier: trivial level or mechanical kind.
+ * Reviews keep the classifier so the author-family rule applies. Undefined means classify.
+ */
+function directRoute(cfg: Config, input: TaskInput): Route | undefined {
+  const r = input.rating;
+  if (!cfg.direct.model || !r) return undefined;
+  const kind: Kind = r.kind ?? input.typeSpec?.kind ?? (r.level === "trivial" ? "mechanical" : "implementation");
+  if (kind === "review" || input.reviewAuthor) return undefined;
+  if (r.level !== "trivial" && kind !== "mechanical") return undefined;
+  return { level: r.level, kind, model: cfg.direct.model, thinking: cfg.direct.thinking,
+    reason: "parent rated " + r.level + "/" + kind + "; classifier skipped", by: "parent-rating" };
 }
 
 /** Decision used when the classifier fails: the user's fallback model. */
@@ -634,10 +687,10 @@ function _resetForTests(): void {
 }
 
 export {
-  THINKING, LEVELS, KINDS, LEVEL_THINKING, ROUTER_PROMPT, SCOUT_PROMPT, loadConfig, parseConfig, modelNameFor, configWarnings, universe, key,
+  THINKING, LEVELS, KINDS, LEVEL_THINKING, LEVEL_UP, OUTCOMES, ROUTER_PROMPT, SCOUT_PROMPT, loadConfig, parseConfig, modelNameFor, configWarnings, universe, key,
   findRoute, familyOf, nameOfRoute, resolveOverride, routeStates, usable, pickRoute, needsClaude, ensureClaude, freshClaude,
-  meterApplies, quotaBlock, quotaPercent, quotaSummary, markRateLimited, loadStats, bumpStats, historyLine, parseRating,
-  candidates, describeTask, parseDecision, classify, fallbackRoute, RATE_LIMIT, _resetForTests,
+  meterApplies, quotaBlock, quotaPercent, quotaSummary, markRateLimited, loadStats, bumpStats, logOutcome, historyLine, parseRating,
+  candidates, describeTask, parseDecision, classify, directRoute, fallbackRoute, RATE_LIMIT, _resetForTests,
 };
-export type { Config, ModelSpec, AgentTypeSpec, Thinking, Level, Kind, M, Route, Decision, ParentRating, TaskInput, ScoutTool, Pick };
+export type { Config, ModelSpec, AgentTypeSpec, Thinking, Level, Kind, M, Route, Decision, ParentRating, TaskInput, ScoutTool, Pick, Outcome, OutcomeRecord };
 

@@ -12,10 +12,10 @@ import { join, resolve } from "node:path";
 import { getAgentConfig } from "../../npm/node_modules/@tintinweb/pi-subagents/src/agent-types.ts";
 import { inChildSessionContext } from "../../npm/node_modules/@tintinweb/pi-subagents/src/child-context.ts";
 import {
-  THINKING, ROUTER_PROMPT, loadConfig, configWarnings, universe, key, familyOf, resolveOverride, routeStates,
-  pickRoute, needsClaude, ensureClaude, freshClaude, quotaSummary, markRateLimited, bumpStats, historyLine, parseRating,
-  classify, fallbackRoute, findRoute, quotaBlock,
-  type Config, type Thinking, type Kind, type Level, type M, type Route, type TaskInput, type ScoutTool, type AgentTypeSpec,
+  THINKING, LEVEL_UP, OUTCOMES, ROUTER_PROMPT, loadConfig, configWarnings, universe, key, familyOf, resolveOverride, routeStates,
+  pickRoute, needsClaude, ensureClaude, freshClaude, quotaSummary, markRateLimited, bumpStats, logOutcome, historyLine, parseRating,
+  classify, directRoute, fallbackRoute, findRoute, quotaBlock,
+  type Config, type Thinking, type Kind, type Level, type M, type Route, type TaskInput, type ScoutTool, type AgentTypeSpec, type Outcome,
 } from "./policy.ts";
 import { REVIEWER_TYPE, REVIEWER_MODEL, REVIEWER_THINKING, BatchTracker, buildPacket, summarize } from "./reviewer.ts";
 import { rpc } from "./rpc.ts";
@@ -33,6 +33,8 @@ function nativeRecord(id: string): NativeRecord | undefined {
 interface Launch {
   prompt: string; description: string; type: string; name?: string; route: string;
   thinking: Thinking; kind: Kind; level: Level; readOnly: boolean; family?: string; retries: number;
+  /** Author of the code under review, retained through automatic recovery and reload. */
+  reviewAuthor?: string;
 }
 
 const MAX_RETRIES = 3;
@@ -59,8 +61,6 @@ function familyFromName(ref: string, cfg: Config): string | undefined {
   return undefined;
 }
 
-const LEVEL_UP: Record<Thinking, Thinking> = { off: "low", minimal: "low", low: "medium", medium: "high", high: "xhigh", xhigh: "max", max: "max" };
-
 const isReviewerType = (t: unknown) => typeof t === "string" && t.trim().toLowerCase() === REVIEWER_TYPE;
 
 export default function (pi: ExtensionAPI) {
@@ -83,6 +83,8 @@ export default function (pi: ExtensionAPI) {
   const tracker = new BatchTracker({ record: id => nativeRecord(id), append: (type, data) => pi.appendEntry(type, data) });
   /** Reviewer agent ID -> reviewed batch ID. Reviewers are never routed, restarted, or escalated. */
   const reviews = new Map<string, string>();
+  /** Routed agent ID -> reported outcome. One verdict per agent. */
+  const outcomes = new Map<string, Outcome>();
 
   const launchFor = (id: string): Launch | undefined => {
     const own = byAgent.get(id);
@@ -133,6 +135,7 @@ export default function (pi: ExtensionAPI) {
       ticket.done(id || undefined, { description: launch.description, type: launch.type, route: launch.route, thinking: launch.thinking, prompt });
     }
     byAgent.set(id, launch);
+    if (launch.name) bumpStats(launch.name, launch.kind, "routed"); // A restart or escalation is an attempt that can get a verdict.
     pi.appendEntry("subtask-routing-spawn", { agentId: id, reason, reviewBatch: ticket.batchId, launch: { ...launch, prompt: prompt.slice(0, PROMPT_CAP) } });
     return id;
   };
@@ -141,6 +144,42 @@ export default function (pi: ExtensionAPI) {
     current?.ui.notify(content, "info");
     try { void pi.sendMessage({ customType: "subtask-router", content, display: true }, { deliverAs: "followUp" }); } catch { /* UI note is enough */ }
   };
+
+  /**
+   * Record one verdict for a routed agent: in the per-model counters the classifier sees, in the
+   * outcomes log, and in the session. Returns a message for the caller. Never throws.
+   */
+  const recordOutcome = (id: string, outcome: Outcome, by: "parent" | "user" | "router", note?: string): { ok: boolean; text: string } => {
+    if (reviews.has(id)) return { ok: false, text: "Agent " + id + " is a manual reviewer, not a routed agent. Outcomes are recorded for routed agents only." };
+    const launch = launchFor(id);
+    if (!launch) return { ok: false, text: "No routing record for agent " + id + ". Outcomes are recorded for routed agents of this session only." };
+    const prior = outcomes.get(id);
+    if (prior) return { ok: false, text: "Agent " + id + " already has the outcome " + prior + ". The first report stands." };
+    outcomes.set(id, outcome);
+    const clipped = note?.trim().slice(0, 300) || undefined;
+    if (launch.name) bumpStats(launch.name, launch.kind, outcome);
+    const record = { agentId: id, outcome, note: clipped, model: launch.name, route: launch.route, thinking: launch.thinking,
+      level: launch.level, kind: launch.kind, by };
+    logOutcome(record);
+    pi.appendEntry("subtask-routing-outcome", record);
+    return { ok: true, text: "Recorded " + outcome + " for agent " + id + " (" + launch.route + " · " + launch.thinking + " · " + launch.level + "/" + launch.kind + ")." };
+  };
+
+  pi.registerTool({
+    name: "report_subagent_outcome",
+    label: "Report subagent outcome",
+    description: "Record whether a routed agent's final result met its task: ok or insufficient. One report per agent. This is the only success signal the router keeps.",
+    promptSnippet: "Record ok or insufficient for a finished subagent.",
+    parameters: Type.Object({
+      agent_id: Type.String({ description: "Exact ID returned by Agent (not an @handle)" }),
+      outcome: Type.Union([Type.Literal("ok"), Type.Literal("insufficient")], { description: "ok: the result met the task's acceptance criteria. insufficient: it did not, or needed rework." }),
+      note: Type.Optional(Type.String({ description: "One line on what was missing or wrong. Omit for ok." })),
+    }),
+    async execute(_id, args) {
+      const r = recordOutcome(args.agent_id, args.outcome, "parent", args.note);
+      return { content: [{ type: "text", text: r.text }], details: { agentId: args.agent_id, outcome: args.outcome, recorded: r.ok } };
+    },
+  });
 
   pi.registerTool({
     name: "stop_subagent",
@@ -152,7 +191,8 @@ export default function (pi: ExtensionAPI) {
       "Add a routing field to every new Agent call: routing: {level: \"trivial|routine|hard|extreme\", kind: \"implementation|debugging|review|research|docs|mechanical\", edits: true|false, why: \"one line: what makes this easy or hard\"}. For reviews, add reviewing: \"<model or family that wrote the code>\" when you know it. Rate from what you know about the code and the conversation, not from the prompt length.",
       "Use run_in_background:true when you need to monitor or steer work. Use get_subagent_result for status, partial reports, or waiting.",
       "Use steer_subagent to redirect work or request a progress report. Use stop_subagent to stop it. Resume with Agent(resume: agent_id, prompt: ...).",
-      "If an agent's result is clearly insufficient, say so; the user can run /subtask-router escalate <agent_id> to redo it on a stronger model.",
+      "After you read a finished agent's final result, call report_subagent_outcome once: ok when it met the task, insufficient when it did not. This is the router's only quality signal.",
+      "If an agent's result is clearly insufficient, say so; the user can run /subtask-router escalate <agent_id> to redo it on a different model.",
       "Give agents self-contained tasks. Parallel agents must not edit the same files.",
     ],
     parameters: Type.Object({ agent_id: Type.String({ description: "Exact ID returned by Agent (not an @handle)" }) }),
@@ -219,9 +259,12 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.setStatus("subtask-router", "Routing " + pending + " agent(s)…");
     try {
       let route: Route;
+      const direct = override ? undefined : directRoute(cfg, task);
       if (override && pinnedThinking !== undefined) {
         route = { level: rating?.level ?? "hard", kind: kind ?? "implementation", model: override.name ?? pinnedModel!,
           thinking: pinnedThinking as Thinking, reason: "explicit model and effort", by: "caller/config" };
+      } else if (direct) {
+        route = direct; // The parent rated it trivial or mechanical: no classifier round trip.
       } else {
         try {
           route = await classify(ctx, cfg, task, { signal: ctx.signal, scoutTools: scoutTools(ctx) });
@@ -233,13 +276,17 @@ export default function (pi: ExtensionAPI) {
           route = fb;
         }
       }
+      if (route.kind === "review" && !task.reviewAuthor) {
+        task.reviewAuthor = reviewAuthorFor(cfg, ctx, input.prompt, rating?.reviewing);
+      }
       ctx.signal?.throwIfAborted();
       if (needsClaude(cfg)) await freshClaude(cfg); // At most claudeWaitMs.
 
       let selected: M, name: string | undefined, skipped: string[] = [];
       if (override?.model) { selected = override.model; name = override.name; }
       else {
-        try { ({ model: selected, name, skipped } = pickRoute(override?.name ?? route.model, cfg, models)); }
+        // Explicit model pins remain authoritative; automatic choices preserve independence.
+        try { ({ model: selected, name, skipped } = pickRoute(override?.name ?? route.model, cfg, models, new Set(), pinnedModel ? undefined : task.reviewAuthor)); }
         catch (e: any) { return { block: true, reason: String(e?.message ?? e) }; }
       }
       const requested = (pinnedThinking as Thinking | undefined) ?? route.thinking;
@@ -256,7 +303,7 @@ export default function (pi: ExtensionAPI) {
       const launch: Launch = {
         prompt: input.prompt, description: String(input.description ?? "Agent"), type, name, route: key(selected),
         thinking: effort, kind: route.kind, level: route.level, readOnly: !!typeSpec?.readOnly,
-        family: name ? cfg.models[name].family : familyOf(selected, cfg), retries: 0,
+        family: name ? cfg.models[name].family : familyOf(selected, cfg), retries: 0, reviewAuthor: task.reviewAuthor,
       };
       byToolCall.set(event.toolCallId, launch);
       if (name) bumpStats(name, route.kind, "routed");
@@ -342,9 +389,19 @@ export default function (pi: ExtensionAPI) {
     const error = String(raw.error ?? record?.error ?? "");
     let cfg: Config;
     try { cfg = loadConfig(); } catch { return; }
-    if (!model || !(await markRateLimited(model, error, cfg))) return;
+    if (!model || !(await markRateLimited(model, error, cfg))) {
+      // The backend emits this event for status error, stopped, and aborted. Only an error is
+      // an outcome: a user stop, a hard abort, and a rate limit say nothing about the model.
+      const status = String(raw.status ?? record?.status ?? "error");
+      if (status === "error" && launchFor(raw.id)) recordOutcome(raw.id, "failed", "router", error.slice(0, 200) || "error without message");
+      return;
+    }
     const launch = launchFor(raw.id);
     if (!launch || !current) return;
+    if (launch.kind === "review" && !launch.reviewAuthor) {
+      tell("Review " + raw.id + " has no saved author family. Start a new review with routing.reviewing instead of automatic recovery.");
+      return;
+    }
     const toolUses = Number(raw.toolUses ?? record?.toolUses ?? 0);
     if (toolUses > 0 && !launch.readOnly) {
       tell("Agent " + raw.id + " (" + launch.description + ") hit a rate limit on " + launch.route + " after " + toolUses
@@ -353,7 +410,7 @@ export default function (pi: ExtensionAPI) {
     }
     if (launch.retries >= MAX_RETRIES) return;
     let pick;
-    try { pick = pickRoute(launch.name ?? "", cfg, universe(current), new Set([launch.route])); }
+    try { pick = pickRoute(launch.name ?? "", cfg, universe(current), new Set([launch.route]), launch.reviewAuthor); }
     catch {
       tell("Agent " + raw.id + " (" + launch.description + ") hit a rate limit on " + launch.route + ". No other route is usable, so it was not restarted.");
       return;
@@ -384,10 +441,13 @@ export default function (pi: ExtensionAPI) {
     for (const e of entries) {
       if (e?.type !== "custom") continue;
       const d = e.data;
-      if (e.customType === "subtask-routing" && d?.toolCallId && d.launch) byToolCall.set(d.toolCallId, d.launch);
+      if (e.customType === "subtask-routing" && d?.toolCallId && d.launch) {
+        byToolCall.set(d.toolCallId, { ...d.launch, reviewAuthor: d.launch.reviewAuthor ?? d.reviewAuthor });
+      }
       if (e.customType === "subtask-routing-link" && d?.agentId && byToolCall.has(d.toolCallId)) byAgent.set(d.agentId, byToolCall.get(d.toolCallId)!);
       if (e.customType === "subtask-routing-spawn" && d?.agentId && d.launch) byAgent.set(d.agentId, d.launch);
       if (e.customType === "subtask-review-run" && typeof d?.agentId === "string") reviews.set(d.agentId, String(d.batchId));
+      if (e.customType === "subtask-routing-outcome" && typeof d?.agentId === "string" && OUTCOMES.includes(d.outcome)) outcomes.set(d.agentId, d.outcome);
     }
     tracker.rebuild(entries);
   };
@@ -450,12 +510,13 @@ export default function (pi: ExtensionAPI) {
     if (!launch) return "No routing record for agent " + id + ". Only routed agents from this session can be escalated.";
     if (record && (record.status === "running" || record.status === "queued")) return "Agent " + id + " is still " + record.status + ". Stop it or wait for it first.";
     if (!launch.name || !cfg.models[launch.name]) return "Agent " + id + " ran on " + launch.route + ", which is not a configured model.";
+    if (launch.kind === "review" && !launch.reviewAuthor) return "Review " + id + " has no saved author family. Start a new review with routing.reviewing instead of automatic recovery.";
     // Without a stronger model, escalation re-runs the same model one thinking level higher.
     const target = cfg.models[launch.name].stronger ?? launch.name;
     if (target === launch.name && LEVEL_UP[launch.thinking] === launch.thinking) {
       return launch.name + " has no stronger model and already runs at " + launch.thinking + " thinking.";
     }
-    const pick = pickRoute(target, cfg, universe(ctx));
+    const pick = pickRoute(target, cfg, universe(ctx), new Set(), launch.reviewAuthor);
     const report = String(record?.result ?? "").trim()
       || (() => { // After /reload the live record is gone; use the backend's persisted record.
         const entries: any[] = (ctx.sessionManager as any).getEntries?.() ?? [];
@@ -472,6 +533,7 @@ export default function (pi: ExtensionAPI) {
     }
     const newId = await spawn(next, prompt, "escalation of " + id);
     bumpStats(launch.name, launch.kind, "escalated");
+    if (!outcomes.has(id)) recordOutcome(id, "insufficient", "user", "escalated to " + next.route);
     const msg = "Escalated agent " + id + " (" + launch.description + ") from " + launch.route + " to " + next.route
       + " · thinking " + next.thinking + ". New agent: " + newId + ".";
     try { await pi.sendMessage({ customType: "subtask-router", content: msg, display: true }, { deliverAs: "followUp" }); } catch { /* notify below */ }
@@ -479,7 +541,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.registerCommand("subtask-router", {
-    description: "Routing policy and quota: prompt | test <task> | refresh | escalate <agent-id> | eval [router-route] [thinking] | review [focus]",
+    description: "Routing policy and quota: prompt | test <task> | refresh | escalate <agent-id> | outcome <agent-id> ok|insufficient [note] | eval [router-route] [thinking] | review [focus]",
     handler: async (args, ctx) => {
       const [sub, ...rest] = args.trim().split(/\s+/);
       if (sub === "review") {
@@ -498,6 +560,13 @@ export default function (pi: ExtensionAPI) {
         catch (e: any) { ctx.ui.notify("Escalation failed: " + String(e?.message ?? e), "error"); }
         return;
       }
+      if (sub === "outcome") {
+        const [id, verdict, ...note] = rest;
+        if (!id || (verdict !== "ok" && verdict !== "insufficient")) { ctx.ui.notify("Usage: /subtask-router outcome <agent-id> ok|insufficient [note]", "warning"); return; }
+        const r = recordOutcome(id, verdict, "user", note.join(" "));
+        ctx.ui.notify(r.text, r.ok ? "info" : "warning");
+        return;
+      }
       if (sub === "eval") {
         const { runEval } = await import("./eval/eval.ts");
         const router = rest[0] ? { model: rest[0], thinking: (rest[1] ?? cfg.router.thinking) as Thinking } : undefined;
@@ -513,6 +582,7 @@ export default function (pi: ExtensionAPI) {
       const lines = ["Backend: pi-subagents · Agent + native UI and controls",
         "Router: " + (router ? key(router) : cfg.router.model + " (unavailable)") + " · " + cfg.router.thinking
           + " · scout " + cfg.scout.maxTurns + " turns/" + cfg.scout.timeoutMs / 1000 + "s at a " + cfg.scout.levelGap + "-level gap",
+        "Direct (trivial or mechanical parent rating): " + (cfg.direct.model ? cfg.direct.model + " · " + cfg.direct.thinking : "off"),
         "Fallback model: " + (cfg.fallbackModel ?? "not set"),
         "Reviewer: " + REVIEWER_MODEL + " · " + REVIEWER_THINKING + " · manual (/subtask-router review)"
           + (findRoute(REVIEWER_MODEL, models) ? "" : " (unavailable)")];
@@ -540,7 +610,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", (_event, ctx) => {
     current = ctx;
     cwd = ctx.cwd;
-    decisions.clear(); byToolCall.clear(); byAgent.clear(); authors.clear(); reviews.clear(); tracker.reset();
+    decisions.clear(); byToolCall.clear(); byAgent.clear(); authors.clear(); reviews.clear(); outcomes.clear(); tracker.reset();
     while (offs.length) offs.pop()!();
     rebuild(ctx);
     offs.push(pi.events.on("subagents:failed", (raw: any) => {

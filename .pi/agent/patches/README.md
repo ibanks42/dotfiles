@@ -16,6 +16,12 @@ pi update npm:pi-claude-bridge
 Restart running Pi sessions after an update. Their imported extension code does not change on disk updates.
 The launcher leaves self-only updates, model updates, help, and other commands unchanged.
 
+After the patch repair, the same invocations also run `claude update`, so the Claude Code CLI behind `pi-claude-bridge` moves with the extensions.
+This runs after the patch lock is released. It runs even when the patch repair failed, because a stale CLI is a separate problem.
+The patch status decides the exit status. A failed Claude Code update sets the exit status only when everything else succeeded.
+Set `PI_LAUNCHER_SKIP_CLAUDE_UPDATE=1` to skip the step. `PI_CLAUDE_BIN` selects the executable; otherwise the first `claude` on `PATH` is used.
+When no `claude` is found, the launcher says so and exits with the patch status.
+
 For a separate patch check or repair:
 
 ```sh
@@ -50,21 +56,16 @@ Calling the real executable directly bypasses automatic patches.
 
 ### Pi 0.99 extension compatibility
 
-Three manifest patches move host-provided packages from dependencies to peers:
+One manifest patch moves a host-provided package from dependencies to peers:
 
-- `pi-opencode-direct` and `pi-multi-account`: `@earendil-works/pi-ai`.
-- `@tintinweb/pi-subagents`: `typebox` and `@sinclair/typebox`.
+- `pi-opencode-direct`: `@earendil-works/pi-ai`.
 
+`@tintinweb/pi-subagents` made `typebox` a `*` peer and dropped its runtime `@sinclair/typebox` dependency upstream in 0.21.0, so its patch was retired.
 `@juicesharp/rpiv-ask-user-question` fixed its `typebox` peer upstream in 2.12.0, so its patch was retired.
 These patches remove Pi's manifest warnings. They do not delete existing runtime packages or change the declared host-version ranges.
 
-A separate `pi-multi-account` patch repairs OAuth initialization after a failed native import leaves provider modules partially loaded.
-The extension factory awaits asynchronous imports before it registers providers. Login and refresh callbacks remain unchanged.
-The checks cover the original module-load failure, optional providers, cached results, and genuine OAuth-load failures.
-The checks use isolated account stores and never perform a login or token refresh.
-
-The tested combination is Pi 0.99.0, `pi-multi-account` 1.23.2, and its local `pi-ai` 0.87.1.
-The extension still declares a host range below 0.88.0. These checks do not establish full compatibility with every Pi 0.99 feature.
+`pi-multi-account` 1.24.0 made both Pi SDKs host peers and reads OAuth from the host's provider factories.
+Its peer patch and its OAuth-initialization patch were therefore retired.
 
 ### Claude bridge
 
@@ -75,7 +76,7 @@ One combined diff preserves changes that share `src/index.ts`:
 - Optional cache tracing records bounded metadata, not prompts or credentials. Its existing runtime control file still applies.
 - The catalog supplies Sonnet 5.5 only when the host catalog lacks it. Authoritative catalog entries win.
 
-The diff is based on the npm 0.9.1 release. Upstream 0.9.1 includes the former Sonnet 5.5 1M-context change. Exact context and regression checks decide whether a newer release is compatible.
+The diff is based on the npm 0.9.3 release. Upstream 0.9.1 and later include the former Sonnet 5.5 1M-context change. Exact context and regression checks decide whether a newer release is compatible.
 The catalog fallback copies provisional registration metadata from Sonnet 5. It does not copy pricing.
 The checks require Agent SDK 0.3.284 or newer and its native Claude executable on this Linux host.
 

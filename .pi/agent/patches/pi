@@ -9,7 +9,10 @@ unchanged.
 For `pi update` invocations that update extensions, the launcher takes the
 patch lock, runs the real update as a child process with inherited stdio, and,
 only if the update exits 0, runs the manifest-driven patch runner
-(runner.py apply) while it still holds the lock.
+(runner.py apply) while it still holds the lock. After the lock is released it
+also runs `claude update`, so the Claude Code CLI behind the claude-bridge
+extension moves with the extensions. Set PI_LAUNCHER_SKIP_CLAUDE_UPDATE=1 to
+skip that step; PI_CLAUDE_BIN selects the executable.
 
 Real Pi discovery: $PI_REAL_BIN if set, otherwise the first `pi` on PATH that is
 not this launcher (compared by resolved path and by the marker below).
@@ -20,12 +23,15 @@ not this launcher (compared by resolved path and by the marker below).
 from __future__ import annotations
 
 import os
+import shutil
 import signal
 import sys
 
 LAUNCHER_MARKER = b"pi-patch-launcher:v1"
 EXIT_NOT_FOUND = 127
 EXIT_CANNOT_EXEC = 126
+CLAUDE_SKIP_ENV = "PI_LAUNCHER_SKIP_CLAUDE_UPDATE"
+CLAUDE_BIN_ENV = "PI_CLAUDE_BIN"
 
 
 class LauncherError(Exception):
@@ -196,7 +202,8 @@ def _exit_like(returncode: int) -> int:
     return returncode
 
 
-def run_update(real: str, args: list[str], self_real: str) -> int:
+def run_update(real: str, args: list[str], self_real: str) -> tuple[int, bool]:
+    """Run the real update, then the patch repair. Return (exit status, whether the update itself succeeded)."""
     sys.path.insert(0, os.path.dirname(self_real))
     import runner
 
@@ -209,8 +216,8 @@ def run_update(real: str, args: list[str], self_real: str) -> int:
             print(f"pi launcher: pi update failed ({status}); patches were NOT applied or checked.",
                   file=sys.stderr, flush=True)
             if returncode == 0 and forwarded is not None:
-                return 128 + forwarded
-            return returncode
+                return 128 + forwarded, False
+            return returncode, False
         print(f"pi launcher: pi update succeeded; applying patches from {manifest}", flush=True)
         try:
             code = runner.run("apply", manifest, agent_dir, lock_held=True)
@@ -225,7 +232,37 @@ def run_update(real: str, args: list[str], self_real: str) -> int:
         print(f"pi launcher: pi update succeeded, but patch repair failed (exit {code}). "
               "Changes made by the repair were rolled back; the package update itself was kept.",
               file=sys.stderr, flush=True)
-    return code
+    return code, True
+
+
+def find_claude(environ: dict[str, str] | None = None) -> str | None:
+    """The Claude Code executable to update, or None when skipped or absent."""
+    environ = os.environ if environ is None else environ
+    if environ.get(CLAUDE_SKIP_ENV, "").strip().lower() in ("1", "true", "yes"):
+        return None
+    override = environ.get(CLAUDE_BIN_ENV)
+    if override:
+        return override if _is_executable_file(override) else None
+    return shutil.which("claude", path=environ.get("PATH", ""))
+
+
+def update_claude() -> int:
+    """Run `claude update` with inherited stdio. Return 0 when skipped, absent, or successful."""
+    claude = find_claude()
+    if not claude:
+        print("pi launcher: claude is skipped or not on PATH; Claude Code was not updated.", flush=True)
+        return 0
+    print(f"pi launcher: updating Claude Code with {claude} update", flush=True)
+    returncode, forwarded = _run_child(claude, ["update"])
+    if returncode == 0 and forwarded is None:
+        print("pi launcher: Claude Code update finished.", flush=True)
+        return 0
+    status = f"signal {-returncode}" if returncode < 0 else f"exit {returncode}"
+    print(f"pi launcher: claude update failed ({status}). Run `claude update` yourself; the Pi update was kept.",
+          file=sys.stderr, flush=True)
+    if returncode == 0 and forwarded is not None:
+        return 128 + forwarded
+    return 128 - returncode if returncode < 0 else returncode
 
 
 def main() -> int:
@@ -238,7 +275,14 @@ def main() -> int:
         return EXIT_NOT_FOUND
     if not update_includes_extensions(args):
         exec_real(real, args)
-    return _exit_like(run_update(real, args, self_real))
+    code, updated = run_update(real, args, self_real)
+    if updated:
+        # Independent of the patch result: a failed repair must not leave Claude Code stale.
+        # The patch status wins; the Claude status counts only when everything else succeeded.
+        claude_code = update_claude()
+        if code == 0:
+            code = claude_code
+    return _exit_like(code)
 
 
 if __name__ == "__main__":

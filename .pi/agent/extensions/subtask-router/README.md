@@ -11,6 +11,7 @@ On request, a fixed reviewer examines the file changes of the latest delegation 
 - `get_subagent_result`: get status or output. Use `verbose: true` for the conversation, or `wait: true` to wait.
 - `steer_subagent`: redirect a running agent or request a progress report.
 - `stop_subagent`: stop a running or queued agent. This wrapper requires an exact agent ID.
+- `report_subagent_outcome`: record `ok` or `insufficient` for a finished routed agent. One report per agent. See [Outcomes](#outcomes).
 - `Agent(resume: id, prompt: ...)`: continue an existing agent session without a new routing decision.
 - `/agents`: open the native manager and its live conversation viewer.
 
@@ -20,10 +21,13 @@ Steering takes effect after the current tool execution. Stopping does not undo e
 
 1. The parent adds a `routing` field to the `Agent` call: level, kind, whether it edits, and a one-line reason.
    The backend does not declare this field. The router reads it and removes it.
+   A rating of level `trivial` or kind `mechanical` goes straight to the `direct` model and effort, with no classifier call.
+   Reviews and calls with a model pin never take this path.
 2. The classifier sees the task, the parent's rating, the agent type, and every usable model's profile.
    It returns a level, a task kind, a model name, and a thinking level.
 3. The scout runs when the parent gave no rating, or when the two levels differ by `scout.levelGap` or more.
-   The scout is the classifier with read-only tools for a few turns. If it is still unsure, the router uses the model's `stronger` link.
+   The scout is the classifier with read-only tools for a few turns. If it is still unsure, the router keeps the model and raises its effort one level.
+   It does not switch models on a guess, so UI work stays on Opus and a review stays independent.
 4. The router tries the model's routes in order, then its `fallback` chain. Each model is tried once.
    The router skips quota-blocked routes and routes that the model registry cannot authenticate.
 5. Pi clamps the thinking level to what the selected model supports.
@@ -31,14 +35,17 @@ Steering takes effect after the current tool execution. Stopping does not undo e
 Levels are `trivial`, `routine`, `hard`, and `extreme`.
 Kinds are `implementation`, `debugging`, `review`, `research`, `docs`, and `mechanical`.
 
-Model profiles define task priorities, not a universal model ranking. Effort defaults can change when a profile recommends a specific effort for coding.
-The September 29 update replaces both Sol account routes with GPT-6.1 Sol and makes Sol the classifier-failure fallback.
-This prevents a failed classifier from sending difficult work to Luna.
-The main-session model cycle and the fixed manual reviewer are unchanged.
-The primary Sol 6.1 route passed a live smoke test. The second account still needs an updated account-specific catalog.
-Use `/multi-account rediscover` to refresh those catalogs. The router skips an unavailable account route rather than forcing it.
-See the [benchmark evidence and selection rationale](../../../../research/gpt-6.1-sol-routing.md).
-API prices and benchmark latency do not measure subscription quota use or local Pi latency.
+Model profiles define task priorities, not a universal ranking. The classifier chooses a model and effort together rather than comparing every model at max.
+Routine code uses Sol medium. Difficult debugging uses Sol high. Bounded independent reviews can use Sol or Sonnet, subject to the author-family rule.
+Opus retains UI/UX and broad architecture work. Astra is an alternative for difficult unresolved work, not the default for every review.
+Haiku 5.5 is a cheap Claude-family auxiliary for bulk summaries and extraction. It is never a reviewer or an implementer.
+Max effort requires an explicit quality-over-latency request or documented failed attempts with a task-relevant benefit.
+
+The October 12 refresh sets the classifier to Luna medium. Trivial and mechanical ratings skip it entirely, so it confirms rather than deliberates.
+The Sol classifier-failure fallback, the main-session model cycle, and the fixed manual reviewer are unchanged.
+Both Codex accounts now list Sol 6.1. Availability remains account-specific, and unavailable routes are skipped.
+See the [current benchmark evidence, reasoning, and routing checks](../../../../research/subagent-routing-2026-10-12.md).
+The refreshed Sol quality scores match the September snapshot. API prices and answer latency do not measure subscription quota use or local worker runtime.
 
 Explicit model and thinking arguments override the decision. A configured model name, such as `sol`, keeps its routes and fallback chain.
 A model pin alone still gets a classified thinking level.
@@ -48,11 +55,15 @@ If the classifier fails, the router uses `fallbackModel`. If `fallbackModel` is 
 
 ### Reviews
 
-For a review, the router removes the author's model family from the candidates when another family is usable.
+For automatic reviews, the router removes the author's model family from the candidates and from every fallback or escalation path.
+It refuses the task when no independent route is usable. An explicit user model pin remains authoritative for the initial launch.
+Automatic retries and escalations reapply the independence rule, including after a pinned launch.
 The author comes from the parent's `routing.reviewing` field when present.
 Otherwise the router checks which family's agents edited the files that the prompt names.
 If no single family edited them, the parent session's family counts as the author.
 File authorship is kept in memory for the current Pi process only.
+Each routed review saves its resolved author family in session metadata, so retries and escalations preserve independence after `/reload`.
+Legacy review records without an author family refuse automatic recovery. Start a new review with `routing.reviewing` instead.
 
 ### Rate limits
 
@@ -75,8 +86,27 @@ The router posts the new agent ID in the conversation. It retries a task at most
 The new agent gets the original prompt, the previous final report, and a warning that files may already have changed.
 Escalation works after `/reload` because the routing entries keep a copy of the prompt.
 
-Every routed task and every escalation is counted per model and task kind in `~/.pi/agent/subtask-router-state.json`.
-The classifier sees these counts as a history line in each profile. Your profiles in the configuration are never changed.
+A failed attempt usually fails on a blind spot, not on a lack of thinking budget. So a `stronger` link changes the model family.
+The chain is `sol → opus → astra → fable`. Sonnet, Luna, Haiku, and Muse escalate into it. Fable has no link, so it escalates by effort alone.
+A `stronger` link is a second opinion, not a claim of universal benchmark superiority. Escalation records the escalated agent as `insufficient`.
+
+### Outcomes
+
+The router keeps one verdict per routed agent. This is its only quality signal; routing counts alone measure activity.
+
+- The parent calls `report_subagent_outcome` with `ok` or `insufficient` after reading a result. The tool guidelines ask for one call per finished agent.
+- The user can run `/subtask-router outcome <agent-id> ok|insufficient [note]`.
+- The router records `failed` when an agent ends with status `error` and the error is not a rate limit. A stopped or aborted agent gets no verdict.
+- An escalation records `insufficient` for the escalated agent, unless a verdict exists.
+
+The first verdict for an agent stands. Reviewer agents and agents that the router did not route are refused.
+Router-started restarts and escalations count as routed attempts for their model, so their verdicts reach the history line.
+Verdicts are stored in three places. `~/.pi/agent/subtask-router-state.json` holds counts per model and kind.
+`~/.pi/agent/subtask-router-outcomes.jsonl` holds one line per verdict with the model, route, effort, level, kind, verdict, note, and time. It holds no prompt text.
+The session keeps a `subtask-routing-outcome` entry, so a verdict survives `/reload`.
+The classifier sees the counts as a history line in each profile. An agent without a verdict is unknown, not a success.
+
+Keep the roles fixed until the outcomes log covers a few weeks of real work. Then revise the profiles from that data, not from benchmarks alone.
 
 ## Configuration
 
@@ -85,19 +115,26 @@ The classifier sees these counts as a history line in each profile. Your profile
 - `router`: the classifier model as an exact `provider/id`, its thinking level, and its timeout.
   Do not use a `claude-bridge` model. The bridge refuses calls with system prompts that it has not captured from a real session.
 - `scout`: `maxTurns`, `timeoutMs`, and `levelGap`.
+- `direct`: the model name and thinking level for a parent rating of level `trivial` or kind `mechanical`. `model: null` disables the path.
+  If the model has no usable route, its `fallback` chain applies. The default is Luna at `low`.
 - `fallbackModel`: the model name to use when the classifier fails.
-  An exact route, such as `zai/glm-5.3-flash`, is also accepted if exactly one model lists it. The router then uses that model's name.
+  An exact route, such as `claude-bridge/claude-sonnet-5-5`, is also accepted if exactly one model lists it. The router then uses that model's name.
   If more than one model lists the route, or no model lists it, the configuration error names the models to choose from.
 - `models`: one entry per model name.
   - `routes`: exact `provider/id` values for the same model, in order. Use one route per account.
   - `family`: the vendor, for the review rule.
   - `profile`: what the model is good and bad at, in plain words. The classifier reads this text.
   - `fallback`: the model to try when every route is unusable. Two models can be each other's fallback.
-  - `stronger`: the escalation target.
+  - `stronger`: the escalation target. Links must not form a loop; the router warns at session start if they do.
 - `agentTypes`: optional fixed facts per custom agent type (`kind` and `readOnly`). No types are configured by default.
   The classifier still judges the difficulty.
 - `quota`: `maxUsedPercent`, `claudeCacheMs`, `claudeWaitMs`, and `rateLimitCooldownMs`.
 - `maxOutputChars`: the text limit for `Agent` and `get_subagent_result` results. Longer output goes to a private temporary file.
+
+The frontier fallback chain is `sol → opus → astra → sonnet → sol`. Each model is tried once, so the cycle terminates.
+Automatic reviews skip the author's family throughout this chain. Their escalation can choose a different target for the same reason.
+The chain does not fall through to Luna, Haiku, or Muse. If no eligible route is usable, routing fails instead of silently downgrading.
+Haiku and Muse can fall forward to Sol. GLM was removed on October 12 because its subscription was cancelled. Fable remains a separate last-resort candidate or manual selection.
 
 The router uses every model that the model registry can authenticate.
 `enabledModels` in `settings.json` and `/scoped-models` control only the model cycle of the main session. They do not limit routing.
@@ -120,6 +157,8 @@ Codex Conversion's `notebook` tool has an `anyOf` root, so `general-purpose.md` 
 The legacy `Explore` type is disabled. Its minimal agent file prevents the backend's built-in definition from reappearing.
 `general-purpose.md` otherwise repeats the backend's built-in definition.
 If a Claude subagent fails with "MCP tool parameters must be an object schema", disallow the named tool the same way.
+Claude Haiku 5.5 needs Claude Code 2.1.296 or later. Version 2.1.283 logged `unrecognized_model` and served the default model instead.
+The `pi` launcher now runs `claude update` after each extension update, so the CLI stays current. See the patches README.
 
 ## Manual review
 
@@ -194,6 +233,7 @@ The packet starts with one of three coverage states:
 - `/subtask-router prompt`: show the classifier prompt.
 - `/subtask-router test <task>`: classify a task without starting an agent. The task has no parent rating, so the scout runs.
 - `/subtask-router refresh`: wait for a fresh Claude quota reading.
+- `/subtask-router outcome <agent-id> ok|insufficient [note]`: record a verdict for a routed agent.
 - `/subtask-router eval [provider/id] [thinking]`: run the routing test set, optionally with another classifier.
 
 Routing decisions enter session metadata, not the system prompt.
@@ -211,6 +251,10 @@ Result on 2026-09-28:
 | gpt-6-luna, low | 20/21 | 3.7 s | 6.8 s |
 | gpt-6-luna, medium | 20/21 | 6.7 s | 22.1 s |
 | claude-sonnet-5 | not usable through the bridge | | |
+
+The October 12 refresh also ran eight synthetic tasks through the live classifier at Luna high and Luna medium.
+Both settings gave the same model for every task. See the research report for the table. That check used no workers and measures routing only.
+The classifier spends its time on the cases that need judgment; trivial and mechanical ratings now bypass it.
 
 ## Tests
 
