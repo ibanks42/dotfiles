@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.3.0",
+  "lastChangelogVersion": "1.4.0",
   "terminal": {
     "showTerminalProgress": true
   },
@@ -36,7 +36,7 @@
   "quietStartup": true,
   "collapseChangelog": true,
   "showHardwareCursor": true,
-  "hideThinkingBlock": false,
+  "hideThinkingBlock": true,
   "editorPaddingX": 0,
   "fullscreenExitOutput": "resume-hint",
   "cacheWarming": "idle",
