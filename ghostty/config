@@ -8,6 +8,10 @@ command = zsh
 
 keybind = f11=toggle_maximize
 
+# Handle clipboard shortcuts in the terminal, rather than sending key codes.
+keybind = ctrl+shift+v=paste_from_clipboard
+keybind = ctrl+shift+c=copy_to_clipboard
+
 keybind = ctrl+digit_1=goto_tab:1
 keybind = ctrl+digit_2=goto_tab:2
 keybind = ctrl+digit_3=goto_tab:3
