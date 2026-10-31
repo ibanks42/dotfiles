@@ -65,8 +65,17 @@ add-zsh-hook precmd _show_cursor
 bindkey -e
 autoload -Uz select-word-style
 select-word-style bash
-bindkey '^[[1;5D' backward-word
-bindkey '^[[1;5C' forward-word
+bindkey '^[[1;5D' backward-word       # Ctrl+Left
+bindkey '^[[1;5C' forward-word        # Ctrl+Right
+bindkey '^[[1;3D' backward-word       # Alt+Left
+bindkey '^[[1;3C' forward-word        # Alt+Right
+bindkey '^[[H' beginning-of-line      # Home
+bindkey '^[[F' end-of-line            # End
+bindkey '^[OH' beginning-of-line
+bindkey '^[OF' end-of-line
+bindkey '^[[3~' delete-char           # Delete
+bindkey '^[[3;5~' kill-word           # Ctrl+Delete
+bindkey '^H' backward-kill-word       # Ctrl+Backspace
 
 # Keep the Pi update launcher ahead of Bun and other runtime paths.
 export PATH="$HOME/.local/share/pi-launcher/bin:$PATH"
