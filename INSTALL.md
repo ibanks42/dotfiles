@@ -39,8 +39,6 @@ Packages: git, gh (GitHub CLI), curl, wget, jq, unzip, zip, tar, xz, a C
 toolchain (`base-devel` / `build-essential` / `@development-tools`), fzf, eza,
 fd, bat, lazygit, zoxide, ripgrep.
 
-Link: `$DOTFILES/.hushlogin` → `~/.hushlogin`
-
 ### ✅ Fonts
 Copy every font file in `$DOTFILES/fonts` (a git submodule) into
 `~/.local/share/fonts/`, then run `fc-cache -f`. Only needed on machines that
@@ -64,20 +62,6 @@ Then:
   blocks), move them into `~/.zshrc.local` and show the user what you moved.
 - Ask before running `chsh -s "$(command -v zsh)"`.
 - Check: `zsh -ic 'echo ok'` prints `ok` with no errors.
-
-### Bash
-Packages: bash. Install ble.sh:
-```sh
-git clone --recursive --depth 1 --shallow-submodules https://github.com/akinomyoga/ble.sh.git ~/.local/share/blesh-repo
-bash ~/.local/share/blesh-repo/make install PREFIX=~/.local
-rm -rf ~/.local/share/blesh-repo
-```
-Link `$DOTFILES/bash/.blerc` → `~/.blerc`. Add this line to `~/.bashrc` if missing:
-```sh
-[[ -f $HOME/.local/share/blesh/ble.sh ]] && source "$HOME/.local/share/blesh/ble.sh"
-```
-Aliases and tool init live in `zsh/custom.zsh`, which is zsh-only; bash does
-not load it.
 
 ### ✅ Neovim
 Packages: neovim (recent; the config is LazyVim). Link `$DOTFILES/nvim` →
@@ -107,10 +91,6 @@ stay a real directory:
 Check with `herdr config check`. If a herdr server is running, apply with
 `herdr server reload-config`.
 
-### tmux
-Packages: tmux. Link `$DOTFILES/tmux` → `~/.config/tmux` and
-`~/.config/tmux/tmux-sessionizer` → `~/.local/bin/tmux-sessionizer`.
-
 ### ✅ yazi
 Packages: yazi. Link `$DOTFILES/yazi` → `~/.config/yazi`. Plugins listed in
 `yazi/package.toml` install with `ya pkg install` (`yazi/plugins/` is ignored
@@ -126,26 +106,6 @@ and bun. Optional: python, rust, zig, java. For each one:
 If you install the Pi configuration, link `$DOTFILES/bin/bun-as-npm` to `~/.local/bin/bun-as-npm`.
 Install Bun and add `~/.local/bin` to `PATH` before you run `pi update --extensions`.
 The wrapper keeps Pi packages in `~/.pi/agent/npm/`. See `.pi/README.md` for the Pi setup steps.
-
-### Hyprland desktop (off by default; Arch)
-Packages: hyprland hyprlock hyprpaper xdg-desktop-portal-hyprland pipewire
-wireplumber brightnessctl grim slurp wl-clipboard ydotool wtype pavucontrol
-network-manager-applet waybar mako, plus `walker-bin` from the AUR.
-
-Link these `$DOTFILES/hypr/<x>` → `~/.config/<x>`: `hypr`, `waybar`, `walker`,
-`mako`, `elephant`, `gtk-3.0`, `gtk-4.0`, and `hypr/kdeglobals` →
-`~/.config/kdeglobals`.
-
-Also link:
-- `hypr/systemd/user/elephant.service` and `elephant-rbw-watch.service` →
-  `~/.config/systemd/user/`
-- every file in `hypr/local/bin/` → `~/.local/bin/`
-- `hypr/local/share/color-schemes/FlexokiDark.colors` →
-  `~/.local/share/color-schemes/`
-
-Then: `systemctl --user daemon-reload`; restart `elephant.service` and
-`elephant-rbw-watch.service` if Elephant is installed; after logging in,
-`hyprctl reload && pkill -SIGUSR2 waybar`. See `hypr/README.md`.
 
 ### Apps (off by default)
 - Bitwarden: rbw, bitwarden-cli

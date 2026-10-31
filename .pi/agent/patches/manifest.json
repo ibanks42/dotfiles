@@ -2,6 +2,15 @@
   "schemaVersion": 1,
   "packages": [
     {
+      "name": "@maxiaochao/pi-toolkit",
+      "patches": [{
+        "id": "herdr-background-activity",
+        "file": "diffs/toolkit-herdr-activity.patch",
+        "files": ["packages/background-tasks/extensions/background-tasks.ts"],
+        "check": ["node", "--test", "{patchDir}/checks/herdr-activity.test.mjs"]
+      }]
+    },
+    {
       "name": "pi-opencode-direct",
       "patches": [
         {

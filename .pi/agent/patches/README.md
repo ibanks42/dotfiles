@@ -76,6 +76,25 @@ One diff changes `extensions/renderer/tool/ccstyle-tool.ts`:
 
 The check reads the source structure, because the renderer only loads inside the Pi TUI host.
 
+### Herdr background activity
+
+The toolkit patch publishes `herdr:activity` with `{ source, active }` when background
+shell tasks start, finish, or are disposed. The local reporter in
+`agent/extensions/herdr-agent-state.ts` combines these source-owned activity leases
+with the Pi run lifecycle and in-flight tool calls (including nested subagents).
+Questions and approvals still take priority as `blocked`.
+
+The socket-level regression and real task-lifecycle check run with:
+
+```sh
+node --test agent/patches/checks/herdr-activity.test.mjs
+```
+
+The launcher preserves the toolkit patch across extension updates. **Herdr's own
+integration reinstall can overwrite the locally customized reporter.** Restore its
+tracked version from dotfiles and run the check above after reinstalling the
+Herdr Pi integration. Restart Pi sessions to load the changed extensions.
+
 ### Claude bridge
 
 The bridge uses the upstream `npm:pi-claude-bridge` package, not a local fork.

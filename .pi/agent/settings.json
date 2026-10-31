@@ -14,21 +14,33 @@
     "openai-codex/gpt-6-astra",
     "openai-codex/gpt-6.1-sol",
     "openai-codex/gpt-6-luna",
-    "opencode-zen-free/muse-spark-1.3-contributor-free",
     "claude-bridge/claude-fable-5-1",
     "claude-bridge/claude-opus-5-5",
-    "claude-bridge/claude-sonnet-5-5"
+    "claude-bridge/claude-sonnet-5-5",
+    "xai/grok-4.6",
+    "xai/grok-4.7"
   ],
   "packages": [
     "npm:pi-web-access",
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:@narumitw/pi-goal",
     "npm:pi-opencode-direct",
-    "npm:@tintinweb/pi-subagents",
+    {
+      "source": "npm:@tintinweb/pi-subagents",
+      "extensions": [],
+      "skills": [],
+      "prompts": [],
+      "themes": []
+    },
     "npm:pi-claude-bridge",
     "npm:openwiki",
     "npm:pi-cc-extensions",
-    "npm:@xzzpig/pi-starline@0.5.1"
+    "npm:@xzzpig/pi-starline@0.5.1",
+    "npm:pi-intercom",
+    "npm:@maxiaochao/pi-toolkit",
+    "npm:pi-session-name",
+    "npm:pi-memory",
+    "npm:pi-tool-display"
   ],
   "fullscreenScrollbar": "always",
   "doubleEscapeAction": "tree",
@@ -36,7 +48,7 @@
   "quietStartup": true,
   "collapseChangelog": true,
   "showHardwareCursor": true,
-  "hideThinkingBlock": true,
+  "hideThinkingBlock": false,
   "editorPaddingX": 0,
   "fullscreenExitOutput": "resume-hint",
   "cacheWarming": "idle",
@@ -50,5 +62,15 @@
     "mode": "on",
     "inlineBudget": 10000
   },
-  "outputPad": 0
+  "outputPad": 0,
+  "extensions": [
+    "-extensions/subtask-router/index.ts",
+    "-extensions/cache-diagnostics/index.ts",
+    "-extensions/cache-forensics.ts"
+  ],
+  "markdown": {
+    "mermaid": "streaming"
+  },
+  "treeFilterMode": "user-only",
+  "autocompleteMaxVisible": 7
 }

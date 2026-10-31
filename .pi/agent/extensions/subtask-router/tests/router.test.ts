@@ -46,8 +46,7 @@ const sol2 = mk("openai-codex-account-2", "gpt-6.1-sol", { thinkingLevelMap: sol
 const astra1 = mk("openai-codex", "gpt-6-astra"), astra2 = mk("openai-codex-account-2", "gpt-6-astra");
 const levels = { off: null, minimal: null, low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
 const sonnet = mk("claude-bridge", "claude-sonnet-5-5"), opus = mk("claude-bridge", "claude-opus-5-5", { thinkingLevelMap: levels }), fable = mk("claude-bridge", "claude-fable-5-1");
-const muse = mk("opencode-zen-free", "muse-spark-1.3-contributor-free"), haiku = mk("claude-bridge", "claude-haiku-5-5", { contextWindow: 200_000 });
-const ALL = [luna1, luna2, sol1, sol2, astra1, astra2, sonnet, opus, fable, muse, haiku];
+const ALL = [luna1, luna2, sol1, sol2, astra1, astra2, sonnet, opus, fable];
 
 const decision = (o: object = {}) => JSON.stringify({ level: "routine", kind: "research", model: "luna", thinking: "low", reason: "test", ...o });
 const toolCallMsg = { content: [{ type: "toolCall", id: "c1", name: "read", arguments: { path: "a.ts" } }], stopReason: "toolUse" };
@@ -60,12 +59,14 @@ function ctx(replies: any[] = [decision()], models: any[] = ALL, opts: { cwd?: s
     sessionManager: { getEntries: () => opts.entries ?? [] },
     modelRegistry: {
       getAvailable: () => models,
-      streamSimple: mock((_m: any, _context: any) => ({ result: async () => {
-        const r = queue.length > 1 ? queue.shift() : queue[0];
-        return typeof r === "string" ? { content: [{ type: "text", text: r }], stopReason: "stop" } : r;
-      } })),
+      streamSimple: mock((_m: any, _context: any) => ({
+        result: async () => {
+          const r = queue.length > 1 ? queue.shift() : queue[0];
+          return typeof r === "string" ? { content: [{ type: "text", text: r }], stopReason: "stop" } : r;
+        }
+      })),
     },
-    ui: { setStatus: mock(() => {}), notify: mock(() => {}) },
+    ui: { setStatus: mock(() => { }), notify: mock(() => { }) },
   };
 }
 
@@ -98,7 +99,7 @@ function harness(spawnError?: string) {
     appendEntry: mock((customType: string, data: any) => {
       entries.push({ type: "custom", customType, data: JSON.parse(JSON.stringify(data)), timestamp: new Date().toISOString() });
     }),
-    sendMessage: mock(async () => {}),
+    sendMessage: mock(async () => { }),
     events,
   };
   extension(pi as any);
@@ -185,10 +186,12 @@ test("routing uses every authenticated model, not only /scoped-models", async ()
 });
 
 test("a missing route and a stronger loop are reported", () => {
-  const cfg = P.parseConfig({ models: {
-    a: { routes: ["p/a"], family: "x", profile: "y", stronger: "b" },
-    b: { routes: ["p/missing"], family: "x", profile: "y", stronger: "a" },
-  } });
+  const cfg = P.parseConfig({
+    models: {
+      a: { routes: ["p/a"], family: "x", profile: "y", stronger: "b" },
+      b: { routes: ["p/missing"], family: "x", profile: "y", stronger: "a" },
+    }
+  });
   const w = P.configWarnings(cfg, [{ provider: "p", id: "a" }]).join("\n");
   expect(w).toContain("p/missing");
   expect(w).toContain("loops back");
@@ -346,12 +349,20 @@ test("classifier failure still selects an independent reviewer", async () => {
 
 test("automatic reviews refuse same-family-only availability but explicit pins remain authoritative", async () => {
   const h = harness();
-  const blocked = await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "review-unavailable", input: { prompt: "Review OpenAI code",
-    routing: { level: "routine", kind: "review", reviewing: "openai" } } }, ctx([], [luna1, sol1, astra1]));
+  const blocked = await h.handlers.get("tool_call")({
+    toolName: "Agent", toolCallId: "review-unavailable", input: {
+      prompt: "Review OpenAI code",
+      routing: { level: "routine", kind: "review", reviewing: "openai" }
+    }
+  }, ctx([], [luna1, sol1, astra1]));
   expect(blocked.block).toBe(true);
   expect(blocked.reason).toContain("same family as review author");
-  const pinned: any = { toolName: "Agent", toolCallId: "review-pinned", input: { prompt: "Review OpenAI code", model: "sol", thinking: "high",
-    routing: { level: "routine", kind: "review", reviewing: "openai" } } };
+  const pinned: any = {
+    toolName: "Agent", toolCallId: "review-pinned", input: {
+      prompt: "Review OpenAI code", model: "sol", thinking: "high",
+      routing: { level: "routine", kind: "review", reviewing: "openai" }
+    }
+  };
   expect(await h.handlers.get("tool_call")(pinned, ctx([], [sol1]))).toBeUndefined();
   expect(pinned.input.model).toBe(P.key(sol1));
 });
@@ -367,8 +378,12 @@ test("a review recognized by the classifier also enforces family exclusion", asy
 test("review retries and escalations retain the author family, including after reload", async () => {
   const h = harness(), c = ctx([decision({ model: "sonnet", kind: "review", thinking: "high" })]);
   h.handlers.get("session_start")({}, c);
-  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "review-retry", input: { prompt: "Review code", subagent_type: "TestReadOnly",
-    routing: { level: "routine", kind: "review", reviewing: "openai" } } }, c);
+  await h.handlers.get("tool_call")({
+    toolName: "Agent", toolCallId: "review-retry", input: {
+      prompt: "Review code", subagent_type: "TestReadOnly",
+      routing: { level: "routine", kind: "review", reviewing: "openai" }
+    }
+  }, c);
   records.r1 = { id: "r1", toolCallId: "review-retry", session: { model: sonnet, messages: [] }, toolUses: 0 };
   h.events.emit("subagents:failed", { id: "r1", error: "429 Too Many Requests", toolUses: 0 });
   await flush();
@@ -392,8 +407,10 @@ test("review retries and escalations retain the author family, including after r
 
 test("legacy review spawn records without an author refuse automatic recovery", async () => {
   const h = harness();
-  const launch = { prompt: "Review code", description: "Legacy review", type: "TestReadOnly", name: "sol", route: P.key(sol1),
-    kind: "review", level: "hard", thinking: "medium", readOnly: true, retries: 0 };
+  const launch = {
+    prompt: "Review code", description: "Legacy review", type: "TestReadOnly", name: "sol", route: P.key(sol1),
+    kind: "review", level: "hard", thinking: "medium", readOnly: true, retries: 0
+  };
   const c = ctx([], ALL, { entries: [{ type: "custom", customType: "subtask-routing-spawn", data: { agentId: "legacy-review", launch } }] });
   h.handlers.get("session_start")({}, c);
   records["legacy-review"] = { id: "legacy-review", status: "completed", session: { model: sol1, messages: [] }, toolUses: 0 };
@@ -409,8 +426,12 @@ test("legacy review spawn records without an author refuse automatic recovery", 
 test("Agent calls get a route, effort, and lose the router-only field", async () => {
   const h = harness();
   expect([...h.tools.keys()]).toEqual(["report_subagent_outcome", "stop_subagent"]);
-  const e: any = { toolName: "Agent", toolCallId: "a", input: { prompt: "Audit packages", subagent_type: "TestReadOnly",
-    routing: { level: "routine", kind: "research", edits: false, why: "inventory" } } };
+  const e: any = {
+    toolName: "Agent", toolCallId: "a", input: {
+      prompt: "Audit packages", subagent_type: "TestReadOnly",
+      routing: { level: "routine", kind: "research", edits: false, why: "inventory" }
+    }
+  };
   expect(await h.handlers.get("tool_call")(e, ctx())).toBeUndefined();
   expect(e.input).toMatchObject({ model: "openai-codex/gpt-6-luna", thinking: "low" });
   expect(e.input.routing).toBeUndefined();
@@ -460,8 +481,12 @@ test("Sol 6.1 clamps unsupported minimal effort to low", async () => {
 test("a rate-limited read-only agent restarts on the next account with its findings", async () => {
   const h = harness(), c = ctx();
   h.handlers.get("session_start")({}, c);
-  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "t1", input: { prompt: "Trace refs", subagent_type: "TestReadOnly",
-    routing: { level: "routine" } } }, c);
+  await h.handlers.get("tool_call")({
+    toolName: "Agent", toolCallId: "t1", input: {
+      prompt: "Trace refs", subagent_type: "TestReadOnly",
+      routing: { level: "routine" }
+    }
+  }, c);
   records.a1 = { id: "a1", toolCallId: "t1", toolUses: 3, result: "partial findings", session: { model: luna1, messages: [] } };
   h.events.emit("subagents:failed", { id: "a1", error: "429 Too Many Requests", toolUses: 3 });
   await flush();
@@ -488,8 +513,12 @@ test("a rate-limited editing agent that used tools is not restarted", async () =
 test("escalate starts a new agent on the stronger model and counts it", async () => {
   const h = harness(), c = ctx([decision({ model: "sol", kind: "debugging", thinking: "medium" })]);
   h.handlers.get("session_start")({}, c);
-  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "t1", input: { prompt: "Fix it", description: "Fix",
-    routing: { level: "routine" } } }, c);
+  await h.handlers.get("tool_call")({
+    toolName: "Agent", toolCallId: "t1", input: {
+      prompt: "Fix it", description: "Fix",
+      routing: { level: "routine" }
+    }
+  }, c);
   h.handlers.get("tool_result")({ toolName: "Agent", toolCallId: "t1", details: { agentId: "a1" } });
   records.a1 = { id: "a1", toolCallId: "t1", status: "completed", result: "weak answer", session: { model: sol1, messages: [] } };
   await h.commands.get("subtask-router").handler("escalate a1", c);
@@ -593,8 +622,12 @@ test("files edited by one family send their review to the other family", async (
   const h = harness(), c = ctx([decision({ model: "sol", kind: "implementation" })]);
   h.handlers.get("session_start")({}, c);
   await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "t1", input: { prompt: "Write relay", routing: { level: "hard" } } }, c);
-  records.a1 = { id: "a1", toolCallId: "t1", session: { model: sol1, messages: [
-    { role: "assistant", content: [{ type: "toolCall", name: "write", arguments: { path: "src/relay.go" } }] }] } };
+  records.a1 = {
+    id: "a1", toolCallId: "t1", session: {
+      model: sol1, messages: [
+        { role: "assistant", content: [{ type: "toolCall", name: "write", arguments: { path: "src/relay.go" } }] }]
+    }
+  };
   h.events.emit("subagents:completed", { id: "a1" });
   const r = ctx([decision({ model: "opus", kind: "review", level: "hard", thinking: "medium" })]);
   const e: any = { toolName: "Agent", toolCallId: "t2", input: { prompt: "Review src/relay.go for bugs", routing: { level: "hard", kind: "review" } } };
@@ -655,8 +688,10 @@ function call(name: string, args: object, result: { details?: any; isError?: boo
   const at = Date.now();
   return [
     { role: "assistant", timestamp: at, content: [{ type: "toolCall", id, name, arguments: args }] },
-    { role: "toolResult", toolCallId: id, toolName: name, isError: !!result.isError, timestamp: at, details: result.details,
-      content: [{ type: "text", text: result.text ?? "ok" }] },
+    {
+      role: "toolResult", toolCallId: id, toolName: name, isError: !!result.isError, timestamp: at, details: result.details,
+      content: [{ type: "text", text: result.text ?? "ok" }]
+    },
   ];
 }
 /** The agent edits a file on disk; the transcript keeps the edit tool's exact patch. */
@@ -672,8 +707,10 @@ const reviewerCtx = (dir: string, models: any[] = ALL, entries?: any[]) =>
 
 /** Parallel Agent calls of one assistant message. */
 async function launch(h: any, c: any, ...calls: Array<[string, string]>) {
-  await Promise.all(calls.map(([toolCallId, prompt]) => h.handlers.get("tool_call")({ toolName: "Agent", toolCallId,
-    input: { prompt, description: prompt, routing: { level: "routine", kind: "implementation" } } }, c)));
+  await Promise.all(calls.map(([toolCallId, prompt]) => h.handlers.get("tool_call")({
+    toolName: "Agent", toolCallId,
+    input: { prompt, description: prompt, routing: { level: "routine", kind: "implementation" } }
+  }, c)));
 }
 /** The Agent call returns; a finished agent also emits its completion event. */
 function finish(h: any, toolCallId: string, agentId: string, messages: any[], status = "completed") {
@@ -889,8 +926,10 @@ test("review after /reload: a sealed batch survives; unfinished and pre-tracking
   expect(h2.spawns).toHaveLength(0);
 
   // A delegation recorded before batch tracking existed has no baseline.
-  const historic = [...sealed, { type: "custom", customType: "subtask-routing", data: { toolCallId: "old", launch: {} },
-    timestamp: new Date(Date.now() + 1000).toISOString() }];
+  const historic = [...sealed, {
+    type: "custom", customType: "subtask-routing", data: { toolCallId: "old", launch: {} },
+    timestamp: new Date(Date.now() + 1000).toISOString()
+  }];
   h2 = harness();
   c2 = reviewerCtx(dir, ALL, historic);
   h2.handlers.get("session_start")({}, c2);
@@ -903,8 +942,12 @@ test("a rate-limit restart joins its batch, and the batch waits for it", async (
   const h = harness(), c = ctx([decision()], ALL, { cwd: dir });
   h.handlers.get("session_start")({}, c);
   h.handlers.get("agent_start")({}, c);
-  await h.handlers.get("tool_call")({ toolName: "Agent", toolCallId: "t1", input: { prompt: "Trace refs", subagent_type: "TestReadOnly",
-    routing: { level: "routine" } } }, c);
+  await h.handlers.get("tool_call")({
+    toolName: "Agent", toolCallId: "t1", input: {
+      prompt: "Trace refs", subagent_type: "TestReadOnly",
+      routing: { level: "routine" }
+    }
+  }, c);
   records.a1 = { id: "a1", toolCallId: "t1", status: "running", toolUses: 0, session: { model: luna1, messages: [] } };
   h.handlers.get("tool_result")({ toolName: "Agent", toolCallId: "t1", details: { agentId: "a1" } });
   h.handlers.get("agent_end")({}, c);

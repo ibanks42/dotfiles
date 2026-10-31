@@ -15,15 +15,6 @@
   },
   "fallbackModel": "sol",
   "models": {
-    "muse-spark": {
-      "routes": [
-        "opencode-zen-free/glm-5.3-flash-free"
-      ],
-      "family": "meta",
-      "profile": "Free auxiliary route for bounded background research, alternative drafts, and independent low-risk summaries, only when saving paid capacity matters and nobody waits on the answer. AA first answer about 58 s, so never for anything a person waits on or that blocks other work. Prefer Sol for coding and consequential factual conclusions. AA max II 48.1, terminal 33.3%, SciCode 58.8%: respectable on static reasoning, weak with tools. Never for tool-heavy or multi-step agentic work. AA's paid API measurements do not predict this contributor-free endpoint's performance or supported effort. Free-route availability can vary.",
-      "fallback": "sol",
-      "stronger": "sol"
-    },
     "luna": {
       "routes": [
         "openai-codex/gpt-6-luna"
