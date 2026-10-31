@@ -39,8 +39,7 @@
     "npm:pi-intercom",
     "npm:@maxiaochao/pi-toolkit",
     "npm:pi-session-name",
-    "npm:pi-memory",
-    "npm:pi-tool-display"
+    "npm:pi-memory"
   ],
   "fullscreenScrollbar": "always",
   "doubleEscapeAction": "tree",
