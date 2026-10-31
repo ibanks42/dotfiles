@@ -67,6 +67,15 @@ These patches remove Pi's manifest warnings. They do not delete existing runtime
 `pi-multi-account` 1.24.0 made both Pi SDKs host peers and reads OAuth from the host's provider factories.
 Its peer patch and its OAuth-initialization patch were therefore retired.
 
+### pi-cc-extensions running shell commands
+
+One diff changes `extensions/renderer/tool/ccstyle-tool.ts`:
+
+- A running collapsed shell call shows `click to show more`. A click expands that one card.
+- An expanded running shell call shows the full Input and the output so far, with a `Running…` footer.
+
+The check reads the source structure, because the renderer only loads inside the Pi TUI host.
+
 ### Claude bridge
 
 The bridge uses the upstream `npm:pi-claude-bridge` package, not a local fork.

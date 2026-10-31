@@ -28,7 +28,7 @@
     "npm:pi-claude-bridge",
     "npm:openwiki",
     "npm:pi-cc-extensions",
-    "npm:@xzzpig/pi-starline"
+    "npm:@xzzpig/pi-starline@0.5.1"
   ],
   "fullscreenScrollbar": "always",
   "doubleEscapeAction": "tree",

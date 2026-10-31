@@ -71,10 +71,12 @@
 !/agent/patches/diffs/claude-bridge.patch
 !/agent/patches/diffs/ask-user-question-host-peers.patch
 !/agent/patches/diffs/opencode-direct-host-peers.patch
+!/agent/patches/diffs/cc-extensions-running-shell-expand.patch
 !/agent/patches/diffs/subagents-host-peers.patch
 !/agent/patches/diffs/multi-account-host-peers.patch
 !/agent/patches/diffs/multi-account-oauth-init.patch
 !/agent/patches/checks/host-peers.test.mjs
+!/agent/patches/checks/cc-running-shell.test.mjs
 !/agent/patches/checks/multi-account-oauth.test.mjs
 !/agent/patches/checks/target.mjs
 !/agent/patches/checks/root-union.test.mjs

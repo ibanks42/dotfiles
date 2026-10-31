@@ -3,12 +3,20 @@
   "packages": [
     {
       "name": "pi-opencode-direct",
-      "patches": [{
-        "id": "host-peers",
-        "file": "diffs/opencode-direct-host-peers.patch",
-        "files": ["package.json"],
-        "check": ["node", "--test", "{patchDir}/checks/host-peers.test.mjs"]
-      }]
+      "patches": [
+        {
+          "id": "host-peers",
+          "file": "diffs/opencode-direct-host-peers.patch",
+          "files": [
+            "package.json"
+          ],
+          "check": [
+            "node",
+            "--test",
+            "{patchDir}/checks/host-peers.test.mjs"
+          ]
+        }
+      ]
     },
     {
       "name": "pi-claude-bridge",
@@ -30,6 +38,23 @@
             "{patchDir}/checks/cache-trace.test.mjs",
             "{patchDir}/checks/catalog.test.mjs",
             "{patchDir}/checks/sdk.test.mjs"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pi-cc-extensions",
+      "patches": [
+        {
+          "id": "running-shell-expand",
+          "file": "diffs/cc-extensions-running-shell-expand.patch",
+          "files": [
+            "extensions/renderer/tool/ccstyle-tool.ts"
+          ],
+          "check": [
+            "node",
+            "--test",
+            "{patchDir}/checks/cc-running-shell.test.mjs"
           ]
         }
       ]
