@@ -79,3 +79,7 @@ bindkey '^H' backward-kill-word       # Ctrl+Backspace
 
 # Keep the Pi update launcher ahead of Bun and other runtime paths.
 export PATH="$HOME/.local/share/pi-launcher/bin:$PATH"
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/server/.local/bin:$PATH"

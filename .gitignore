@@ -8,3 +8,5 @@ yazi/plugins/*
 /herdr/herdr-server.log
 /herdr/session-history.json
 /herdr/session.json
+/.gemini/config/.migrated
+/.gemini/config/projects/

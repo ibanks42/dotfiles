@@ -107,6 +107,9 @@ If you install the Pi configuration, link `$DOTFILES/bin/bun-as-npm` to `~/.loca
 Install Bun and add `~/.local/bin` to `PATH` before you run `pi update --extensions`.
 The wrapper keeps Pi packages in `~/.pi/agent/npm/`. See `.pi/README.md` for the Pi setup steps.
 
+### Antigravity (`agy`)
+Link `$DOTFILES/.gemini/config` to `~/.gemini/config` (keeping `~/.gemini` as a real directory so `~/.gemini/antigravity-cli` stays machine-local) and link `$DOTFILES/bin/agy-worker` to `~/.local/bin/agy-worker`.
+
 ### Apps (off by default)
 - Bitwarden: rbw, bitwarden-cli
 - Vivaldi (+ ffmpeg codecs), Steam (on Arch, needs `multilib`), Spotify, Dolphin

@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+INTERCOM_SCRIPT="$HOME/.gemini/config/skills/pi-intercom/scripts/agy-intercom.ts"
+AGY_BIN="${AGY_BIN:-$HOME/.local/bin/agy}"
+
+AGY_SUBCOMMANDS=" agent agents changelog help install mcp mic-serve models plugin plugins remote-control update "
+
+if [[ "${1:-}" == "--wrapper-help" ]]; then
+  cat <<'EOF'
+Usage: agy-worker [--alias <name>] [any agy flags...]
+   or: agy-worker <alias> [any agy flags...]
+
+Opens the full interactive `agy` TUI immediately and connects it to
+`pi-intercom` as <alias>. Incoming Intercom messages from Pi are
+injected directly into the active Herdr pane.
+
+Examples:
+  agy-worker router-agy -c
+  agy-worker -c --alias router-agy
+EOF
+  exit 0
+fi
+
+ALIAS=""
+AGY_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --alias)
+      ALIAS="${2:-}"
+      shift 2
+      ;;
+    --alias=*)
+      ALIAS="${1#--alias=}"
+      shift
+      ;;
+    *)
+      AGY_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Support `agy-worker router-agy -c` where the first non-flag arg is the alias
+if [[ -z "$ALIAS" && ${#AGY_ARGS[@]} -gt 0 ]]; then
+  first_arg="${AGY_ARGS[0]}"
+  if [[ "$first_arg" != -* && "$AGY_SUBCOMMANDS" != *" $first_arg "* ]]; then
+    ALIAS="$first_arg"
+    AGY_ARGS=("${AGY_ARGS[@]:1}")
+  fi
+fi
+
+# Pass non-interactive commands (--help, -p, subcommands) straight to agy
+for arg in "${AGY_ARGS[@]}"; do
+  if [[ "$arg" == "-h" || "$arg" == "--help" || "$arg" == "-p" || "$arg" == "--print" || "$arg" == "--prompt" ]]; then
+    exec "$AGY_BIN" "${AGY_ARGS[@]}"
+  fi
+done
+if [[ ${#AGY_ARGS[@]} -gt 0 && "$AGY_SUBCOMMANDS" == *" ${AGY_ARGS[0]} "* ]]; then
+  exec "$AGY_BIN" "${AGY_ARGS[@]}"
+fi
+
+cleanup() {
+  if [[ -n "$ALIAS" ]]; then
+    "$INTERCOM_SCRIPT" stop --name "$ALIAS" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT INT TERM HUP
+
+if [[ -n "$ALIAS" ]]; then
+  "$INTERCOM_SCRIPT" start --name "$ALIAS" --owner-pid "$$" >/dev/null
+fi
+
+"$AGY_BIN" "${AGY_ARGS[@]}"
