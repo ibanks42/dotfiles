@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --no-warnings --import file:///home/server/.pi/agent/npm/node_modules/tsx/dist/loader.mjs
+#!/usr/bin/env -S node --no-warnings --import file://${HOME}/.pi/agent/npm/node_modules/tsx/dist/loader.mjs
 /**
  * Persistent pi-intercom bridge for Antigravity (agy) CLI sessions.
  *
@@ -15,14 +15,14 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { IntercomClient } from "/home/server/.pi/agent/npm/node_modules/pi-intercom/broker/client.ts";
-import { spawnBrokerIfNeeded } from "/home/server/.pi/agent/npm/node_modules/pi-intercom/broker/spawn.ts";
-import { loadConfig } from "/home/server/.pi/agent/npm/node_modules/pi-intercom/config.ts";
 import type {
   Attachment,
   Message,
   SessionInfo,
-} from "/home/server/.pi/agent/npm/node_modules/pi-intercom/types.ts";
+} from "pi-intercom/types.ts";
+
+const PI_INTERCOM = path.join(os.homedir(), ".pi", "agent", "npm", "node_modules", "pi-intercom");
+
 
 const RUNTIME_DIR = path.join(os.homedir(), ".pi", "agent", "intercom", "agy-bridges");
 
@@ -148,7 +148,7 @@ function buildInlinePromptForPane(alias: string, item: QueuedInbound): string {
 
 function injectIntoHerdrPane(paneId: string, promptText: string): boolean {
   try {
-    const herdrBin = process.env.HERDR_BIN_PATH || "/home/server/.local/bin/herdr";
+    const herdrBin = process.env.HERDR_BIN_PATH || path.join(os.homedir(), ".local", "bin", "herdr");
     const sendText = spawn(herdrBin, ["pane", "send-text", paneId, promptText], {
       stdio: "ignore",
     });
@@ -170,6 +170,8 @@ function injectIntoHerdrPane(paneId: string, promptText: string): boolean {
 }
 
 async function ensureIntercomBroker(): Promise<void> {
+  const { spawnBrokerIfNeeded } = await import(path.join(PI_INTERCOM, "broker", "spawn.ts"));
+  const { loadConfig } = await import(path.join(PI_INTERCOM, "config.ts"));
   const config = loadConfig();
   await spawnBrokerIfNeeded(config.brokerCommand, config.brokerArgs);
 }
@@ -184,6 +186,7 @@ async function runDaemon(initialAlias: string, cwd: string, ownerPid?: number): 
   }
 
   await ensureIntercomBroker();
+  const { IntercomClient } = await import(path.join(PI_INTERCOM, "broker", "client.ts"));
   const client = new IntercomClient();
 
   const inboundQueue: QueuedInbound[] = [];
@@ -271,8 +274,17 @@ async function runDaemon(initialAlias: string, cwd: string, ownerPid?: number): 
       expectsReply: message.expectsReply,
     };
 
-    const nextWaiter = waitingSockets.shift();
-    if (nextWaiter) {
+    // In Herdr, always type into the pane so the listener never depends on a
+    // one-shot `wait` that agy has to re-arm after every message.
+    const nextWaiter = herdrPaneId ? undefined : waitingSockets.shift();
+    if (herdrPaneId && injectIntoHerdrPane(herdrPaneId, buildInlinePromptForPane(currentAlias, item))) {
+      client.updatePresence({ status: "thinking" });
+      client.sendMessageReceipt({
+        messageId: message.id,
+        status: "injected",
+        timestamp: Date.now(),
+      });
+    } else if (nextWaiter) {
       if (nextWaiter.timer) clearTimeout(nextWaiter.timer);
       client.updatePresence({ status: "thinking" });
       client.sendMessageReceipt({
@@ -281,13 +293,6 @@ async function runDaemon(initialAlias: string, cwd: string, ownerPid?: number): 
         timestamp: Date.now(),
       });
       nextWaiter.resolve(item);
-    } else if (herdrPaneId && injectIntoHerdrPane(herdrPaneId, buildInlinePromptForPane(currentAlias, item))) {
-      client.updatePresence({ status: "thinking" });
-      client.sendMessageReceipt({
-        messageId: message.id,
-        status: "injected",
-        timestamp: Date.now(),
-      });
     } else {
       inboundQueue.push(item);
       client.sendMessageReceipt({

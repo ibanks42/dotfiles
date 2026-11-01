@@ -6,7 +6,7 @@
   "steeringMode": "all",
   "followUpMode": "all",
   "showCacheMissNotices": true,
-  "tuiMode": "fullscreen",
+  "tuiMode": "regular",
   "theme": "system/system",
   "defaultProvider": "claude-bridge",
   "defaultModel": "claude-opus-5-5",
@@ -18,7 +18,9 @@
     "claude-bridge/claude-opus-5-5",
     "claude-bridge/claude-sonnet-5-5",
     "xai/grok-4.6",
-    "xai/grok-4.7"
+    "xai/grok-4.7",
+    "opencode-go/deepseek-v4.1-flash",
+    "opencode-go/gemini-4-argon"
   ],
   "packages": [
     "npm:pi-web-access",

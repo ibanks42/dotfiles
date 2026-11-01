@@ -20,9 +20,13 @@ Always invoke the helper script directly (it uses the local `tsx` loader in its 
 ~/.gemini/config/skills/pi-intercom/scripts/agy-intercom.ts <command> --name <alias> [options]
 ```
 
+## Listening
+
+Once `/alias <name>` has run, the listener stays on by itself for the whole session, including during your turns. Inside Herdr (`$HERDR_PANE_ID` is set) it types each incoming message into this pane as a new prompt. Do **not** run `wait` in Herdr, and never "re-arm" or restart the listener after a message or a turn.
+
 ### Available Subcommands
 
-- **Wait for Next Incoming Message from Pi (Activates Listener as `<alias>`)**:
+- **Wait for Next Incoming Message from Pi** (only outside Herdr, where messages can't be typed into the pane):
   ```bash
   ~/.gemini/config/skills/pi-intercom/scripts/agy-intercom.ts wait --name <alias>
   ```
