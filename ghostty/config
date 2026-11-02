@@ -56,8 +56,15 @@ theme = Modest Dark
 window-height = 40
 window-width = 120
 
-app-notifications = no-clipboard-copy
-clipboard-read = allow
+# app-notifications = no-clipboard-copy
+copy-on-select = "clipboard"
+clipboard-read = "allow"
+clipboard-write = "allow"
 
 confirm-close-surface = false
 # cursor-click-to-move = false
+
+# >>> HERDR-SCOPE-BEGIN font
+font-codepoint-map = U+E1A0-U+E1BA=Herdr Agent Icons Max
+font-codepoint-map = U+E1C0-U+E1C5=Herdr Agent Icons Max
+# <<< HERDR-SCOPE-END font
