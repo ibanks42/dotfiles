@@ -1,8 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { installCodexKeepalive } from "./codex-keepalive";
-
-const THRESHOLD = 200_000;
+import { installKeepalive, keepalivePolicy } from "./codex-keepalive";
+import { meetsMinimum, thresholdsFor, formatMinimum, showSettings } from "./settings";
 
 /** Best-effort timing, not a provider cache-expiry guarantee. */
 export function delayMs(model: ExtensionContext["model"], env = process.env): number | undefined {
@@ -42,7 +41,7 @@ export default function (pi: ExtensionAPI) {
 	}
 	function eligible(ctx: ExtensionContext) {
 		return enabled && settled && !compacting && ctx.isIdle() && !ctx.hasPendingMessages()
-			&& (ctx.getContextUsage()?.tokens ?? 0) > THRESHOLD;
+			&& meetsMinimum(ctx.getContextUsage()?.tokens, thresholdsFor(ctx.model)?.compactionMinimumTokens);
 	}
 	function compact(ctx: ExtensionContext) {
 		if (!eligible(ctx)) return;
@@ -64,8 +63,8 @@ export default function (pi: ExtensionAPI) {
 	}
 	function schedule(ctx: ExtensionContext, dueAt?: number) {
 		clearTimer();
-		// Codex keeps its cache alive first; its 30-minute horizon calls compact.
-		if (ctx.model?.provider === "openai-codex") return;
+		// Managed providers keep their cache alive first; the 60-minute horizon calls compact.
+		if (keepalivePolicy(ctx.model)) return;
 		const delay = delayMs(ctx.model);
 		if (!eligible(ctx) || startedAt === undefined || delay === undefined || delay <= 0) return;
 		const current = generation;
@@ -92,28 +91,32 @@ export default function (pi: ExtensionAPI) {
 	pi.on("cache_warming_decision", (_event, ctx) => {
 		// Prefer Pi's real cache deadline when available; don't pay to warm a
 		// large idle context that is about to be compacted instead.
-		if (ctx.model?.provider !== "openai-codex" && eligible(ctx) && startedAt !== undefined && delayMs(ctx.model) !== undefined) {
+		if (!keepalivePolicy(ctx.model) && eligible(ctx) && startedAt !== undefined && delayMs(ctx.model) !== undefined) {
 			schedule(ctx, Date.now());
 			return { action: "stop" };
 		}
 	});
-	installCodexKeepalive(pi, compact);
+	const keepalive = installKeepalive(pi, compact);
 	pi.registerCommand("idle-compact", {
-		description: "Idle cache-expiry compaction: status | on | off",
+		description: "Idle cache settings: settings | status | on | off (defaults and per-model overrides)",
 		handler: async (args, ctx) => {
-			const action = args.trim() || "status";
+			const action = args.trim() || "settings";
+			if (action === "settings") {
+				await showSettings(ctx, () => { keepalive.reconcile(ctx); schedule(ctx); });
+				return;
+			}
 			if (!["on", "off", "status"].includes(action)) {
-				ctx.ui.notify("Usage: /idle-compact [status|on|off]", "warning");
+				ctx.ui.notify("Usage: /idle-compact [settings|status|on|off]", "warning");
 				return;
 			}
 			if (action === "off") { enabled = false; clearTimer(); }
 			if (action === "on") { enabled = true; schedule(ctx); }
-			if (ctx.model?.provider === "openai-codex") {
-				ctx.ui.notify(`Idle compaction ${enabled ? "on" : "off"}; Codex compacts above ${THRESHOLD.toLocaleString()} tokens after the 30-minute keepalive horizon. See /codex-keepalive status.`, "info");
+			if (keepalivePolicy(ctx.model)) {
+				ctx.ui.notify(`Idle compaction ${enabled ? "on" : "off"}; minimum ${formatMinimum(thresholdsFor(ctx.model)?.compactionMinimumTokens)}; compacts after the 60-minute keepalive horizon. See /idle-keepalive status.`, "info");
 				return;
 			}
 			const delay = delayMs(ctx.model);
-			ctx.ui.notify(`Idle compaction ${enabled ? "on" : "off"}; threshold > ${THRESHOLD.toLocaleString()} tokens; timing ${delay === undefined ? "unknown (disabled for this model)" : `${delay / 60_000} min after request start`}; ${timer ? "scheduled" : "not scheduled"}`, "info");
+			ctx.ui.notify(`Idle compaction ${enabled ? "on" : "off"}; minimum ${formatMinimum(thresholdsFor(ctx.model)?.compactionMinimumTokens)}; timing ${delay === undefined ? "unknown (disabled for this model)" : `${delay / 60_000} min after request start`}; ${timer ? "scheduled" : "not scheduled"}`, "info");
 		},
 	});
 }

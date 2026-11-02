@@ -88,6 +88,20 @@ stay a real directory:
 | `$DOTFILES/herdr/herdr-space-jumper` | `~/.local/bin/herdr-space-jumper` |
 | `$DOTFILES/herdr/herdr-split` | `~/.local/bin/herdr-split` |
 
+Install the plugins used by the Neovim and lazygit keybindings (review their
+source before approving installation; plugins run commands as your user):
+
+```sh
+herdr plugin install ChmaraX/herdr-nvim
+herdr plugin install JacquesvanWyk/herdr-lazygit
+```
+
+Ensure `nvim` and `lazygit` are on `PATH`. The Neovim config already includes
+`ChmaraX/herdr-nvim` for the editor-side integration. Verify registration with
+`herdr plugin action list`: expect `chmarax.herdr-nvim.toggle`,
+`chmarax.herdr-nvim.pick-file`, `herdr-lazygit.open-lazygit`, and
+`herdr-lazygit.open-lazygit-tab`. Keybindings alone do not install plugins.
+
 Check with `herdr config check`. If a herdr server is running, apply with
 `herdr server reload-config`.
 

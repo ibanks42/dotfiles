@@ -72,11 +72,14 @@ description = "Open Bitwarden picker"
 # Show the workspace number (the digit alt+shift+N jumps to) next to the Space
 # title. No built-in number token exists (herdr 0.9.0), so herdr-space-numbers
 # mirrors the position into the custom $num metadata token.
+# TEMPORARILY DISABLED while testing herdr-scope (Scope manages [ui.sidebar.*]).
 # [ui.sidebar.spaces]
 # rows = [
 #   [
 #     "state_icon",
+#     { token = "$num", dim = true },
 #     "workspace",
+#     "$ports",
 #   ],
 #   [
 #     "branch",
@@ -209,12 +212,12 @@ description = "open file from agent output"
 [[keys.command]]
 key = "prefix+g"
 type = "plugin_action"
-command = "herdr-lazygit.open"
+command = "herdr-lazygit.open-lazygit"
 
 [[keys.command]]
 key = "prefix+shift+g"
 type = "plugin_action"
-command = "herdr-lazygit.open-tab"
+command = "herdr-lazygit.open-lazygit-tab"
 
 # Herdr Scope. Its defaults use prefix+a and prefix+f, which are already taken
 # (numbered.ports picker and herdr-sessionizer), so view-flip/view-here moved
@@ -250,11 +253,11 @@ command = "kriuchkov.herdr-scope.settings"
 description = "herdr-scope settings"
 
 [theme]
-name = "dracula"
+name = "catppuccin"
 auto_switch = false
 
 [ui.sound]
-enabled = false
+enabled = true
 
 [ui.toast]
 delivery = "herdr"
