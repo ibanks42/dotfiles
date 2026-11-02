@@ -168,6 +168,20 @@ type = "shell"
 command = "$HOME/.local/bin/herdr-space-jumper 9"
 description = "space 9: jump / toggle agent pane"
 
+# Cycle agent panes without leaving the keyboard. Order is herdr's agent list;
+# it wraps, and from a non-agent pane down starts at the first / up at the last.
+[[keys.command]]
+key = "alt+down"
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper next"
+description = "next agent pane"
+
+[[keys.command]]
+key = "alt+up"
+type = "shell"
+command = "$HOME/.local/bin/herdr-space-jumper prev"
+description = "previous agent pane"
+
 [ui]
 # >>> HERDR-SCOPE-BEGIN tab-bar
 tab_bar_right_separator = " · "

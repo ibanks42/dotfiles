@@ -1,27 +1,35 @@
 #!/usr/bin/env bash
-# herdr-space-jumper — three-way workspace toggle for alt+shift+N.
+# herdr-space-jumper — workspace toggle (alt+shift+N) and agent cycling
+# (alt+up / alt+down).
 #
-#   1st press: switch to workspace N (plain jump)
-#   2nd press: focus that workspace's agent pane, remembering where you were
-#   3rd press: jump back to the remembered pane
+#   <1-9>   three-way workspace toggle:
+#             1st press: switch to workspace N (plain jump)
+#             2nd press: focus that workspace's agent pane, remembering where
+#                        you were
+#             3rd press: jump back to the remembered pane
+#   next    focus the next agent pane, wrapping at the end
+#   prev    focus the previous agent pane, wrapping at the start
 #
-# Bound as nine [[keys.command]] entries (alt+shift+1..9, one per digit, since
-# commands cannot use indexed ranges). Built-in switch_workspace keeps
-# prefix+shift+1..9 as the plain-jump fallback.
+# Workspace jumps are bound as nine [[keys.command]] entries (alt+shift+1..9,
+# one per digit, since commands cannot use indexed ranges). Built-in
+# switch_workspace keeps prefix+shift+1..9 as the plain-jump fallback.
+# Agent cycling is bound as alt+down (next) and alt+up (prev).
 #
-# "The agent pane" is the pane hosting a detected agent in workspace N; if a
-# workspace has several, the one on its active tab wins. The return uses the
-# socket API to focus the exact pane, including panes in split tabs.
+# "The agent pane" for a workspace is the pane hosting a detected agent in
+# workspace N; if a workspace has several, the one on its active tab wins. The
+# return uses the socket API to focus the exact pane, including panes in split
+# tabs.
 #
 # Designed for detached `type = "shell"` command keybindings, which receive
 # HERDR_ACTIVE_WORKSPACE_ID / HERDR_ACTIVE_PANE_ID at dispatch time. Resolves
 # the herdr binary explicitly: systemd/daemon contexts have a minimal PATH.
 #
-# Requires: jq, nc (Unix socket support)
+# Requires: jq, and socat or nc with Unix-socket support
 
 set -euo pipefail
 
-N="${1:?usage: herdr-space-jumper <1-9>}"
+MODE="${1:?usage: herdr-space-jumper <1-9>|next|prev}"
+
 STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/herdr-space-jumper"
 mkdir -p "$STATE_DIR"
 
@@ -33,6 +41,72 @@ if [[ -z $HERDR_BIN ]]; then
   HERDR_BIN="$HOME/.local/bin/herdr"
 fi
 
+# The CLI exposes directional focus only; pane.focus accepts an exact ID.
+# Unlike agent.focus in 0.9.0, it also updates the client's selected tab.
+socket_dir="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
+if [[ ${HERDR_SESSION:-default} != default ]]; then
+  socket_dir+="/sessions/$HERDR_SESSION"
+fi
+socket_path="${HERDR_SOCKET_PATH:-$socket_dir/herdr.sock}"
+
+focus_pane() {
+  local pane=$1
+  local request
+  request=$(jq -nc --arg pane "$pane" \
+    '{id: "space-jumper:focus", method: "pane.focus", params: {pane_id: $pane}}')
+  if command -v socat >/dev/null 2>&1; then
+    printf '%s\n' "$request" | socat - "UNIX-CONNECT:$socket_path"
+  else
+    # OpenBSD nc. Ncat has no -N, but the machines that ship it also have socat.
+    printf '%s\n' "$request" | nc -U -N -w 5 "$socket_path"
+  fi | jq -e 'if .error then error(.error.message) else .result end'
+}
+
+# next / prev: cycle through every agent pane in agent-list order. From a pane
+# that is not an agent, next starts at the first agent and prev at the last.
+case "$MODE" in
+  next | prev)
+    mapfile -t panes < <("$HERDR_BIN" agent list 2>/dev/null | jq -r '.result.agents[].pane_id')
+    count=${#panes[@]}
+    ((count > 0)) || exit 0
+
+    cur_pane="${HERDR_ACTIVE_PANE_ID:-}"
+    if [[ -z $cur_pane ]]; then
+      cur_pane=$("$HERDR_BIN" api snapshot 2>/dev/null |
+        jq -r '.result.snapshot.focused_pane_id // empty')
+    fi
+
+    idx=-1
+    for i in "${!panes[@]}"; do
+      if [[ ${panes[$i]} == "$cur_pane" ]]; then
+        idx=$i
+        break
+      fi
+    done
+
+    if ((idx < 0)); then
+      if [[ $MODE == next ]]; then
+        target=${panes[0]}
+      else
+        target=${panes[$((count - 1))]}
+      fi
+    elif [[ $MODE == next ]]; then
+      target=${panes[$(((idx + 1) % count))]}
+    else
+      target=${panes[$(((idx - 1 + count) % count))]}
+    fi
+
+    focus_pane "$target"
+    exit 0
+    ;;
+  [1-9]) ;;
+  *)
+    printf 'usage: herdr-space-jumper <1-9>|next|prev\n' >&2
+    exit 2
+    ;;
+esac
+
+N=$MODE
 ws_json=$("$HERDR_BIN" workspace list 2>/dev/null | jq -c --argjson n "$N" '
   .result.workspaces[] | select(.number == $n)')
 [[ -n $ws_json ]] || exit 0
@@ -70,15 +144,4 @@ else
   [[ -n $target_pane ]] || exit 0
 fi
 
-# The CLI exposes directional focus only; pane.focus accepts an exact ID.
-# Unlike agent.focus in 0.9.0, it also updates the client's selected tab.
-socket_dir="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
-if [[ ${HERDR_SESSION:-default} != default ]]; then
-  socket_dir+="/sessions/$HERDR_SESSION"
-fi
-socket_path="${HERDR_SOCKET_PATH:-$socket_dir/herdr.sock}"
-
-jq -nc --arg pane "$target_pane" \
-  '{id: "space-jumper:focus", method: "pane.focus", params: {pane_id: $pane}}' |
-  nc -U -N -w 5 "$socket_path" |
-  jq -e 'if .error then error(.error.message) else .result end'
+focus_pane "$target_pane"
