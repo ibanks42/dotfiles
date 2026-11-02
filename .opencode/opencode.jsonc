@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    "@slkiser/opencode-quota",
+    "opencode-mem@latest"
+  ],
+  "providers": {
+    // Let opencode-quota discover Claude Code's existing login for usage checks.
+    "anthropic": {}
+  },
+}

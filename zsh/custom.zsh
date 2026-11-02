@@ -24,43 +24,6 @@ alias ".."="cd .."
 alias "..."="cd ../.."
 alias "...."="cd ../../.."
 
-tmux() {
-  local sessionizer="$HOME/.config/tmux/tmux-sessionizer"
-  local restore_script="$HOME/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh"
-  local no_auto_restore_file="$HOME/tmux_no_auto_restore"
-
-  if [[ $# -gt 0 ]]; then
-    command tmux "$@"
-    return
-  fi
-
-  if [[ -n $TMUX ]]; then
-    if [[ -x "$sessionizer" ]]; then
-      "$sessionizer" "$(pwd -P)"
-    else
-      command tmux switch-client -n
-    fi
-    return
-  fi
-
-  if ! command tmux has-session 2>/dev/null; then
-    if [[ -f "$restore_script" && ! -f "$no_auto_restore_file" ]]; then
-      command tmux start-server
-      zsh "$restore_script" >/dev/null 2>&1 || true
-    fi
-  fi
-
-  if command tmux has-session 2>/dev/null; then
-    command tmux attach-session 2>/dev/null && return
-  fi
-
-  if [[ -x "$sessionizer" ]]; then
-    "$sessionizer" "$(pwd -P)"
-  else
-    command tmux new-session -s home -c "$(pwd -P)"
-  fi
-}
-
 # nvm
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"

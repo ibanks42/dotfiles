@@ -49,6 +49,8 @@ create_new="false"
 user_selected=""
 open_path=""
 typed_query=""
+clone_mode="false"
+clone_query=""
 list_search_paths=()
 
 while [[ "$#" -gt 0 ]]; do
@@ -66,6 +68,11 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   --new)
     create_new="true"
+    ;;
+  --clone)
+    clone_mode="true"
+    clone_query="${2:-}"
+    [[ "$#" -gt 1 ]] && shift
     ;;
   --open-path)
     if [[ -z "${2:-}" ]]; then
@@ -401,8 +408,9 @@ start_workspace_for_path() {
   setup_workspace_layout "$workspace_id" "$first_tab_id" "$root_pane_id" "$selected"
 }
 
-choose_new_session_path() {
-  local root root_label selected_root folder_name target_path
+# Pick one of the search roots with fzf; prints the root path.
+choose_search_root() {
+  local prompt="$1" root selected_root
   ensure_search_path_metadata
 
   selected_root=$(
@@ -415,18 +423,29 @@ choose_new_session_path() {
       --layout=reverse \
       --border \
       --border-label=' herdr-sessionizer ' \
-      --prompt='Create in: ' \
+      --prompt="$prompt" \
       --header='Enter: Select root | Esc: Cancel' \
       --bind='esc:abort'
   ) || return 1
-  root="${selected_root%%$'\t'*}"
+  printf '%s' "${selected_root%%$'\t'*}"
+}
 
-  root_label=$(display_path "$root")
-  read -r -e -p "New folder in $root_label: " folder_name || return 1
-  [[ -n "$folder_name" && "$folder_name" != /* && "$folder_name" != *'/../'* && "$folder_name" != '..' && "$folder_name" != ../* ]] || {
+# Reject absolute paths and any '..' traversal; prints an error on failure.
+validate_relative_folder() {
+  local folder_name="$1"
+  [[ -n "$folder_name" && "$folder_name" != /* && "$folder_name" != *'/../'* && "$folder_name" != '..' && "$folder_name" != ../* && "$folder_name" != */.. ]] || {
     printf 'Enter a non-empty relative folder path.\n' >&2
     return 1
   }
+}
+
+choose_new_session_path() {
+  local root root_label folder_name target_path
+  root=$(choose_search_root 'Create in: ') || return 1
+
+  root_label=$(display_path "$root")
+  read -r -e -p "New folder in $root_label: " folder_name || return 1
+  validate_relative_folder "$folder_name" || return 1
 
   target_path="$root/$folder_name"
   [[ ! -e "$target_path" ]] || {
@@ -436,6 +455,47 @@ choose_new_session_path() {
 
   mkdir -p "$target_path" || return 1
   printf '%s' "$target_path"
+}
+
+# Repo name from a git URL: https://host/o/repo.git, git@host:o/repo, etc.
+repo_name_from_url() {
+  local name="${1%/}"
+  name="${name##*/}"
+  name="${name##*:}"
+  printf '%s' "${name%.git}"
+}
+
+# Prompt for a URL (prefilled from the fzf query when it looks like one),
+# pick a root, confirm the folder name, clone, then open it as a workspace.
+clone_repo() {
+  local query="$1" prefill="" url root root_label folder_name target_path
+  if [[ "$query" =~ ^(https?|ssh|git|file)://|^[^[:space:]]+@[^[:space:]]+:|^[^[:space:]/]+\.[^[:space:]/]+/ ]]; then
+    prefill="$query"
+  fi
+  read -r -e -i "$prefill" -p "Git URL: " url || return 1
+  url="${url#"${url%%[![:space:]]*}"}"
+  url="${url%"${url##*[![:space:]]}"}"
+  [[ -n "$url" ]] || return 0
+
+  root=$(choose_search_root 'Clone into: ') || return 0
+  root_label=$(display_path "$root")
+  read -r -e -i "$(repo_name_from_url "$url")" -p "Folder in $root_label: " folder_name || return 1
+  validate_relative_folder "$folder_name" || return 1
+
+  target_path="$root/$folder_name"
+  if [[ -e "$target_path" ]]; then
+    printf 'Path already exists: %s\n' "$target_path" >&2
+    read -r -p "Press Enter to close." _ || true
+    return 1
+  fi
+
+  mkdir -p "$(dirname -- "$target_path")" || return 1
+  if ! git clone -- "$url" "$target_path"; then
+    read -r -p "git clone failed. Press Enter to close." _ || true
+    return 1
+  fi
+
+  start_workspace_for_path "$target_path"
 }
 
 open_typed_path() {
@@ -496,6 +556,11 @@ if [[ "$create_new" == "true" ]]; then
   exit $?
 fi
 
+if [[ "$clone_mode" == "true" ]]; then
+  clone_repo "$clone_query"
+  exit $?
+fi
+
 if [[ -n "$open_path" ]]; then
   open_typed_path "$open_path"
   exit $?
@@ -532,9 +597,10 @@ else
       --border \
       --border-label=' herdr-sessionizer ' \
       --prompt='Switch to workspace: ' \
-      --header=$'Enter: switch/create   Ctrl-e: new folder   Ctrl-o: typed path   Alt-d: close workspace' \
+      --header=$'Enter: switch/create   Ctrl-e: new folder   Ctrl-o: typed path   Ctrl-g: git clone   Alt-d: close workspace' \
       --bind="ctrl-e:execute($0 --new)+abort" \
       --bind="ctrl-o:execute($0 --open-path {q})+abort" \
+      --bind="ctrl-g:execute($0 --clone {q})+abort" \
       --bind="alt-d:execute-silent($0 --delete {1})+reload($list_reload_command)" \
       --bind="change:reload($list_reload_command --typed-query {q})"
   )

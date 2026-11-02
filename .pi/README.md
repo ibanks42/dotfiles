@@ -75,10 +75,19 @@ The retired warm-cache extension and its repair inputs are not required.
 
 ## Files kept locally
 
+On this machine, packages, cache, and sessions live outside the checkout behind
+ignored compatibility symlinks. Keep these links when updating the repository.
+For a new machine, create the external directories and links before installing
+packages; keep the sessions directory mode `0700`. When migrating an existing
+installation, move the whole package tree without reinstalling: it can contain
+custom patches beyond the tracked patch manifest. Preserve file permissions and
+symlinks, verify file hashes, and run `python3 agent/patches/runner.py check`.
+Keep `PI_CODING_AGENT_DIR` unchanged so configuration and patch tooling still load.
+
 - `agent/auth.json`, model files, and account files supply live authentication and model state.
-- `agent/sessions/` contains conversation history, not disposable configuration.
-- `agent/cache/` contains the native code-mode executable used by Codex Conversion.
-- `agent/npm/` contains the installed packages and their dependency records.
+- `agent/sessions/` links to `~/.local/share/pi-runtime/sessions/` for conversation history.
+- `agent/cache/` links to `~/.cache/pi-runtime/`, including the native code-mode executable used by Codex Conversion.
+- `agent/npm/` links to `~/.local/share/pi-runtime/npm/` for installed packages and their dependency records.
 - `agent/cache-forensics/` contains retained diagnostic tools and private capture controls.
 
 The metadata-only cache diagnostic replaces the historical single-session prefix observer.

@@ -1,0 +1,20 @@
+diff --git a/packages/background-tasks/extensions/background-tasks.ts b/packages/background-tasks/extensions/background-tasks.ts
+--- a/packages/background-tasks/extensions/background-tasks.ts
++++ b/packages/background-tasks/extensions/background-tasks.ts
+@@ -155,6 +155,8 @@
+ 		timer = undefined;
+ 	};
+ 	const refresh = () => {
++		// Activity is independent of widget rendering (including headless sessions).
++		pi.events?.emit("herdr:activity", { source: "background-tasks", active: (manager?.list().running ?? 0) > 0 });
+ 		if (!context?.hasUI || !manager) return;
+ 		const list = manager.list();
+ 		if (context.mode !== "tui") {
+@@ -192,6 +194,7 @@
+ 		const previousContext = context;
+ 		const previousViewer = viewer;
+ 		manager = undefined;
++		pi.events?.emit("herdr:activity", { source: "background-tasks", active: false });
+ 		context = undefined;
+ 		viewer = undefined;
+ 		clearTimer();

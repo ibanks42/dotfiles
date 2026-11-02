@@ -1,6 +1,7 @@
 // installed by herdr
 // managed by herdr; reinstalling or updating the integration overwrites this file.
-// add custom hooks/plugins beside this file instead of editing it.
+// Local customization: herdr:activity leases and in-flight tool tracking.
+// Reapply this tracked customization if Herdr reinstalls its integration.
 // HERDR_INTEGRATION_ID=pi
 // HERDR_INTEGRATION_VERSION=9
 // @ts-nocheck
@@ -182,6 +183,8 @@ export default function (pi) {
   }
 
   let agentActive = false;
+  const activitySources = new Set<string>();
+  const activeTools = new Set<string>();
   let blockedCount = 0;
   let blockedMessage: string | undefined;
   let lastState: AgentState | undefined;
@@ -192,7 +195,7 @@ export default function (pi) {
     if (blockedCount > 0) {
       return { state: "blocked" as const, message: blockedMessage };
     }
-    if (agentActive) {
+    if (agentActive || activitySources.size > 0 || activeTools.size > 0) {
       return { state: "working" as const, message: undefined };
     }
     return { state: "idle" as const, message: undefined };
@@ -207,6 +210,38 @@ export default function (pi) {
     lastMessage = next.message;
     queueState(next.state, next.message);
   }
+
+  // Producers publish their current activity, not increments: duplicate updates
+  // cannot leak a busy count, and independent producers cannot clear each other.
+  pi.events.on("herdr:activity", (data) => {
+    if (!rootSession || typeof data?.source !== "string" || typeof data.active !== "boolean") return;
+    if (data.active) activitySources.add(data.source);
+    else activitySources.delete(data.source);
+    publishState();
+  });
+
+  pi.on("tool_execution_start", (event) => {
+    if (!rootSession) return;
+    activeTools.add(event.toolCallId);
+    publishState();
+  });
+
+  pi.on("tool_execution_end", (event) => {
+    if (!rootSession) return;
+    activeTools.delete(event.toolCallId);
+    publishState();
+  });
+
+  pi.on("session_shutdown", () => {
+    rootSession = false;
+    agentActive = false;
+    activitySources.clear();
+    activeTools.clear();
+    blockedCount = 0;
+    blockedMessage = undefined;
+    lastState = undefined;
+    lastMessage = undefined;
+  });
 
   pi.events.on("herdr:blocked", (data) => {
     if (!rootSession) {

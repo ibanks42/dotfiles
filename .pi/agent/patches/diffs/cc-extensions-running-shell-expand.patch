@@ -1,0 +1,37 @@
+diff --git a/extensions/renderer/tool/ccstyle-tool.ts b/extensions/renderer/tool/ccstyle-tool.ts
+index 9c4cfe2..e7d5abb 100644
+--- a/extensions/renderer/tool/ccstyle-tool.ts
++++ b/extensions/renderer/tool/ccstyle-tool.ts
+@@ -485,12 +485,31 @@ export function createCcstyleTool(
+ 				if (!SHELL_TOOL_NAMES.has(toolName)) {
+ 					return new Text(theme.fg("muted", pending), 0, 0);
+ 				}
++				// local patch: expanded shell calls show the full Input/Output view while running.
++				if (expanded) {
++					const view = renderExpandedToolResult(
++						textFromResult(result, true) || "",
++						theme,
++						false,
++						context?.lastComponent,
++						context?.args,
++						context,
++						true,
++					);
++					if (isExpandedToolIoView(view)) {
++						const elapsed = shellDurationText(toolName, context, true);
++						view.setFooter(elapsed ? `Running… · ${elapsed}` : "Running…");
++					}
++					return view;
++				}
+ 				// shell 运行中报已用时间：数字在 render() 内取，动画 tick 才能带上新值。
+ 				return {
+ 					render(width: number) {
+ 						const elapsed = shellDurationText(toolName, context, true);
+ 						const suffix = elapsed ? theme.fg("dim", ` · ${elapsed}`) : "";
+-						return [truncateToWidth(theme.fg("muted", pending) + suffix, width, "")];
++						// local patch: per-tool show-more hint while running (expands just this card).
++						const hint = theme.fg("dim", ` · ${showMoreHintText()}`);
++						return [truncateToWidth(theme.fg("muted", pending) + suffix + hint, width, "")];
+ 					},
+ 					invalidate(): void {},
+ 				};

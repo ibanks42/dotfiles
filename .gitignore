@@ -1,10 +1,12 @@
-tmux/plugins/*
 nvim/lazy-lock.json
 tmp/*
 __pycache__/
 *.pyc
 yazi/plugins/*
+/herdr/.plugins.lock
 /herdr/herdr-client.log
 /herdr/herdr-server.log
 /herdr/session-history.json
 /herdr/session.json
+/.gemini/config/.migrated
+/.gemini/config/projects/

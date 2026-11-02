@@ -15,12 +15,6 @@ export SUDOEDITOR=vim
 # Aliases, starship, zoxide, mise
 [[ -f $HOME/.zsh/custom.zsh ]] && source "$HOME/.zsh/custom.zsh"
 
-# if [[ -f "/usr/share/ghost/ghost.sh" ]]; then
-#   source "/usr/share/ghost/ghost.sh"
-# fi
-#
-# export GHOST_CTRL_R_COMMAND="fzf --height=40% --reverse --scheme=history --tiebreak=index"
-
 zstyle ':completion:*' menu no
 zstyle ':completion:*:descriptions' format '[%d]'
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}

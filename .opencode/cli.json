@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/v2/cli.json",
+  "session": {
+    "permissions": "autoaccept"
+  },
+  "plugins": [
+    "./herdr-opencode",
+    "./plugins/cache-stats",
+    "./ui-plugins/prompt-rail-prototype"
+  ],
+  "keybinds": {
+    "session.message.user.previous": "alt+pageup",
+    "session.message.user.next": "alt+pagedown",
+    "model.list": "ctrl+m"
+  }
+}
