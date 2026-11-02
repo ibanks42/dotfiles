@@ -1,12 +1,12 @@
 {
-  "lastChangelogVersion": "1.4.0",
+  "lastChangelogVersion": "1.5.0",
   "terminal": {
     "showTerminalProgress": true
   },
   "steeringMode": "all",
   "followUpMode": "all",
   "showCacheMissNotices": true,
-  "tuiMode": "regular",
+  "tuiMode": "fullscreen",
   "theme": "system/system",
   "defaultProvider": "claude-bridge",
   "defaultModel": "claude-opus-5-5",
@@ -43,7 +43,7 @@
     "npm:pi-session-name",
     "npm:pi-memory"
   ],
-  "fullscreenScrollbar": "always",
+  "fullscreenScrollbar": "auto",
   "doubleEscapeAction": "tree",
   "enableInstallTelemetry": false,
   "quietStartup": true,
@@ -66,12 +66,26 @@
   "outputPad": 0,
   "extensions": [
     "-extensions/subtask-router/index.ts",
-    "-extensions/cache-diagnostics/index.ts",
+    "+extensions/cache-diagnostics/index.ts",
     "-extensions/cache-forensics.ts"
   ],
   "markdown": {
     "mermaid": "streaming"
   },
   "treeFilterMode": "user-only",
-  "autocompleteMaxVisible": 7
+  "autocompleteMaxVisible": 7,
+  "defaultThinkingLevel": "medium",
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.46.0",
+    "{\"source\":\"npm:pi-opencode-direct\",\"scope\":\"user\"}": "0.1.9",
+    "{\"source\":\"npm:@maxiaochao/pi-toolkit\",\"scope\":\"user\"}": "0.14.2",
+    "{\"source\":\"npm:pi-memory\",\"scope\":\"user\"}": "0.4.2"
+  },
+  "fullscreenCopyOnSelect": true,
+  "ui": {
+    "border_style": "none",
+    "padding_left": 0,
+    "padding_right": 0,
+    "show_sidebar": false
+  }
 }

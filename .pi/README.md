@@ -69,9 +69,23 @@ Restart running Pi sessions after successful updates.
 The old repair scripts and bridge fork remain in a private migration backup under `agent/backups/`.
 Pi Web Access includes its former fix upstream. The inactive Claude Code provider no longer needs an automatic repair.
 
-Pi uses its built-in `cacheWarming` setting.
-This setting warms only eligible providers; it does not guarantee warming for Codex or the Claude bridge.
-The retired warm-cache extension and its repair inputs are not required.
+The local `idle-compact` extension owns provider-aware idle keepalives for Codex,
+Claude bridge, xAI, and OpenCode Go, suppressing duplicate native warming on those
+routes. Other providers retain Pi's built-in `cacheWarming` behavior. Use
+`/idle-compact` for a settings menu with default and per-model keepalive/compaction
+minimums, presets, custom counts, and No minimum. Preferences save locally to
+`agent/idle-compact.json`. See `agent/extensions/idle-compact/README.md` for timing,
+billing caveats, commands, and tests. The retired warm-cache extension and its
+repair inputs are not required.
+
+## Reloading plugin changes
+
+Use `/reload-extensions` to apply extension/resource changes without rebuilding
+`pi-memory`'s current snapshot or timestamp. Use ordinary `/reload` when you also
+want fresh memory. Tool/instruction changes still apply in either case and may
+invalidate caching; other extensions' timers/state are still reset normally.
+The command is supplied by the maintained `pi-memory` patch. Existing sessions
+need one normal reload or restart to register it; see `agent/patches/README.md`.
 
 ## Files kept locally
 

@@ -71,5 +71,10 @@ bindkey '^[[3~' delete-char           # Delete
 bindkey '^[[3;5~' kill-word           # Ctrl+Delete
 bindkey '^H' backward-kill-word       # Ctrl+Backspace
 
+# Herdr remote attaches lack SSH markers; forward Pi copies to the client clipboard.
+if [[ ${HERDR_ENV:-} == 1 ]]; then
+  export PI_CLIPBOARD_OSC52=1
+fi
+
 # Keep the Pi update launcher ahead of Bun and other runtime paths.
 export PATH="$HOME/.local/share/pi-launcher/bin:$PATH"

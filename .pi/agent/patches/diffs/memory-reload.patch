@@ -1,0 +1,82 @@
+diff --git a/index.ts b/index.ts
+--- a/index.ts
++++ b/index.ts
+@@ -1397,6 +1397,30 @@
+ let snapshotReason: string | null = null;
+ let snapshotDirty = false;
+ 
++// Process-local, one-shot handoff across extension runtime replacement. Never
++// persist raw memory in the session log or a new file just to support reload.
++const reloadSnapshotKey = Symbol.for("pi-memory.reload-extensions.snapshot.v1");
++type ReloadSnapshot = {
++	sessionId: string; memoryDir: string;
++	text: string | null; takenAt: string | null; takenOnDate: string | null;
++	reason: string | null; dirty: boolean;
++};
++const reloadState = globalThis as typeof globalThis & { [reloadSnapshotKey]?: Map<string, ReloadSnapshot> };
++const reloadSnapshots = reloadState[reloadSnapshotKey] ??= new Map<string, ReloadSnapshot>();
++
++function takeReloadSnapshot(reason: string | undefined, sessionId: string): boolean {
++	const saved = reloadSnapshots.get(sessionId);
++	if (!saved) return false;
++	reloadSnapshots.delete(sessionId);
++	if (reason !== "reload" || saved.memoryDir !== MEMORY_DIR) return false;
++	memorySnapshot = saved.text;
++	snapshotTakenAt = saved.takenAt;
++	snapshotTakenOnDate = saved.takenOnDate;
++	snapshotReason = saved.reason;
++	snapshotDirty = saved.dirty;
++	return true;
++}
++
+ function refreshMemorySnapshot(reason: string) {
+ 	memorySnapshot = buildMemoryContext("");
+ 	snapshotTakenAt = nowTimestamp();
+@@ -1424,8 +1448,28 @@
+ // ---------------------------------------------------------------------------
+ 
+ export default function (pi: ExtensionAPI) {
++	pi.registerCommand("reload-extensions", {
++		description: "Reload resources while preserving the current memory snapshot (ordinary /reload refreshes memory)",
++		handler: async (_args, ctx) => {
++			await ctx.waitForIdle();
++			const saved: ReloadSnapshot = {
++				sessionId: ctx.sessionManager.getSessionId(), memoryDir: MEMORY_DIR,
++				text: memorySnapshot, takenAt: snapshotTakenAt, takenOnDate: snapshotTakenOnDate,
++				reason: snapshotReason, dirty: snapshotDirty,
++			};
++			reloadSnapshots.set(saved.sessionId, saved);
++			try { await ctx.reload(); }
++			catch (error) {
++				if (reloadSnapshots.get(saved.sessionId) === saved) reloadSnapshots.delete(saved.sessionId);
++				throw error;
++			}
++			// The old ctx/runtime is invalid now. Do not use it after reload.
++		},
++	});
++
+ 	// --- session_start: detect qmd, auto-setup collection ---
+-	pi.on("session_start", async (_event, ctx) => {
++	pi.on("session_start", async (event, ctx) => {
++		const preserveSnapshot = takeReloadSnapshot(event.reason, ctx.sessionManager.getSessionId());
+ 		exitSummaryReason = null;
+ 		if (terminalInputUnsubscribe) {
+ 			terminalInputUnsubscribe();
+@@ -1446,7 +1490,7 @@
+ 			if (ctx.hasUI) {
+ 				ctx.ui.notify(qmdInstallInstructions(), "info");
+ 			}
+-			refreshMemorySnapshot("session_start");
++			if (!preserveSnapshot) refreshMemorySnapshot("session_start");
+ 			return;
+ 		}
+ 
+@@ -1458,7 +1502,7 @@
+ 		// embedding) and fresh installs where the collection exists but was
+ 		// never embedded. Incremental, so a no-op when already current.
+ 		ensureQmdEmbed();
+-		refreshMemorySnapshot("session_start");
++		if (!preserveSnapshot) refreshMemorySnapshot("session_start");
+ 	});
+ 
+ 	// --- session_shutdown: write exit summary + clean up timer ---

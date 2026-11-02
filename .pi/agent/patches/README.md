@@ -54,6 +54,31 @@ Calling the real executable directly bypasses automatic patches.
 
 ## Active customization
 
+### Memory-preserving extension reload
+
+The `pi-memory` patch adds `/reload-extensions`. It runs Pi's normal resource
+reload, but hands the existing memory snapshot and its timestamp to the new
+extension runtime in process memory. Ordinary `/reload` still rebuilds memory.
+
+This command does **not** compare tool definitions or freeze plugin-generated
+instructions: those changes still apply and can invalidate the prompt cache.
+It also does not preserve other extensions' timers or internal state. New
+sessions, compaction, day rollover, and explicit long-term memory updates retain
+their existing memory-refresh behavior. `PI_MEMORY_SNAPSHOT=per-turn` deliberately
+regenerates memory each turn and is not made cache-stable by this command.
+
+The handoff is session-scoped, one-shot, never written to disk, and cleared if
+reload fails. Tests use fresh module runtimes and temporary memory files with
+qmd/model calls disabled:
+
+```sh
+node --test agent/patches/checks/memory-reload.test.mjs
+```
+
+Running sessions need one ordinary `/reload` (or restart) to register the new
+command. Afterwards use `/reload-extensions` for plugin work where you do not
+want to refresh memory. No command guarantees a provider cache hit.
+
 ### Pi 0.99 extension compatibility
 
 One manifest patch moves a host-provided package from dependencies to peers:

@@ -1,5 +1,20 @@
-import { afterEach, expect, test } from "bun:test";
-import install, { delayMs } from "../index";
+import { afterEach, afterAll, expect, test, mock } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+const host = process.env.PI_CODING_AGENT_PACKAGE ?? join(homedir(), ".bun/install/global/node_modules/@earendil-works/pi-coding-agent");
+const { convertToLlm } = await import(join(host, "dist/core/messages.js"));
+mock.module("@earendil-works/pi-coding-agent", () => ({ convertToLlm }));
+const tui = await import(join(host, "../pi-tui/dist/index.js"));
+mock.module("@earendil-works/pi-tui", () => tui);
+const { default: install, delayMs } = await import("../index");
+const oldConfigPath = process.env.PI_IDLE_COMPACT_CONFIG;
+const configDir = mkdtempSync(join(tmpdir(), "idle-compaction-"));
+process.env.PI_IDLE_COMPACT_CONFIG = join(configDir, "settings.json");
+afterAll(() => {
+	if (oldConfigPath === undefined) delete process.env.PI_IDLE_COMPACT_CONFIG; else process.env.PI_IDLE_COMPACT_CONFIG = oldConfigPath;
+	rmSync(configDir, { recursive: true, force: true });
+});
 
 const original = process.env.PI_IDLE_COMPACT_MINUTES;
 afterEach(() => {
@@ -10,7 +25,7 @@ function harness(tokens: number | null = 200_001) {
 	const handlers = new Map<string, Function[]>();
 	let calls = 0;
 	const ctx = {
-		model: { provider: "claude-bridge" }, hasUI: false,
+		model: { provider: "unmanaged", promptCache: { short: 300 } }, hasUI: false,
 		isIdle: () => true, hasPendingMessages: () => false,
 		getContextUsage: () => ({ tokens }),
 		compact: () => { calls++; },

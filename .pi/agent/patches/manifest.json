@@ -2,6 +2,15 @@
   "schemaVersion": 1,
   "packages": [
     {
+      "name": "pi-memory",
+      "patches": [{
+        "id": "memory-preserving-extension-reload",
+        "file": "diffs/memory-reload.patch",
+        "files": ["index.ts"],
+        "check": ["node", "--test", "{patchDir}/checks/memory-reload.test.mjs"]
+      }]
+    },
+    {
       "name": "@maxiaochao/pi-toolkit",
       "patches": [{
         "id": "herdr-background-activity",
