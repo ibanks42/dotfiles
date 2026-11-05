@@ -38,6 +38,8 @@ Address the exact name set with `/rename`; check `list` rather than guessing nam
 
 For example, `send claude-test 'Review the retry logic'` addresses the live Claude session named `claude-test` in this space. A session with that name in another space is outside the lookup. Share useful context or ask focused questions; let the recipient complete unrelated work without repeated status messages.
 
+Claude recipients require a live foreground Claude process and a live native inbox owned by that exact process; historical registry/socket files alone never qualify. OpenCode eligibility is membership in its current tab set, not membership in saved session history. Missing tab state never falls back to history.
+
 OpenCode internal tabs can be addressed while inactive. Replies retain the addressed tab's native identity. If multiple OpenCode terminals share a directory, or multiple working tabs make a new send's origin ambiguous, report the discovery error; do not broaden the lookup or override the sender.
 
 Codex tools can inherit another terminal's `HC_TERMINAL_ID` from the shared daemon. Intercom uses the invocation's `CODEX_THREAD_ID` to bind the correct live terminal before selecting its space. Keep that native thread variable intact; do not manually override terminal/sender identity to repair discovery. An unbound native thread fails closed.

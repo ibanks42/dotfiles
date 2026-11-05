@@ -8,6 +8,7 @@ import sqlite3
 import subprocess
 from urllib.parse import quote
 from codex_live import loaded_threads
+from claude_live import connect_inbox
 
 
 def command(argv):
@@ -50,6 +51,15 @@ def scoped_terminals(core, terminals, caller):
                    t['state'] == 'live' and t.get('labels', {}).get('herdr.space') == space]
 
 
+def opencode_tab_ids(cwd):
+    root = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state')))
+    path = root / 'opencode/latest/tui/tabs.json'
+    if not path.exists():
+        return set()
+    tabs = json.loads(path.read_text()).get('cwd', {}).get(cwd, {}).get('tabs', [])
+    return {tab['sessionID'] for tab in tabs if tab.get('sessionID')}
+
+
 def native_peer(terminal):
     app = terminal.get('status', {}).get('app') if terminal.get('status') else None
     if (terminal.get('foreground') or {}).get('name') == 'codex':
@@ -57,22 +67,43 @@ def native_peer(terminal):
     pid = terminal.get('foreground', {}).get('pid') if terminal.get('foreground') else None
     cwd = terminal.get('foreground', {}).get('cwd', terminal['cwd']) if terminal.get('foreground') else terminal['cwd']
     if app == 'claude-code':
+        if terminal.get('state') != 'live' or (terminal.get('foreground') or {}).get('name') != 'claude':
+            return None
         path = Path.home() / '.claude/sessions' / f'{pid}.json'
         if not path.exists():
             return None
         data = json.loads(path.read_text())
         if data.get('pid') != pid or data.get('cwd') != cwd:
             return None
+        try:
+            # No message is sent: prove the registry points to an inbox served
+            # by this exact live process, not a historical record/socket file.
+            with connect_inbox(pid, data.get('messagingSocketPath')):
+                pass
+        except OSError:
+            return None
         return dict(name=data.get('name'), provider='claude', session=data['sessionId'],
-                    endpoint=data.get('messagingSocketPath'))
+                    endpoint=data.get('messagingSocketPath'), pid=pid)
     if app == 'opencode':
         title = terminal.get('title', '')
         if not title.startswith('OC | '):
             return None
         name = title[5:]
-        data = command(['opencode', 'api', 'GET', '/api/session?search=' + quote(name) + '&order=desc'])
-        matches = [s for s in data.get('data', []) if s.get('title') == name and
-                   s.get('location', {}).get('directory') == cwd]
+        # Only IDs in this TUI's verified tab set can supply recipients.
+        # Never search historical session names as a fallback, even for the
+        # selected tab or when the saved tab state is missing.
+        matches = []
+        for sid in opencode_tab_ids(cwd):
+            try:
+                session = command(['opencode', 'api', 'GET', '/api/session/' + quote(sid)])['data']
+            except ValueError as exc:
+                if '404' in str(exc) or 'SessionNotFound' in str(exc):
+                    continue
+                raise
+            if session.get('title') == name and session.get('location', {}).get('directory') == cwd:
+                matches.append(dict(id=sid))
+        if not matches:
+            return None
     elif app == 'codex':
         name = terminal.get('title', '').lstrip(' ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✓✔').rsplit(' | ', 1)[0]
         path = Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex'))) / 'state_5.sqlite'
@@ -112,12 +143,7 @@ def opencode_tabs(terminal, active, all_terminals):
               (t.get('foreground') or {}).get('cwd', t.get('cwd')) == cwd]
     if len(owners) != 1:
         raise ValueError('OpenCode tab ownership is ambiguous: multiple live terminals share this directory')
-    root = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state')))
-    path = root / 'opencode/latest/tui/tabs.json'
-    if not path.exists():
-        return []
-    saved = json.loads(path.read_text()).get('cwd', {}).get(cwd, {}).get('tabs', [])
-    ids = {tab.get('sessionID') for tab in saved}
+    ids = opencode_tab_ids(cwd)
     if active['session'] not in ids:
         raise ValueError('OpenCode saved tabs do not contain the live active session')
     peers = []

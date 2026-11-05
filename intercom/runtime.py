@@ -5,14 +5,13 @@ import json
 import os
 from pathlib import Path
 import shlex
-import socket
 import sqlite3
-import stat
 import subprocess
 import time
 import uuid
 
 from discovery import discover, identity, named
+from claude_live import connect_inbox
 
 
 def database():
@@ -36,16 +35,10 @@ def envelope(row):
 
 def deliver(peer, row):
     if peer['provider'] == 'claude':
-        endpoint = Path(peer['endpoint'])
-        info = endpoint.lstat()
-        if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid():
-            raise ValueError('Unsafe native inbox endpoint')
         payload = dict(type='user', session_id=peer['session'], uuid=row['id'],
                        msg_id=row['id'], **{'from': row['sender']},
                        message=dict(role='user', content=envelope(row)))
-        with socket.socket(socket.AF_UNIX) as client:
-            client.settimeout(5)
-            client.connect(str(endpoint))
+        with connect_inbox(peer['pid'], peer['endpoint']) as client:
             client.sendall((json.dumps(payload) + '\n').encode())
         return
     if peer['provider'] == 'opencode':

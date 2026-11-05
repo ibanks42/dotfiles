@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from discovery import caller_terminal, calling_peer, discover, named, native_peer, opencode_tabs, scoped_terminals
 import sqlite3
+import socket
 from runtime import database, put, scoped_message
 
 
@@ -16,6 +17,64 @@ def peer(name, session):
 
 
 class ScopeTests(unittest.TestCase):
+    def test_opencode_idle_tabs_are_eligible_but_history_and_closed_tabs_are_not(self):
+        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'XDG_STATE_HOME': root}):
+            path = Path(root) / 'opencode/latest/tui/tabs.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'cwd': {'/project': {'tabs': [
+                {'sessionID': 'selected'}, {'sessionID': 'idle-background'}]}}}))
+            sessions = {
+                'selected': {'title': 'oc-main', 'location': {'directory': '/project'}},
+                'idle-background': {'title': 'oc-idle', 'location': {'directory': '/project'}}}
+            terminal = dict(address='t2', state='live', cwd='/project', title='OC | oc-main',
+                            status={'app': 'opencode'}, foreground={'pid': 1, 'cwd': '/project'})
+            def get_session(argv):
+                self.assertEqual('/api/session/', argv[-1][:13])
+                return {'data': sessions[argv[-1].split('/')[-1]]}
+            with patch('discovery.command', side_effect=get_session):
+                active = native_peer(terminal)
+                self.assertEqual('selected', active['session'])
+                self.assertEqual('idle-background', opencode_tabs(terminal, active, [terminal])[0]['session'])
+                # A historical name outside the tab IDs is not even queried.
+                terminal['title'] = 'OC | historical-session'
+                self.assertIsNone(native_peer(terminal))
+                path.write_text(json.dumps({'cwd': {'/project': {'tabs': [{'sessionID': 'selected'}]}}}))
+                terminal['title'] = 'OC | oc-idle'
+                self.assertIsNone(native_peer(terminal))
+                path.unlink()
+                terminal['title'] = 'OC | oc-main'
+                self.assertIsNone(native_peer(terminal))
+
+    def test_claude_historical_registry_without_live_inbox_is_excluded(self):
+        with tempfile.TemporaryDirectory() as root, patch('discovery.Path.home', return_value=Path(root)):
+            registry = Path(root) / '.claude/sessions' / f'{os.getpid()}.json'
+            registry.parent.mkdir(parents=True)
+            endpoint = Path(root) / 'closed.sock'
+            registry.write_text(json.dumps({'pid': os.getpid(), 'cwd': '/project',
+                'sessionId': 'historical', 'name': 'orchestrator', 'messagingSocketPath': str(endpoint)}))
+            terminal = dict(address='t1', state='live', cwd='/project',
+                foreground={'name': 'claude', 'pid': os.getpid(), 'cwd': '/project'},
+                status={'app': 'claude-code'})
+            self.assertIsNone(native_peer(terminal))
+            # A stale socket file is not a running session either.
+            with socket.socket(socket.AF_UNIX) as server:
+                server.bind(str(endpoint))
+            self.assertIsNone(native_peer(terminal))
+            endpoint.unlink()
+            with socket.socket(socket.AF_UNIX) as server:
+                server.bind(str(endpoint))
+                server.listen(4)
+                self.assertEqual(os.getpid(), native_peer(terminal)['pid'])
+                # A retained status report cannot make a recovered shell an agent.
+                terminal['foreground']['name'] = 'zsh'
+                self.assertIsNone(native_peer(terminal))
+                # A registry cannot claim another process's live inbox.
+                terminal['foreground'].update(name='claude', pid=os.getpid() + 100000)
+                data = json.loads(registry.read_text())
+                data['pid'] = terminal['foreground']['pid']
+                (registry.parent / f"{data['pid']}.json").write_text(json.dumps(data))
+                self.assertIsNone(native_peer(terminal))
+
     def test_sole_historical_match_and_cached_binding_are_never_recipients(self):
         with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'CODEX_HOME': root}):
             with closing(sqlite3.connect(Path(root) / 'state_5.sqlite')) as db, db:
