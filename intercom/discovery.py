@@ -7,6 +7,7 @@ import select
 import sqlite3
 import subprocess
 from urllib.parse import quote
+from codex_live import loaded_threads
 
 
 def command(argv):
@@ -78,6 +79,11 @@ def native_peer(terminal):
         with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)) as db:
             matches = [dict(id=row[0]) for row in db.execute(
                 'SELECT id FROM threads WHERE name=? AND cwd=? AND archived=0', (name, cwd))]
+            if len(matches) > 1:
+                # A reboot/resume can leave old saved threads with the same
+                # name. Only the currently loaded thread can identify this TUI.
+                live = loaded_threads()
+                matches = [match for match in matches if match['id'] in live]
             labels = terminal.get('labels', {})
             bound = labels.get('intercom.codex.thread')
             same_process = (labels.get('intercom.codex.pid') == str(pid) and

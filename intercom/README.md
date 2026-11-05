@@ -2,11 +2,23 @@
 
 Message named Codex, Claude Code, and OpenCode sessions in the current hc space. Names come from each CLI's `/rename`; sending requires an exact, unique name.
 
+Discovery lists sessions open in that space, including idle ones. Historical saved conversations are not additional recipients. When reboot/resume leaves duplicate saved Codex names, discovery uses the local app-server's read-only `thread/loaded/list` to disambiguate them. Multiple loaded matches still fail rather than choosing the newest saved conversation. This uses the native Unix control socket and the Python standard library; no model request is made.
+
 ## Using another machine
 
-Pull this checkout on the server and run with Python 3; the runtime uses only the Python standard library plus the installed `hc` and destination CLI executables. Authenticate those CLIs on that machine. Run intercom from an agent in a Herdr-managed hc space, with session names set using `/rename`.
+Pull this checkout on the server and install the command/skills once:
 
-The repository's `.agents/skills/intercom` is the shared skill; `.claude/skills/intercom` is a relative compatibility symlink tracked by Git. For discovery in projects outside this checkout, link the shared skill into `~/.agents/skills/intercom` (Codex/OpenCode) and `~/.claude/skills/intercom` (Claude/OpenCode). Preserve any existing skill at those paths before installing. The skill resolves its script path from the checkout location, rather than assuming a username or fixed home path.
+```sh
+git -C ~/dotfiles pull
+python3 ~/dotfiles/intercom/install.py
+intercom list
+```
+
+The runtime uses Python 3's standard library plus the installed `hc` and destination CLI executables. Authenticate those CLIs on that machine. Run intercom from an agent in a Herdr-managed hc space, with session names set using `/rename`. Keep `~/.local/bin` on PATH.
+
+The installer links `~/.local/bin/intercom` to the checkout and installs the shared skill into `~/.agents/skills/intercom` (Codex/OpenCode) and `~/.claude/skills/intercom` (Claude/OpenCode), so projects outside dotfiles can discover it. Re-running is safe; existing different files/links are backed up under `~/.backup/dotfiles/`. These links persist across reboots. The repository's `.claude/skills/intercom` remains a relative compatibility symlink for this project.
+
+For an existing session that has not discovered the new skill, have it read `~/.claude/skills/intercom/SKILL.md` or `~/.agents/skills/intercom/SKILL.md`. Do not substitute `pi-intercom`: that is a separate Pi-only integration with a different registry and broker.
 
 Session IDs, validated hc bindings, sockets, CLI logins, and mailbox state are local to each machine; do not copy them from this computer. Native calls currently require the locally installed CLI versions/APIs described below. Remote terminals are excluded: execute the CLI on the server to address that server's hc space.
 
@@ -53,8 +65,10 @@ The live dotfiles hc space resolved exactly `codex-test`, `claude-test`, and `oc
 python3 -m unittest discover -s intercom -p test_scope.py
 ```
 
-Twelve tests cover scope isolation, unknown scope refusal, exact/ambiguous names, identity after rename, ambiguous delivery without retry, inactive-tab reply identity, working-tab sender inference, multiple-TUI ownership refusal, saved-tab anchor/directory validation, stale daemon terminal context, unknown/duplicate native caller rejection, and registered binding through transient title/status plus process/session replacement. Live model calls are separate from these tests. Live internal-tab tests returned `INACTIVE_TAB_ACK_7308` from `oc-test` and `ACTIVE_TAB_ACK_7308` from `oc-test1`, each correlated to the right named/native session. A read-only live-inventory replay with rc2fx's native thread ID and stale `HC_TERMINAL_ID=t21` correctly returned `orchestrator` in rc2fx with `thinker` present and dotfiles peers excluded.
+Fifteen tests cover persistent installation/backups, reboot-created duplicate Codex names, and scope isolation, unknown scope refusal, exact/ambiguous names, identity after rename, ambiguous delivery without retry, inactive-tab reply identity, working-tab sender inference, multiple-TUI ownership refusal, saved-tab anchor/directory validation, stale daemon terminal context, unknown/duplicate native caller rejection, and registered binding through transient title/status plus process/session replacement. Live model calls are separate from these tests. Live internal-tab tests returned `INACTIVE_TAB_ACK_7308` from `oc-test` and `ACTIVE_TAB_ACK_7308` from `oc-test1`, each correlated to the right named/native session. A read-only live-inventory replay with rc2fx's native thread ID and stale `HC_TERMINAL_ID=t21` correctly returned `orchestrator` in rc2fx with `thinker` present and dotfiles peers excluded.
 
 Current limits: remote delivery is excluded; discovery/session routing is not an atomic transaction across hc and native CLIs; there is no automatic deduplication, retention, or process-restart reconciliation. Same-user local processes are trusted; this is not an authentication boundary against another program running as your OS user. Native session permission controls remain in force.
 
 References: [Claude inbox socket](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket), [OpenCode v2 API](https://dev.opencode.ai/v2/docs/api), [Codex queue](https://learn.chatgpt.com/docs/developer-commands).
+
+After-reboot verification: the installed command, invoked outside the checkout using the rc2fx UI caller context, resolved `ui`, `general`, `orchestrator`, and `thinker`, excluding dotfiles sessions. The restored native orchestrator was selected over its historical duplicate. Run all checks with `python3 -W error::ResourceWarning -m unittest discover -s intercom -p "test_*.py"`.
