@@ -16,6 +16,23 @@ def peer(name, session):
 
 
 class ScopeTests(unittest.TestCase):
+    def test_sole_historical_match_and_cached_binding_are_never_recipients(self):
+        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'CODEX_HOME': root}):
+            with closing(sqlite3.connect(Path(root) / 'state_5.sqlite')) as db, db:
+                db.execute('CREATE TABLE threads (id TEXT, name TEXT, cwd TEXT, archived INTEGER)')
+                db.execute('INSERT INTO threads VALUES (?,?,?,0)', ('historical', 'orchestrator', '/rc2fx'))
+            terminal = dict(address='t24', state='live', created_ms=10, cwd='/rc2fx',
+                title='orchestrator | rc2fx', foreground={'pid': 123, 'cwd': '/rc2fx'},
+                status={'app': 'codex'}, labels={})
+            with patch('discovery.loaded_threads', return_value=set()):
+                self.assertIsNone(native_peer(terminal))
+                terminal['labels'] = {'intercom.codex.thread': 'historical',
+                    'intercom.codex.pid': '123', 'intercom.codex.created': '10'}
+                self.assertIsNone(native_peer(terminal))
+            with patch('discovery.loaded_threads', side_effect=OSError('control socket unavailable')):
+                with self.assertRaises(OSError):
+                    native_peer(terminal)
+
     def test_historical_duplicate_name_is_not_a_live_codex_session(self):
         with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'CODEX_HOME': root}):
             with closing(sqlite3.connect(Path(root) / 'state_5.sqlite')) as db, db:
@@ -32,11 +49,10 @@ class ScopeTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'uniquely bind'):
                     native_peer(terminal)
             with patch('discovery.loaded_threads', return_value=set()):
-                with self.assertRaisesRegex(ValueError, 'uniquely bind'):
-                    native_peer(terminal)
+                self.assertIsNone(native_peer(terminal))
 
     def test_registered_codex_binding_survives_transient_title(self):
-        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {
+        with tempfile.TemporaryDirectory() as root, patch('discovery.loaded_threads', return_value={'rc-thread', 'new-thread'}), patch.dict(os.environ, {
                 'CODEX_HOME': root, 'CODEX_THREAD_ID': 'rc-thread', 'HC_TERMINAL_ID': 't21'}):
             with closing(sqlite3.connect(Path(root) / 'state_5.sqlite')) as db, db:
                 db.execute('CREATE TABLE threads (id TEXT, name TEXT, cwd TEXT, archived INTEGER)')

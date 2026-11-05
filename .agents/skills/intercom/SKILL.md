@@ -23,7 +23,7 @@ intercom reply MESSAGE_ID 'Your answer'
 
 This command records a correlated reply and delivers through the recipient's native session interface. If a request is out of scope, reply with that limitation rather than silently dropping it. A result or answer needs one reply; a reply does not need another acknowledgement unless requested. Finish when the reply command succeeds; queue admission is not proof the recipient consumed it.
 
-`list` means sessions currently open in this space, including idle sessions. Saved historical conversations do not make additional peers. After reboot, use current discovery rather than old thread IDs, sockets, or cached inventories.
+`list` means sessions currently open in this space, including idle sessions. Saved historical conversations do not make additional peers. Every Codex candidate, including a cached binding or unique saved name, must be currently loaded in the native server. No loaded match means no recipient; unavailable live evidence never falls back to history. After reboot, use current discovery rather than old thread IDs, sockets, or cached inventories.
 
 ## Find and contact peers
 

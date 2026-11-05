@@ -79,16 +79,15 @@ def native_peer(terminal):
         with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)) as db:
             matches = [dict(id=row[0]) for row in db.execute(
                 'SELECT id FROM threads WHERE name=? AND cwd=? AND archived=0', (name, cwd))]
-            if len(matches) > 1:
-                # A reboot/resume can leave old saved threads with the same
-                # name. Only the currently loaded thread can identify this TUI.
-                live = loaded_threads()
-                matches = [match for match in matches if match['id'] in live]
+            # Saved rows provide names, never evidence of a live recipient.
+            # Apply this even to a single name match and cached registrations.
+            live = loaded_threads()
+            matches = [match for match in matches if match['id'] in live]
             labels = terminal.get('labels', {})
             bound = labels.get('intercom.codex.thread')
             same_process = (labels.get('intercom.codex.pid') == str(pid) and
                             labels.get('intercom.codex.created') == str(terminal.get('created_ms')))
-            if bound and same_process:
+            if bound and same_process and bound in live:
                 # A positive different-session title invalidates the binding;
                 # unrecognized working text does not. Scope still comes from
                 # this live hc terminal, never from a cached space/cwd.
@@ -96,6 +95,8 @@ def native_peer(terminal):
                     row = db.execute('SELECT id,name FROM threads WHERE id=? AND archived=0', (bound,)).fetchone()
                     if row and row[1]:
                         return dict(name=row[1], provider='codex', session=row[0], endpoint=None)
+            if not matches:
+                return None
     else:
         return None
     if len(matches) != 1:
