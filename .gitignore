@@ -10,3 +10,6 @@ yazi/plugins/*
 /herdr/session.json
 /.gemini/config/.migrated
 /.gemini/config/projects/
+
+# Machine-local uninstall record written by herdr-sidebar-setup
+herdr/herdr-sidebar-setup/uninstalled.json

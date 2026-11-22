@@ -1,0 +1,6 @@
+{
+  "name": "global-rules",
+  "displayName": "Global rules",
+  "version": "1.0.0",
+  "description": "Personal global rules loaded in every workspace."
+}

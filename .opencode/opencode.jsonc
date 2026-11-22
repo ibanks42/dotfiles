@@ -2,7 +2,8 @@
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
     "@slkiser/opencode-quota",
-    "opencode-mem@latest"
+    "opencode-mem@latest",
+    "{env:HOME}/dotfiles/opencode-plugins/quick-archive"
   ],
   "providers": {
     // Let opencode-quota discover Claude Code's existing login for usage checks.

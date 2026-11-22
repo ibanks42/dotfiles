@@ -1,0 +1,68 @@
+{
+  "version": 2,
+  "roots": [
+    {
+      "machine": null,
+      "path": "~/dev/work",
+      "depth": 1
+    },
+    {
+      "machine": null,
+      "path": "~/dev/personal",
+      "depth": 1
+    },
+    {
+      "machine": null,
+      "path": "~/dev/herdr",
+      "depth": 1
+    },
+    {
+      "machine": null,
+      "path": "~/dev",
+      "depth": 1
+    },
+    {
+      "machine": null,
+      "path": "~/.config",
+      "depth": 1
+    },
+    {
+      "machine": null,
+      "path": "~/.codex/worktrees",
+      "depth": 2
+    },
+    {
+      "machine": null,
+      "path": "~/.local/share/opencode/worktree",
+      "depth": 1
+    },
+    {
+      "machine": null,
+      "path": "~",
+      "depth": 1
+    }
+  ],
+  "tabs": [
+    {
+      "name": "1",
+      "argv": [
+        "pi"
+      ]
+    },
+    {
+      "name": "2",
+      "argv": [
+        "nvim"
+      ]
+    },
+    {
+      "name": "3",
+      "argv": null
+    },
+    {
+      "name": "4",
+      "argv": null
+    }
+  ],
+  "machines": {}
+}

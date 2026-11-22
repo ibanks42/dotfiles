@@ -4,16 +4,9 @@
 ttyctl -f
 autoload -Uz add-zsh-hook
 
-# User specific environment
-if ! [[ "$PATH" =~ "$HOME/.local/bin:$HOME/bin:" ]]; then
-  PATH="$HOME/.local/bin:$HOME/bin:$PATH"
-fi
-export PATH
 export EDITOR=nvim
 export SUDOEDITOR=vim
 
-# Aliases, starship, zoxide, mise
-[[ -f $HOME/.zsh/custom.zsh ]] && source "$HOME/.zsh/custom.zsh"
 
 zstyle ':completion:*' menu no
 zstyle ':completion:*:descriptions' format '[%d]'
@@ -76,5 +69,25 @@ if [[ ${HERDR_ENV:-} == 1 ]]; then
   export PI_CLIPBOARD_OSC52=1
 fi
 
-# Keep the Pi update launcher ahead of Bun and other runtime paths.
-export PATH="$HOME/.local/share/pi-launcher/bin:$PATH"
+[[ -r $HOME/.grok/completions/zsh/_grok ]] && source "$HOME/.grok/completions/zsh/_grok"
+
+# Aliases, starship, zoxide, mise
+[[ -f $HOME/.zsh/custom.zsh ]] && source "$HOME/.zsh/custom.zsh"
+
+# ── Behave like bash at the prompt ──────────────────────────────────────
+# Interactive only (this file is not read by scripts). Never put these in ~/.zshenv.
+setopt INTERACTIVE_COMMENTS  # `# comment` works when typed
+setopt NO_NOMATCH            # unmatched globs pass through literally (curl 'a?b', pip install x[y])
+setopt SH_WORD_SPLIT         # unquoted $var splits on spaces, like bash
+setopt BASH_REMATCH          # [[ x =~ re ]] fills BASH_REMATCH like bash
+setopt NO_EQUALS             # `=foo` is just text, not a path lookup
+setopt NO_BEEP
+HISTFILE=~/.zsh_history HISTSIZE=50000 SAVEHIST=50000
+setopt HIST_IGNORE_DUPS
+setopt NO_AUTO_CD            # typing a directory name doesn't cd into it
+setopt NO_CORRECT NO_CORRECT_ALL
+setopt NO_SHARE_HISTORY NO_INC_APPEND_HISTORY
+setopt APPEND_HISTORY
+# KSH_ARRAYS (0-based arrays) is left OFF on purpose: zsh hooks and plugins that
+# don't reset options break with it (the "bad output format specification" errors).
+# For bash array scripts, use bash: put #!/usr/bin/env bash at the top of the script and run it.

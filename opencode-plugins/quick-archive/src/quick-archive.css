@@ -1,0 +1,49 @@
+[data-qa-overlay] {
+  position: fixed;
+  z-index: 2147483000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--v2-icon-icon-muted);
+  /* Opaque so it cleanly covers the row's trailing time. */
+  background-color: var(--v2-background-bg-deep, #171717);
+  background-image: linear-gradient(
+    var(--v2-overlay-simple-overlay-hover, rgba(255, 255, 255, 0.08)),
+    var(--v2-overlay-simple-overlay-hover, rgba(255, 255, 255, 0.08))
+  );
+}
+
+[data-qa-overlay][data-visible] {
+  display: flex;
+}
+
+[data-qa-overlay]:hover {
+  color: var(--v2-text-text-base);
+  background-image: linear-gradient(
+    var(--v2-overlay-simple-overlay-pressed, rgba(255, 255, 255, 0.14)),
+    var(--v2-overlay-simple-overlay-pressed, rgba(255, 255, 255, 0.14))
+  );
+}
+
+[data-qa-overlay] svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+/* Rows hide the moment they are clicked; the queue archives them in the background. */
+[data-qa-pending] {
+  display: none !important;
+}
+
+/* The native context menu is driven programmatically; never show it while we do. */
+html[data-qa-archiving] [data-component="menu-v2-content"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

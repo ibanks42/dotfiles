@@ -7,14 +7,33 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+	"format_on_save": "on",
+ "cli_default_open_behavior": "existing_window",
+ "buffer_font_weight": 400.0,
+ "ui_font_weight": 500.0,
+	"buffer_font_size": 15.5,
+	"buffer_line_height": "standard",
+	"debugger": {
+		"button": false,
+	},
+	"diagnostics": {
+		"button": true,
+	},
+	"window_decorations": "client",
+	"fullscreen_mode": "native",
+	"window_title_format": "${projectName}${separator}${fileName}",
+	"redact_private_values": true,
 	"auto_indent": "syntax_aware",
- "search": {
+	"search": {
 		"button": true,
 	},
 	"terminal": {
-		"button": false,
+		"font_weight": 400.0,
+		"font_family": "Liga SFMono Nerd Font",
+		"button": true,
 	},
 	"status_bar": {
+		"active_language_button": true,
 		"show_active_file": true,
 		"cursor_position_button": true,
 		"line_endings_button": false,
@@ -38,8 +57,8 @@
 	"show_whitespaces": "trailing",
 	"indent_guides": {
 		"active_line_width": 1,
-  "line_width": 1,
-  "coloring": "fixed",
+		"line_width": 1,
+		"coloring": "fixed",
 		"background_coloring": "disabled",
 	},
 	"soft_wrap": "bounded",
@@ -81,14 +100,12 @@
 	},
 	"title_bar": {
 		"show_branch_status_icon": false,
-		"show_menus": true,
+		"show_menus": false,
 	},
-	"ui_font_family": ".ZedSans",
-	"buffer_line_height": {
-		"custom": 1.600000023841858,
-	},
+	"ui_font_family": "Inter",
 	"buffer_font_family": "Liga SFMono Nerd Font",
 	"project_panel": {
+		"button": true,
 		"dock": "right",
 	},
 	"outline_panel": {
@@ -98,12 +115,20 @@
 		"dock": "right",
 	},
 	"agent": {
-		"dock": "left",
+		"default_model": {
+   "provider": "openai-subscribed",
+   "model": "gpt-6.2-sol",
+   "enable_thinking": true,
+   "effort": "low"
+  },
+  "default_profile": "ask",
+  "dock": "left",
 		"favorite_models": [],
 		"model_parameters": [],
 	},
 	"git_panel": {
-		"dock": "right",
+		"tree_view": true,
+  "dock": "right",
 	},
 	"telemetry": {
 		"diagnostics": false,
@@ -128,10 +153,9 @@
 		},
 	},
 	"ui_font_size": 16.5,
-	"buffer_font_size": 14.0,
 	"theme": {
-  "mode": "system",
-  "light": "Modest Dark",
-  "dark": "Modest Dark"
- },
+		"mode": "light",
+		"light": "Fleet Light",
+		"dark": "Zedokai (Filter Octagon)",
+	},
 }

@@ -9,4 +9,4 @@ to install them for you:
 
 [`INSTALL.md`](INSTALL.md) lists every module, what it installs, where each
 config is linked, and the rules the agent follows (ask first, back up before
-replacing, keep machine-specific settings in `~/.zshrc.local`).
+replacing, keep machine-specific settings in `~/.bashrc.local`).

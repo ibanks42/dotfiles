@@ -8,9 +8,7 @@ else
   export EDITOR='nvim'
 fi
 
-export PATH="$PATH:$HOME/.local/bin"
 
-alias cd="z"
 alias lta="lt -a"
 alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
 alias fd="fdfind"
@@ -18,7 +16,9 @@ alias lsa="ls -a"
 alias lt="eza --tree --level=2 --long --icons --git"
 alias ls="eza -lh --group-directories-first --icons always"
 alias la="ls -a"
-alias bat="batcat"
+if ! command -v bat &> /dev/null; then
+  alias bat="batcat"
+fi
 
 alias ".."="cd .."
 alias "..."="cd ../.."
@@ -29,23 +29,10 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/zsh_completion" ] && \. "$NVM_DIR/zsh_completion"
 
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
 
 # bun completions
 [ -s "$BUN_INSTALL/_bun" ] && source "$BUN_INSTALL/_bun"
 
-# flyctl
-export FLYCTL_INSTALL="$HOME/.fly"
-[[ -d $FLYCTL_INSTALL/bin ]] && export PATH="$FLYCTL_INSTALL/bin:$PATH"
-
-# pnpm
-export PNPM_HOME="$HOME/.local/share/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
 
 # opencode
 [[ -d $HOME/.opencode/bin ]] && export PATH="$HOME/.opencode/bin:$PATH"
@@ -54,9 +41,12 @@ if [[ $- == *i* ]]; then
   eval "$(starship init zsh)"
 fi
 
-eval "$(zoxide init zsh)"
 eval "$($HOME/.local/bin/mise activate zsh)"
 
-# Apply reviewed Pi patches after extension updates.
-export PATH="$HOME/.local/share/pi-launcher/bin:$PATH"
+export PATH="$HOME/go/bin:$PATH"
 
+# zoxide replaces `cd` in your own terminals only. Agent shells (Claude Code sets
+# CLAUDECODE=1) get the plain builtin cd, so they never see zoxide warnings.
+if [[ -o interactive && -z ${CLAUDECODE:-} ]]; then
+  eval "$(zoxide init zsh --cmd cd)"
+fi

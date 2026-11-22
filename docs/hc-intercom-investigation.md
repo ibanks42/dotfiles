@@ -13,7 +13,7 @@ Inspected `hc --skill`, command help, generated `hc schema`, live `hello`/`termi
 Sources:
 
 - [hc repository](https://github.com/herdrdev/herdr-core), [API protocol](https://github.com/herdrdev/herdr-core/blob/master/schema/README.md), [input implementation](https://github.com/herdrdev/herdr-core/blob/master/crates/herdr-core/src/input.rs), [agent manual](https://github.com/herdrdev/herdr-core/blob/master/crates/herdr-core/src/SKILL.md).
-- Local Pi sources: `/home/ibanks/.local/share/pi-runtime/npm/node_modules/pi-intercom/{README.md,index.ts,broker/protocol.ts}`. In `index.ts`, `sendIncomingMessage` uses Pi's custom message and steering APIs; this is deeper integration than terminal typing.
+- Local Pi sources: `~/.local/share/pi-runtime/npm/node_modules/pi-intercom/{README.md,index.ts,broker/protocol.ts}`. In `index.ts`, `sendIncomingMessage` uses Pi's custom message and steering APIs; this is deeper integration than terminal typing.
 - [Codex CLI reference](https://learn.chatgpt.com/docs/cli/reference), [Codex app-server](https://learn.chatgpt.com/docs/app-server).
 - [Claude hooks](https://code.claude.com/docs/en/hooks), [Agent SDK streaming input](https://code.claude.com/docs/en/agent-sdk/streaming-vs-single-mode).
 - [OpenCode v2 API](https://dev.opencode.ai/v2/docs/api), [v2 client](https://dev.opencode.ai/v2/docs/build/client/), [v2 server plugins](https://dev.opencode.ai/v2/docs/build/plugins/server).
