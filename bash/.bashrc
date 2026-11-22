@@ -44,9 +44,19 @@ alias ...="cd ../.."
 alias ....="cd ../../.."
 
 # ── Completions ─────────────────────────────────────────────────────────
+# bash-completion supplies every per-command completion (mise, git, docker...,
+# including ~/.local/share/bash-completion/completions). Fedora's /etc/bashrc
+# loads it for every shell, but Ubuntu only loads it from /etc/profile (login
+# shells). Load it here so both behave the same.
+if [[ -z ${BASH_COMPLETION_VERSINFO:-} ]] && [ -r /usr/share/bash-completion/bash_completion ]; then
+  . /usr/share/bash-completion/bash_completion
+fi
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
-command -v rbw >/dev/null && eval "$(rbw gen-completions bash)"
+if command -v rbw >/dev/null; then
+  eval "$(rbw gen-completions bash)"
+  . "$_dotbash/rbw-completion.sh"
+fi
 
 # fzf-tab-completion (github.com/lincheney/fzf-tab-completion), vendored.
 if command -v fzf >/dev/null && [ -r "$_dotbash/fzf-bash-completion.sh" ]; then
@@ -77,3 +87,10 @@ if [ -d ~/.bashrc.d ]; then
 fi
 [ -f "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"
 unset _dotbash
+
+# Flyline (github.com/HalFrgrd/flyline) replaces readline; only where it's installed.
+# Suggestions open on Tab only, not while typing.
+if enable flyline 2>/dev/null || { [ -r "$HOME/.local/lib/libflyline.so" ] &&
+  enable -f "$HOME/.local/lib/libflyline.so" flyline; }; then
+  flyline suggestions --auto-suggest false
+fi
