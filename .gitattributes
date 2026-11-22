@@ -3,3 +3,6 @@
 
 # Batch files need CRLF on Windows
 *.cmd text eol=crlf
+
+# Plugins (herdr-scope) write absolute home paths into this file; git stores them as $HOME.
+herdr/config.toml filter=homepath

@@ -254,6 +254,14 @@ Ensure `nvim` and `lazygit` are on `PATH`. The Neovim config already includes
 `chmarax.herdr-nvim.pick-file`, `herdr-lazygit.open-lazygit`, and
 `herdr-lazygit.open-lazygit-tab`. Keybindings alone do not install plugins.
 
+The herdr-scope plugin writes absolute home paths into `config.toml`, so the
+repo stores them as `$HOME/` through a git clean filter. Git doesn't copy
+filter settings when you clone, so run this once in every clone:
+
+```sh
+git -C "$DOTFILES" config filter.homepath.clean 'sed -e "s#$HOME/#\$HOME/#g"'
+```
+
 Check with `herdr config check`. If a herdr server is running, apply with
 `herdr server reload-config`.
 
