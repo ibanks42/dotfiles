@@ -170,6 +170,18 @@ Then:
   If the old `~/.bashrc` had machine-specific lines (PATHs, SDKs, installer
   blocks), move them into `~/.bashrc.local` and show the user what you moved.
 - If the login shell isn't bash, ask before running `chsh -s "$(command -v bash)"`.
+- Install [flyline](https://github.com/HalFrgrd/flyline), the readline
+  replacement `.bashrc` loads from `~/.local/lib/libflyline.so` (Linux only;
+  `.bashrc` skips it where it's missing). Do this after linking `~/.bashrc`:
+
+  ```sh
+  source <(curl -sSfL https://github.com/HalFrgrd/flyline/releases/latest/download/install.sh)
+  git -C "$DOTFILES" checkout -- bash/.bashrc
+  ```
+
+  The installer appends its own `enable flyline` line to `~/.bashrc`, which is
+  the repo file through the link. `.bashrc` already loads flyline, so the
+  `checkout` throws that line away. Don't move it to `~/.bashrc.local` either.
 - Check: `bash -ic 'echo ok'` prints `ok` with no errors.
 
 **Windows:** skip bash. Do link the starship config (a file
